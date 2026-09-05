@@ -1,11 +1,10 @@
 package kr.guinnessgroup.colophon.runtime;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * A condition the {@link TickScheduler} polls once per server tick to decide
  * whether to resume a suspended execution.
- * <p>
- * v0/v1 uses polling. If polling proves too coarse, an event-driven wake can
- * replace this without changing the node API.
  */
 @FunctionalInterface
 public interface ResumeCondition {
@@ -22,5 +21,16 @@ public interface ResumeCondition {
             }
             return now >= target[0];
         };
+    }
+
+    /** Resume once the future has completed (normally, exceptionally, or cancelled). */
+    static ResumeCondition whenDone(CompletableFuture<?> future) {
+        return ctx -> future.isDone();
+    }
+
+    /** Resume once the future completes OR {@code maxTicks} elapse, whichever comes first. */
+    static ResumeCondition whenDoneOrAfter(CompletableFuture<?> future, int maxTicks) {
+        ResumeCondition timeout = afterTicks(maxTicks);
+        return ctx -> future.isDone() || timeout.isReady(ctx);
     }
 }

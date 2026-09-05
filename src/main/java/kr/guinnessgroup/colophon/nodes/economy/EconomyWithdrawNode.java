@@ -4,8 +4,8 @@ import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
 import kr.guinnessgroup.colophon.runtime.FieldSpec;
 import kr.guinnessgroup.colophon.runtime.Node;
-import kr.guinnessgroup.colophon.runtime.NodeResult;
 import kr.guinnessgroup.colophon.runtime.NodeType;
+import kr.guinnessgroup.colophon.runtime.Nodes;
 import net.impactdev.impactor.api.economy.EconomyService;
 import net.impactdev.impactor.api.economy.transactions.EconomyTransaction;
 import net.minecraft.server.level.ServerPlayer;
@@ -13,12 +13,11 @@ import org.slf4j.Logger;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
- * Action: withdraws an amount from the acting player's account. Suspends until
- * the withdrawal has completed (logs when it was not successful, e.g. not enough
- * funds) so downstream nodes see the updated balance.
+ * Action: withdraws an amount from the acting player's account, waiting for the
+ * async transaction to complete before continuing. Logs when the withdrawal was
+ * not successful (e.g. not enough funds).
  */
 public final class EconomyWithdrawNode implements NodeType {
 
@@ -34,14 +33,13 @@ public final class EconomyWithdrawNode implements NodeType {
     @Override
     public Node create(JsonObject config) {
         final BigDecimal amount = EconomyNodes.amount(config);
-        return ctx -> {
+        return Nodes.awaitAction(ctx -> {
             ServerPlayer player = ctx.actor();
             if (player == null) {
-                return NodeResult.cont();
+                return null;
             }
             try {
-                CompletableFuture<Void> future = EconomyService.instance()
-                        .account(player.getUUID())
+                return EconomyService.instance().account(player.getUUID())
                         .thenAccept(account -> {
                             EconomyTransaction tx = account.withdraw(amount);
                             if (!tx.successful()) {
@@ -49,11 +47,10 @@ public final class EconomyWithdrawNode implements NodeType {
                                         player.getUUID(), tx.result());
                             }
                         });
-                return NodeResult.suspend(c -> future.isDone());
             } catch (Exception e) {
                 LOGGER.warn("[Colophon] economy_withdraw failed", e);
-                return NodeResult.cont();
+                return null;
             }
-        };
+        });
     }
 }
