@@ -37,7 +37,7 @@ import org.slf4j.Logger;
 import kr.guinnessgroup.colophon.web.ColophonWebServer;
 import kr.guinnessgroup.colophon.runtime.TickScheduler;
 import kr.guinnessgroup.colophon.runtime.ColophonRuntime;
-import kr.guinnessgroup.colophon.runtime.NodeRegistry;
+import kr.guinnessgroup.colophon.nodes.BuiltinNodes;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
@@ -99,7 +99,7 @@ public class Colophon {
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
 
         // Register Colophon's built-in node types.
-        NodeRegistry.registerBuiltins();
+        BuiltinNodes.registerAll();
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {

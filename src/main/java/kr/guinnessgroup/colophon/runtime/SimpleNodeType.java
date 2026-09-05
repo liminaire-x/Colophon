@@ -5,9 +5,13 @@ import com.google.gson.JsonObject;
 import java.util.List;
 import java.util.function.Function;
 
-/** A {@link NodeType} defined inline by a descriptor and a factory function. */
+/**
+ * A {@link NodeType} defined inline by descriptor values and a factory function.
+ * Convenience for trivial nodes; dedicated classes are preferred for real ones.
+ */
 public record SimpleNodeType(String id, String label, String category,
-                             List<FieldSpec> fields, Function<JsonObject, Node> factory)
+                             List<FieldSpec> fields, boolean hasFlowIn,
+                             List<String> flowOutPorts, Function<JsonObject, Node> factory)
         implements NodeType {
 
     @Override
