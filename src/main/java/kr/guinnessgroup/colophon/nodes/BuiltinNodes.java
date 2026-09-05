@@ -8,7 +8,9 @@ import kr.guinnessgroup.colophon.nodes.flow.ChanceNode;
 import kr.guinnessgroup.colophon.nodes.flow.DelayNode;
 import kr.guinnessgroup.colophon.nodes.trigger.OnPlayerDeathNode;
 import kr.guinnessgroup.colophon.nodes.trigger.OnPlayerJoinNode;
+import kr.guinnessgroup.colophon.nodes.economy.EconomyNodes;
 import kr.guinnessgroup.colophon.runtime.NodeRegistry;
+import net.neoforged.fml.ModList;
 import org.slf4j.Logger;
 
 /**
@@ -33,6 +35,13 @@ public final class BuiltinNodes {
         NodeRegistry.register(new DelayNode());
         NodeRegistry.register(new ChanceNode());
 
-        LOGGER.info("[Colophon] Registered {} built-in node types", NodeRegistry.all().size());
+        // Optional adapter: economy nodes only when Impactor is installed.
+        if (ModList.get().isLoaded("impactor")) {
+            EconomyNodes.registerAll();
+        } else {
+            LOGGER.info("[Colophon] Impactor not present; economy nodes skipped");
+        }
+
+        LOGGER.info("[Colophon] Registered {} node types total", NodeRegistry.all().size());
     }
 }
