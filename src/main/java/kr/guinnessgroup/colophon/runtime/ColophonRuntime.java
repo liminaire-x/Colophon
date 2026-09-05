@@ -16,17 +16,19 @@ import java.util.Map;
 /**
  * Holds the currently published graph and starts executions when triggers fire.
  * <p>
- * v0: a single active graph, kept in memory and persisted as raw JSON under the
- * config directory so it survives a restart. Publishing hot-swaps it with no
- * server restart.
+ * v0/v1: a single active graph, kept in memory (plus its raw JSON for the editor
+ * to reload) and persisted under the config directory so it survives a restart.
+ * Publishing hot-swaps it with no server restart.
  */
 public final class ColophonRuntime {
 
     private static final Logger LOGGER = LogUtils.getLogger();
+    private static final String EMPTY_GRAPH = "{\"nodes\":[],\"edges\":[]}";
 
     private final TickScheduler scheduler;
     private volatile Graph activeGraph;
     private volatile Map<String, List<String>> triggersByType = Map.of();
+    private volatile String lastPublishedJson;
 
     public ColophonRuntime(TickScheduler scheduler) {
         this.scheduler = scheduler;
@@ -36,11 +38,12 @@ public final class ColophonRuntime {
         return FMLPaths.CONFIGDIR.get().resolve("colophon").resolve("graph.json");
     }
 
-    /** Parse, hot-swap the active graph, then persist it. Throws on malformed JSON. */
+    /** Parse+validate, hot-swap the active graph, then persist. Throws on invalid input. */
     public synchronized void publish(String json) {
         GraphParser.Parsed parsed = GraphParser.parse(json);
         this.activeGraph = parsed.graph();
         this.triggersByType = parsed.triggersByType();
+        this.lastPublishedJson = json;
         int triggers = triggersByType.values().stream().mapToInt(List::size).sum();
         LOGGER.info("[Colophon] Published graph: {} nodes, {} triggers",
                 parsed.graph().nodes().size(), triggers);
@@ -58,6 +61,7 @@ public final class ColophonRuntime {
             GraphParser.Parsed parsed = GraphParser.parse(json);
             this.activeGraph = parsed.graph();
             this.triggersByType = parsed.triggersByType();
+            this.lastPublishedJson = json;
             LOGGER.info("[Colophon] Loaded graph from {}", file);
         } catch (Exception e) {
             LOGGER.error("[Colophon] Failed to load graph from {}", file, e);
@@ -72,6 +76,12 @@ public final class ColophonRuntime {
         } catch (IOException e) {
             LOGGER.error("[Colophon] Failed to save graph to {}", file, e);
         }
+    }
+
+    /** Raw JSON of the active graph for the editor to load; empty graph if none. */
+    public String graphJson() {
+        String json = lastPublishedJson;
+        return json != null ? json : EMPTY_GRAPH;
     }
 
     /** Start every trigger node of the given type against the active graph. */
@@ -89,5 +99,6 @@ public final class ColophonRuntime {
     public void clear() {
         this.activeGraph = null;
         this.triggersByType = Map.of();
+        this.lastPublishedJson = null;
     }
 }

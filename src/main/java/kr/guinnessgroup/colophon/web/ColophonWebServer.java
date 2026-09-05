@@ -1,10 +1,12 @@
 package kr.guinnessgroup.colophon.web;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import kr.guinnessgroup.colophon.runtime.ColophonRuntime;
+import kr.guinnessgroup.colophon.runtime.GraphValidationException;
 import kr.guinnessgroup.colophon.runtime.NodeRegistry;
 import org.slf4j.Logger;
 
@@ -13,14 +15,12 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.Executors;
 
 /**
  * Embedded HTTP server that hosts the Colophon web editor and its API.
- * <p>
- * v0 uses the JDK built-in {@link HttpServer} so the mod needs no third-party
- * dependencies. It runs on its own daemon thread; publish hands the graph to the
- * {@link ColophonRuntime}, which applies it on the main thread.
+ * v0/v1 uses the JDK built-in {@link HttpServer} (no third-party deps).
  */
 public final class ColophonWebServer {
 
@@ -50,6 +50,7 @@ public final class ColophonWebServer {
             server.createContext("/", this::handleRoot);
             server.createContext("/api/health", this::handleHealth);
             server.createContext("/api/schema", this::handleSchema);
+            server.createContext("/api/graph", this::handleGraph);
             server.createContext("/api/publish", this::handlePublish);
             server.start();
             LOGGER.info("[Colophon] Web editor server started on http://localhost:{}", PORT);
@@ -77,8 +78,7 @@ public final class ColophonWebServer {
         byte[] page = readResource(EDITOR_INDEX);
         if (page == null) {
             String fallback = "<!doctype html><meta charset=\"utf-8\"><h1>Colophon</h1>"
-                    + "<p>Editor build not found on the classpath (" + EDITOR_INDEX + "). "
-                    + "Build the editor and place index.html under src/main/resources.</p>";
+                    + "<p>Editor build not found on the classpath (" + EDITOR_INDEX + ").</p>";
             send(ex, 200, "text/html; charset=utf-8", fallback);
             return;
         }
@@ -97,6 +97,14 @@ public final class ColophonWebServer {
         send(ex, 200, "application/json; charset=utf-8", NodeRegistry.schemaJson());
     }
 
+    private void handleGraph(HttpExchange ex) throws IOException {
+        if (!"GET".equals(ex.getRequestMethod())) {
+            send(ex, 405, "text/plain; charset=utf-8", "Method Not Allowed");
+            return;
+        }
+        send(ex, 200, "application/json; charset=utf-8", runtime.graphJson());
+    }
+
     private void handlePublish(HttpExchange ex) throws IOException {
         if (!"POST".equals(ex.getRequestMethod())) {
             send(ex, 405, "text/plain; charset=utf-8", "Method Not Allowed");
@@ -106,16 +114,27 @@ public final class ColophonWebServer {
         try {
             runtime.publish(body);
             send(ex, 202, "application/json; charset=utf-8", "{\"accepted\":true}");
+        } catch (GraphValidationException gve) {
+            LOGGER.warn("[Colophon] Publish rejected: {}", gve.getMessage());
+            send(ex, 400, "application/json; charset=utf-8", errorJson(gve.errors()));
         } catch (Exception e) {
-            LOGGER.warn("[Colophon] Publish rejected: {}", e.getMessage());
-            JsonObject resp = new JsonObject();
-            resp.addProperty("accepted", false);
-            resp.addProperty("error", String.valueOf(e.getMessage()));
-            send(ex, 400, "application/json; charset=utf-8", resp.toString());
+            LOGGER.warn("[Colophon] Publish failed: {}", e.getMessage());
+            send(ex, 400, "application/json; charset=utf-8", errorJson(List.of(String.valueOf(e.getMessage()))));
         }
     }
 
     // --- helpers ---
+
+    private static String errorJson(List<String> errors) {
+        JsonArray arr = new JsonArray();
+        for (String e : errors) {
+            arr.add(e);
+        }
+        JsonObject resp = new JsonObject();
+        resp.addProperty("accepted", false);
+        resp.add("errors", arr);
+        return resp.toString();
+    }
 
     private byte[] readResource(String path) {
         try (InputStream in = ColophonWebServer.class.getResourceAsStream(path)) {
