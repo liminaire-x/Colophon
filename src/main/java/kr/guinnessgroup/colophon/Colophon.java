@@ -36,6 +36,10 @@ import org.slf4j.Logger;
 
 import kr.guinnessgroup.colophon.web.ColophonWebServer;
 import kr.guinnessgroup.colophon.runtime.TickScheduler;
+import kr.guinnessgroup.colophon.runtime.ColophonRuntime;
+import kr.guinnessgroup.colophon.runtime.NodeRegistry;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 // The value here should match an entry in the META-INF/neoforge.mods.toml file
 @Mod(Colophon.MODID)
@@ -44,10 +48,12 @@ public class Colophon {
     public static final String MODID = "colophon";
     // Directly reference a slf4j logger
     private static final Logger LOGGER = LogUtils.getLogger();
-    // Embedded web editor server (v0 uses JDK HttpServer, no external deps).
-    public static final ColophonWebServer WEB_SERVER = new ColophonWebServer();
     // Main-thread graph runtime; ticked from ServerTickEvent.Post.
     public static final TickScheduler SCHEDULER = new TickScheduler();
+    // Holds the published graph and starts executions when triggers fire.
+    public static final ColophonRuntime RUNTIME = new ColophonRuntime(SCHEDULER);
+    // Embedded web editor server (JDK HttpServer, no external deps).
+    public static final ColophonWebServer WEB_SERVER = new ColophonWebServer(RUNTIME);
     // Create a Deferred Register to hold Blocks which will all be registered under the "colophon" namespace
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(MODID);
     // Create a Deferred Register to hold Items which will all be registered under the "colophon" namespace
@@ -91,6 +97,9 @@ public class Colophon {
 
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+
+        // Register Colophon's built-in node types.
+        NodeRegistry.registerBuiltins();
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
@@ -114,17 +123,26 @@ public class Colophon {
     public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("[Colophon] Server starting");
         WEB_SERVER.start();
+        RUNTIME.load();
     }
 
     @SubscribeEvent
     public void onServerStopping(ServerStoppingEvent event) {
         WEB_SERVER.stop();
         SCHEDULER.clear();
+        RUNTIME.clear();
     }
 
     @SubscribeEvent
     public void onServerTick(ServerTickEvent.Post event) {
         SCHEDULER.tick();
+    }
+
+    @SubscribeEvent
+    public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            RUNTIME.fireOnPlayerJoin(player.getServer(), player);
+        }
     }
 
     // You can use EventBusSubscriber to automatically register all static methods in the class annotated with @SubscribeEvent

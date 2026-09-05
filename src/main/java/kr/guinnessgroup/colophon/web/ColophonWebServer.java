@@ -1,8 +1,11 @@
 package kr.guinnessgroup.colophon.web;
 
+import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import kr.guinnessgroup.colophon.runtime.ColophonRuntime;
+import kr.guinnessgroup.colophon.runtime.NodeRegistry;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -16,21 +19,22 @@ import java.util.concurrent.Executors;
  * Embedded HTTP server that hosts the Colophon web editor and its API.
  * <p>
  * v0 uses the JDK built-in {@link HttpServer} so the mod needs no third-party
- * dependencies. It runs on its own daemon thread, separate from the main server
- * thread. Endpoints that mutate game state will later hand work to the
- * main-thread tick scheduler rather than acting here.
+ * dependencies. It runs on its own daemon thread; publish hands the graph to the
+ * {@link ColophonRuntime}, which applies it on the main thread.
  */
 public final class ColophonWebServer {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    /** Classpath location of the built React editor (single self-contained file). */
     private static final String EDITOR_INDEX = "/colophon/web/index.html";
-
-    /** TODO: move to Config once the vertical slice works. */
     public static final int PORT = 8080;
 
+    private final ColophonRuntime runtime;
     private HttpServer server;
+
+    public ColophonWebServer(ColophonRuntime runtime) {
+        this.runtime = runtime;
+    }
 
     public synchronized void start() {
         if (server != null) {
@@ -90,8 +94,7 @@ public final class ColophonWebServer {
     }
 
     private void handleSchema(HttpExchange ex) throws IOException {
-        // v0 stub: no node types registered yet.
-        send(ex, 200, "application/json; charset=utf-8", "{\"nodes\":[]}");
+        send(ex, 200, "application/json; charset=utf-8", NodeRegistry.schemaJson());
     }
 
     private void handlePublish(HttpExchange ex) throws IOException {
@@ -99,9 +102,17 @@ public final class ColophonWebServer {
             send(ex, 405, "text/plain; charset=utf-8", "Method Not Allowed");
             return;
         }
-        byte[] body = ex.getRequestBody().readAllBytes();
-        LOGGER.info("[Colophon] Publish received ({} bytes) - persistence not implemented yet", body.length);
-        send(ex, 202, "application/json; charset=utf-8", "{\"accepted\":true}");
+        String body = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        try {
+            runtime.publish(body);
+            send(ex, 202, "application/json; charset=utf-8", "{\"accepted\":true}");
+        } catch (Exception e) {
+            LOGGER.warn("[Colophon] Publish rejected: {}", e.getMessage());
+            JsonObject resp = new JsonObject();
+            resp.addProperty("accepted", false);
+            resp.addProperty("error", String.valueOf(e.getMessage()));
+            send(ex, 400, "application/json; charset=utf-8", resp.toString());
+        }
     }
 
     // --- helpers ---
