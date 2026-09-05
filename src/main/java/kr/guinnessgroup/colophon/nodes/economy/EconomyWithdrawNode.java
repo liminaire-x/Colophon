@@ -13,8 +13,13 @@ import org.slf4j.Logger;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
-/** Action: withdraws an amount from the acting player's account (logs on failure). */
+/**
+ * Action: withdraws an amount from the acting player's account. Suspends until
+ * the withdrawal has completed (logs when it was not successful, e.g. not enough
+ * funds) so downstream nodes see the updated balance.
+ */
 public final class EconomyWithdrawNode implements NodeType {
 
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -31,21 +36,24 @@ public final class EconomyWithdrawNode implements NodeType {
         final BigDecimal amount = EconomyNodes.amount(config);
         return ctx -> {
             ServerPlayer player = ctx.actor();
-            if (player != null) {
-                try {
-                    EconomyService.instance().account(player.getUUID())
-                            .thenAccept(account -> {
-                                EconomyTransaction tx = account.withdraw(amount);
-                                if (!tx.successful()) {
-                                    LOGGER.info("[Colophon] economy_withdraw for {} not successful: {}",
-                                            player.getUUID(), tx.result());
-                                }
-                            });
-                } catch (Exception e) {
-                    LOGGER.warn("[Colophon] economy_withdraw failed", e);
-                }
+            if (player == null) {
+                return NodeResult.cont();
             }
-            return NodeResult.cont();
+            try {
+                CompletableFuture<Void> future = EconomyService.instance()
+                        .account(player.getUUID())
+                        .thenAccept(account -> {
+                            EconomyTransaction tx = account.withdraw(amount);
+                            if (!tx.successful()) {
+                                LOGGER.info("[Colophon] economy_withdraw for {} not successful: {}",
+                                        player.getUUID(), tx.result());
+                            }
+                        });
+                return NodeResult.suspend(c -> future.isDone());
+            } catch (Exception e) {
+                LOGGER.warn("[Colophon] economy_withdraw failed", e);
+                return NodeResult.cont();
+            }
         };
     }
 }

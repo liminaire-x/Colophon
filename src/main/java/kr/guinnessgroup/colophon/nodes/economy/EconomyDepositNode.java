@@ -12,8 +12,13 @@ import org.slf4j.Logger;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
-/** Action: deposits an amount into the acting player's primary-currency account. */
+/**
+ * Action: deposits an amount into the acting player's primary-currency account.
+ * Account retrieval is async; this node suspends until the deposit has actually
+ * completed, so downstream nodes (balance checks/displays) see the new value.
+ */
 public final class EconomyDepositNode implements NodeType {
 
     private static final Logger LOGGER = LogUtils.getLogger();
@@ -30,16 +35,19 @@ public final class EconomyDepositNode implements NodeType {
         final BigDecimal amount = EconomyNodes.amount(config);
         return ctx -> {
             ServerPlayer player = ctx.actor();
-            if (player != null) {
-                try {
-                    // Account retrieval is async; deposit itself is synchronous.
-                    EconomyService.instance().account(player.getUUID())
-                            .thenAccept(account -> account.deposit(amount));
-                } catch (Exception e) {
-                    LOGGER.warn("[Colophon] economy_deposit failed", e);
-                }
+            if (player == null) {
+                return NodeResult.cont();
             }
-            return NodeResult.cont();
+            try {
+                CompletableFuture<Void> future = EconomyService.instance()
+                        .account(player.getUUID())
+                        .thenAccept(account -> account.deposit(amount));
+                // Resume (continue along "out") once the deposit has completed.
+                return NodeResult.suspend(c -> future.isDone());
+            } catch (Exception e) {
+                LOGGER.warn("[Colophon] economy_deposit failed", e);
+                return NodeResult.cont();
+            }
         };
     }
 }
