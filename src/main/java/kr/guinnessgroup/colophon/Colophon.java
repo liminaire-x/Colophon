@@ -40,6 +40,7 @@ import kr.guinnessgroup.colophon.runtime.ColophonRuntime;
 import kr.guinnessgroup.colophon.nodes.BuiltinNodes;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 
 // The value here should match an entry in the META-INF/neoforge.mods.toml file
 @Mod(Colophon.MODID)
@@ -141,7 +142,14 @@ public class Colophon {
     @SubscribeEvent
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            RUNTIME.fireOnPlayerJoin(player.getServer(), player);
+            RUNTIME.fireTrigger("on_player_join", player.getServer(), player);
+        }
+    }
+
+    @SubscribeEvent
+    public void onPlayerDeath(LivingDeathEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            RUNTIME.fireTrigger("on_player_death", player.getServer(), player);
         }
     }
 

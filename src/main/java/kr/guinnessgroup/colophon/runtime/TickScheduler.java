@@ -12,20 +12,18 @@ import java.util.List;
  * <p>
  * Each tick, every active execution is advanced node by node. A node that needs
  * to wait returns {@link NodeResult.Suspend}; the execution is parked until its
- * {@link ResumeCondition} reports ready. A per-tick node budget aborts any
- * execution that runs away (e.g. a cycle with no wait) so it cannot freeze the
- * server thread.
+ * {@link ResumeCondition} reports ready, then continues PAST that node along the
+ * suspend's resume port (the node is not re-executed). A per-tick node budget
+ * aborts any execution that runs away (e.g. a cycle with no wait).
  */
 public final class TickScheduler {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    /** Max nodes a single execution may advance in one tick before it is aborted. */
     private static final int MAX_NODES_PER_TICK = 10_000;
 
     private final List<Execution> active = new ArrayList<>();
 
-    /** Begin a new execution starting at the given node id. */
     public synchronized void start(Graph graph, ExecContext ctx, String startNodeId) {
         if (graph.node(startNodeId) == null) {
             LOGGER.warn("[Colophon] start: no node '{}' in graph", startNodeId);
@@ -34,7 +32,6 @@ public final class TickScheduler {
         active.add(new Execution(graph, ctx, startNodeId));
     }
 
-    /** Advance all active executions by one tick. Call from ServerTickEvent.Post. */
     public synchronized void tick() {
         if (active.isEmpty()) {
             return;
@@ -50,14 +47,23 @@ public final class TickScheduler {
     }
 
     private void advance(Execution ex) {
-        // A suspended execution only wakes when its condition is ready.
+        // Resume a suspended execution once its condition is ready, then step past
+        // the suspending node along the stored resume port.
         if (ex.state() == Execution.State.SUSPENDED) {
             ResumeCondition cond = ex.resumeCondition();
             if (cond != null && !cond.isReady(ex.ctx())) {
                 return;
             }
-            ex.setState(Execution.State.RUNNING);
+            GraphNode suspended = ex.graph().node(ex.currentNodeId());
+            String port = ex.resumePort();
             ex.setResumeCondition(null);
+            ex.setResumePort(null);
+            ex.setState(Execution.State.RUNNING);
+            if (suspended == null) {
+                ex.setState(Execution.State.DONE);
+                return;
+            }
+            step(ex, suspended, port);
         }
 
         int budget = MAX_NODES_PER_TICK;
@@ -86,6 +92,7 @@ public final class TickScheduler {
                 case NodeResult.Branch b -> step(ex, gn, b.port());
                 case NodeResult.Suspend s -> {
                     ex.setResumeCondition(s.until());
+                    ex.setResumePort(s.thenPort());
                     ex.setState(Execution.State.SUSPENDED);
                 }
                 case NodeResult.Done ignored -> ex.setState(Execution.State.DONE);
@@ -100,7 +107,7 @@ public final class TickScheduler {
     private void step(Execution ex, GraphNode from, String port) {
         String next = from.next(port);
         if (next == null) {
-            ex.setState(Execution.State.DONE); // no downstream node = flow ends
+            ex.setState(Execution.State.DONE);
         } else {
             ex.setCurrentNodeId(next);
         }

@@ -74,13 +74,13 @@ public final class ColophonRuntime {
         }
     }
 
-    /** Called when a player logs in: start every on_player_join trigger. */
-    public void fireOnPlayerJoin(MinecraftServer server, ServerPlayer player) {
+    /** Start every trigger node of the given type against the active graph. */
+    public void fireTrigger(String triggerType, MinecraftServer server, ServerPlayer player) {
         Graph graph = activeGraph;
         if (graph == null) {
             return;
         }
-        List<String> ids = triggersByType.getOrDefault("on_player_join", List.of());
+        List<String> ids = triggersByType.getOrDefault(triggerType, List.of());
         for (String id : ids) {
             scheduler.start(graph, new ExecContext(server, player), id);
         }
