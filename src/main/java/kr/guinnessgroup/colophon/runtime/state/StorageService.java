@@ -26,8 +26,8 @@ import java.util.UUID;
  * Lifecycle wiring (load on join, flush on world save, evict on quit) is attached
  * by the mod's event handlers; this class only provides the mechanisms.
  * <p>
- * NOTE: LOCAL scope is a temporary in-memory map here; it will be backed by
- * Minecraft SavedData in the next step.
+ * LOCAL scope is delegated to a {@link LocalStore} (SavedData-backed), attached
+ * once the world is available.
  */
 public final class StorageService {
 
@@ -42,8 +42,8 @@ public final class StorageService {
     // PLAYER caches, keyed by UUID.
     private final Map<UUID, PlayerState> players = new HashMap<>();
 
-    // LOCAL: temporary in-memory only until SavedData is wired.
-    private final Map<String, String> localTemp = new HashMap<>();
+    // LOCAL: delegated to a SavedData-backed store, attached on world load.
+    private LocalStore local;
 
     private static final class PlayerState {
         final Map<String, String> vars = new HashMap<>();
@@ -58,6 +58,11 @@ public final class StorageService {
         globalDirty.clear();
         global.putAll(backend.loadGlobal());
         LOGGER.info("[Colophon] Storage opened: {} global var(s) loaded", global.size());
+    }
+
+    /** Attach the LOCAL-scope store (SavedData-backed). Called once the world is available. */
+    public synchronized void setLocalStore(LocalStore local) {
+        this.local = local;
     }
 
     /** Load one player's variables into cache. Call on join, before triggers fire. */
@@ -90,7 +95,13 @@ public final class StorageService {
     public synchronized String get(Scope scope, String key, UUID player) {
         return switch (scope) {
             case GLOBAL -> global.get(key);
-            case LOCAL -> localTemp.get(key);
+            case LOCAL -> {
+                if (local == null) {
+                    LOGGER.warn("[Colophon] LOCAL get '{}' before world load; returning null", key);
+                    yield null;
+                }
+                yield local.get(key);
+            }
             case PLAYER -> {
                 PlayerState st = (player == null) ? null : players.get(player);
                 if (st == null) {
@@ -109,7 +120,13 @@ public final class StorageService {
                 global.put(key, value);
                 globalDirty.add(key);
             }
-            case LOCAL -> localTemp.put(key, value);
+            case LOCAL -> {
+                if (local == null) {
+                    LOGGER.warn("[Colophon] LOCAL set '{}' before world load; ignored", key);
+                    return;
+                }
+                local.set(key, value);
+            }
             case PLAYER -> {
                 PlayerState st = (player == null) ? null : players.get(player);
                 if (st == null) {

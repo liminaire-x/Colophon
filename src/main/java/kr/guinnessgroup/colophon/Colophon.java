@@ -46,6 +46,7 @@ import kr.guinnessgroup.colophon.runtime.ColophonRuntime;
 import kr.guinnessgroup.colophon.nodes.BuiltinNodes;
 import kr.guinnessgroup.colophon.runtime.state.StorageService;
 import kr.guinnessgroup.colophon.runtime.state.H2StateBackend;
+import kr.guinnessgroup.colophon.runtime.state.ColophonLocalState;
 import net.neoforged.fml.loading.FMLPaths;
 import java.nio.file.Path;
 import net.minecraft.server.level.ServerPlayer;
@@ -139,6 +140,9 @@ public class Colophon {
         WEB_SERVER.start();
         Path stateDb = FMLPaths.CONFIGDIR.get().resolve("colophon").resolve("state");
         STORAGE.open(new H2StateBackend(stateDb));
+        // LOCAL scope: SavedData on the overworld (server-wide, this-world-only).
+        STORAGE.setLocalStore(event.getServer().overworld().getDataStorage()
+                .computeIfAbsent(ColophonLocalState.factory(), ColophonLocalState.ID));
         RUNTIME.load();
     }
 
