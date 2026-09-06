@@ -6,5 +6,16 @@
 
 package kr.guinnessgroup.colophon.runtime;
 
-/** Describes a single configurable field of a node type (for the editor palette). */
-public record FieldSpec(String name, String type, String defaultValue) {}
+import java.util.List;
+
+/**
+ * Describes a single configurable field of a node type (for the editor palette).
+ * {@code options} is used only by {@code enum} fields (rendered as a dropdown);
+ * other field types leave it empty.
+ */
+public record FieldSpec(String name, String type, String defaultValue, List<String> options) {
+
+    public FieldSpec(String name, String type, String defaultValue) {
+        this(name, type, defaultValue, List.of());
+    }
+}

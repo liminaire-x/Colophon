@@ -301,12 +301,24 @@ export default function App() {
               {(selectedDef?.fields || []).map((f) => (
                 <label key={f.name} style={{ display: 'block', marginBottom: 10 }}>
                   <div style={{ marginBottom: 3 }}>{f.name}</div>
-                  <input
-                    type={f.type === 'number' ? 'number' : 'text'}
-                    value={selectedNode.data.config?.[f.name] ?? ''}
-                    onChange={(e) => setConfigField(f.name, e.target.value)}
-                    style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
-                  />
+                  {f.type === 'enum' ? (
+                    <select
+                      value={selectedNode.data.config?.[f.name] ?? (f.default ?? '')}
+                      onChange={(e) => setConfigField(f.name, e.target.value)}
+                      style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
+                    >
+                      {(f.options || []).map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type={f.type === 'number' ? 'number' : 'text'}
+                      value={selectedNode.data.config?.[f.name] ?? ''}
+                      onChange={(e) => setConfigField(f.name, e.target.value)}
+                      style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
+                    />
+                  )}
                 </label>
               ))}
               <button onClick={deleteSelected} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>

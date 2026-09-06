@@ -29,7 +29,7 @@ public final class HasVariableNode implements NodeType {
     @Override public String category() { return "state"; }
     @Override public List<FieldSpec> fields() {
         return List.of(
-                new FieldSpec("scope", "string", "PLAYER"),
+                new FieldSpec("scope", "enum", "PLAYER", List.of("PLAYER", "GLOBAL", "LOCAL")),
                 new FieldSpec("key", "string", ""),
                 new FieldSpec("expected", "string", ""));
     }

@@ -58,6 +58,11 @@ public final class NodeRegistry {
                 fo.addProperty("name", f.name());
                 fo.addProperty("type", f.type());
                 fo.addProperty("default", f.defaultValue());
+                JsonArray opts = new JsonArray();
+                for (String opt : f.options()) {
+                    opts.add(opt);
+                }
+                fo.add("options", opts);
                 fields.add(fo);
             }
             o.add("fields", fields);
