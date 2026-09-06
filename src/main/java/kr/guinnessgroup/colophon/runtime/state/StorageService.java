@@ -65,6 +65,14 @@ public final class StorageService {
         if (backend == null) {
             return;
         }
+        PlayerState existing = players.get(player);
+        if (existing != null) {
+            // Still cached (e.g. a quick rejoin before the next flush/eviction). The
+            // in-memory copy may hold unflushed writes, so reuse it and just mark the
+            // player online again -- never clobber it by reloading from the backend.
+            existing.online = true;
+            return;
+        }
         PlayerState st = new PlayerState();
         st.vars.putAll(backend.loadPlayer(player));
         players.put(player, st);

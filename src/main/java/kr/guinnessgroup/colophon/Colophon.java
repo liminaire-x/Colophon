@@ -51,6 +51,7 @@ import java.nio.file.Path;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.level.LevelEvent;
 
 // The value here should match an entry in the META-INF/neoforge.mods.toml file
 @Mod(Colophon.MODID)
@@ -157,8 +158,29 @@ public class Colophon {
     @SubscribeEvent
     public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            // Load this player's persisted state into cache BEFORE the join trigger
+            // fires, so has_variable/set_variable see it. Same server thread, so the
+            // ordering is deterministic (no race).
+            STORAGE.loadPlayer(player.getUUID());
             RUNTIME.fireTrigger("on_player_join", player.getServer(), player);
         }
+    }
+
+    @SubscribeEvent
+    public void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            // Not a save point: mark offline; dirty vars persist at the next world
+            // save, then the entry is evicted. Keeps state on the world's snapshot line.
+            STORAGE.markOffline(player.getUUID());
+        }
+    }
+
+    @SubscribeEvent
+    public void onLevelSave(LevelEvent.Save event) {
+        // Ride the world save cycle so state and world share one snapshot (rollback
+        // consistency). flushDirty clears dirty, so per-dimension saves after the
+        // first flush nothing.
+        STORAGE.flushDirty();
     }
 
     @SubscribeEvent

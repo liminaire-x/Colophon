@@ -21,5 +21,17 @@ package kr.guinnessgroup.colophon.runtime.state;
 public enum Scope {
     LOCAL,
     PLAYER,
-    GLOBAL
+    GLOBAL;
+
+    /** Parse a config string (case-insensitive) to a Scope, falling back on unknown input. */
+    public static Scope parse(String raw, Scope fallback) {
+        if (raw == null) {
+            return fallback;
+        }
+        try {
+            return Scope.valueOf(raw.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return fallback;
+        }
+    }
 }
