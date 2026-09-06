@@ -6,6 +6,7 @@
 
 package kr.guinnessgroup.colophon.runtime;
 
+import kr.guinnessgroup.colophon.runtime.state.StorageService;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -16,23 +17,28 @@ import java.util.Map;
  * Per-execution context passed to every node. Carries the triggering server, the
  * acting player (if any), and a local variable scope for this run.
  * <p>
- * Persistent state (PLAYER / GLOBAL scopes) will be reached through a storage
- * layer added later; this holds only per-execution locals for now.
+ * Persistent state (LOCAL / PLAYER / GLOBAL scopes) is reached through the
+ * {@link StorageService}; per-execution locals live in {@link #locals()}.
  */
 public final class ExecContext {
 
     private final MinecraftServer server;
     private final ServerPlayer actor; // may be null for non-player triggers
+    private final StorageService storage;
     private final Map<String, Object> locals = new HashMap<>();
 
-    public ExecContext(MinecraftServer server, ServerPlayer actor) {
+    public ExecContext(MinecraftServer server, ServerPlayer actor, StorageService storage) {
         this.server = server;
         this.actor = actor;
+        this.storage = storage;
     }
 
     public MinecraftServer server() { return server; }
 
     public ServerPlayer actor() { return actor; }
+
+    /** Persistent state store (scope-routed variables). */
+    public StorageService storage() { return storage; }
 
     public Map<String, Object> locals() { return locals; }
 }

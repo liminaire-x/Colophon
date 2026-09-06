@@ -12,6 +12,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.fml.loading.FMLPaths;
 import org.slf4j.Logger;
 
+import kr.guinnessgroup.colophon.runtime.state.StorageService;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -32,12 +34,14 @@ public final class ColophonRuntime {
     private static final String EMPTY_GRAPH = "{\"nodes\":[],\"edges\":[]}";
 
     private final TickScheduler scheduler;
+    private final StorageService storage;
     private volatile Graph activeGraph;
     private volatile Map<String, List<String>> triggersByType = Map.of();
     private volatile String lastPublishedJson;
 
-    public ColophonRuntime(TickScheduler scheduler) {
+    public ColophonRuntime(TickScheduler scheduler, StorageService storage) {
         this.scheduler = scheduler;
+        this.storage = storage;
     }
 
     private Path saveFile() {
@@ -98,7 +102,7 @@ public final class ColophonRuntime {
         }
         List<String> ids = triggersByType.getOrDefault(triggerType, List.of());
         for (String id : ids) {
-            scheduler.start(graph, new ExecContext(server, player), id);
+            scheduler.start(graph, new ExecContext(server, player, storage), id);
         }
     }
 

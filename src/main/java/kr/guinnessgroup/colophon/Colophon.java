@@ -44,6 +44,10 @@ import kr.guinnessgroup.colophon.web.ColophonWebServer;
 import kr.guinnessgroup.colophon.runtime.TickScheduler;
 import kr.guinnessgroup.colophon.runtime.ColophonRuntime;
 import kr.guinnessgroup.colophon.nodes.BuiltinNodes;
+import kr.guinnessgroup.colophon.runtime.state.StorageService;
+import kr.guinnessgroup.colophon.runtime.state.H2StateBackend;
+import net.neoforged.fml.loading.FMLPaths;
+import java.nio.file.Path;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
@@ -57,8 +61,10 @@ public class Colophon {
     private static final Logger LOGGER = LogUtils.getLogger();
     // Main-thread graph runtime; ticked from ServerTickEvent.Post.
     public static final TickScheduler SCHEDULER = new TickScheduler();
+    // Persistent state store (scope routing + cache over an embedded H2 backend).
+    public static final StorageService STORAGE = new StorageService();
     // Holds the published graph and starts executions when triggers fire.
-    public static final ColophonRuntime RUNTIME = new ColophonRuntime(SCHEDULER);
+    public static final ColophonRuntime RUNTIME = new ColophonRuntime(SCHEDULER, STORAGE);
     // Embedded web editor server (JDK HttpServer, no external deps).
     public static final ColophonWebServer WEB_SERVER = new ColophonWebServer(RUNTIME);
     // Create a Deferred Register to hold Blocks which will all be registered under the "colophon" namespace
@@ -130,6 +136,8 @@ public class Colophon {
     public void onServerStarting(ServerStartingEvent event) {
         LOGGER.info("[Colophon] Server starting");
         WEB_SERVER.start();
+        Path stateDb = FMLPaths.CONFIGDIR.get().resolve("colophon").resolve("state");
+        STORAGE.open(new H2StateBackend(stateDb));
         RUNTIME.load();
     }
 
@@ -138,6 +146,7 @@ public class Colophon {
         WEB_SERVER.stop();
         SCHEDULER.clear();
         RUNTIME.clear();
+        STORAGE.close();
     }
 
     @SubscribeEvent
