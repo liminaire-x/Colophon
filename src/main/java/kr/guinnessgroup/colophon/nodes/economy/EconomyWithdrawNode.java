@@ -9,7 +9,7 @@ package kr.guinnessgroup.colophon.nodes.economy;
 import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
 import kr.guinnessgroup.colophon.runtime.FieldSpec;
-import kr.guinnessgroup.colophon.runtime.Node;
+import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeType;
 import kr.guinnessgroup.colophon.runtime.Nodes;
 import net.impactdev.impactor.api.economy.EconomyService;
@@ -37,7 +37,7 @@ public final class EconomyWithdrawNode implements NodeType {
     @Override public List<String> flowOutPorts() { return List.of("out"); }
 
     @Override
-    public Node create(JsonObject config) {
+    public ExecNode create(JsonObject config) {
         final BigDecimal amount = EconomyNodes.amount(config);
         return Nodes.awaitAction(ctx -> {
             ServerPlayer player = ctx.actor();

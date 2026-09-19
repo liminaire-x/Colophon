@@ -160,7 +160,7 @@ public final class GraphParser {
         for (Map.Entry<String, NodeType> entry : typeById.entrySet()) {
             String id = entry.getKey();
             NodeType nt = entry.getValue();
-            Node runtime = nt.create(configById.get(id));
+            ExecNode runtime = nt.create(configById.get(id));
             graphNodes.put(id, new GraphNode(id, runtime, outputs.getOrDefault(id, Map.of())));
             if ("trigger".equals(nt.category())) {
                 triggersByType.computeIfAbsent(nt.id(), k -> new ArrayList<>()).add(id);

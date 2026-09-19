@@ -12,7 +12,7 @@ import java.util.List;
 
 /**
  * A registered node type: its editor-facing descriptor (label, category,
- * config fields, flow ports) plus a factory that builds a runnable {@link Node}
+ * config fields, flow ports) plus a factory that builds a runnable {@link ExecNode}
  * from a node's saved config.
  * <p>
  * Flow ports model control flow. A node with no flow-in is an entry point
@@ -53,5 +53,10 @@ public interface NodeType {
         return List.of();
     }
 
-    Node create(JsonObject config);
+    /** This node's kind. Default EXEC; a pure value producer overrides to PURE. (Contract c.) */
+    default NodeKind kind() {
+        return NodeKind.EXEC;
+    }
+
+    ExecNode create(JsonObject config);
 }

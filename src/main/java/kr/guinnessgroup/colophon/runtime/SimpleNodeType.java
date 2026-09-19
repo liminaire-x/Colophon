@@ -17,11 +17,11 @@ import java.util.function.Function;
  */
 public record SimpleNodeType(String id, String label, String category,
                              List<FieldSpec> fields, boolean hasFlowIn,
-                             List<String> flowOutPorts, Function<JsonObject, Node> factory)
+                             List<String> flowOutPorts, Function<JsonObject, ExecNode> factory)
         implements NodeType {
 
     @Override
-    public Node create(JsonObject config) {
+    public ExecNode create(JsonObject config) {
         return factory.apply(config);
     }
 }

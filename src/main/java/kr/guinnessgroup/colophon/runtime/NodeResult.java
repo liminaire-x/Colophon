@@ -7,7 +7,7 @@
 package kr.guinnessgroup.colophon.runtime;
 
 /**
- * Outcome of executing a single {@link Node}, telling the {@link TickScheduler}
+ * Outcome of executing a single {@link ExecNode}, telling the {@link TickScheduler}
  * what to do next. Sealed so the scheduler can switch over it exhaustively.
  */
 public sealed interface NodeResult {

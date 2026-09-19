@@ -8,7 +8,7 @@ package kr.guinnessgroup.colophon.nodes.trigger;
 
 import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.runtime.FieldSpec;
-import kr.guinnessgroup.colophon.runtime.Node;
+import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
 import kr.guinnessgroup.colophon.runtime.NodeType;
 
@@ -25,7 +25,7 @@ public final class OnPlayerDeathNode implements NodeType {
     @Override public List<String> flowOutPorts() { return List.of("out"); }
 
     @Override
-    public Node create(JsonObject config) {
+    public ExecNode create(JsonObject config) {
         return ctx -> NodeResult.cont();
     }
 }

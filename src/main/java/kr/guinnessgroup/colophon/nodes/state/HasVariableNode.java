@@ -8,7 +8,7 @@ package kr.guinnessgroup.colophon.nodes.state;
 
 import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.runtime.FieldSpec;
-import kr.guinnessgroup.colophon.runtime.Node;
+import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
 import kr.guinnessgroup.colophon.runtime.NodeType;
 import kr.guinnessgroup.colophon.runtime.state.Scope;
@@ -37,7 +37,7 @@ public final class HasVariableNode implements NodeType {
     @Override public List<String> flowOutPorts() { return List.of("true", "false"); }
 
     @Override
-    public Node create(JsonObject config) {
+    public ExecNode create(JsonObject config) {
         final Scope scope = Scope.parse(readString(config, "scope"), Scope.PLAYER);
         final String key = readString(config, "key");
         final String expected = readString(config, "expected");
