@@ -10,7 +10,7 @@ package kr.guinnessgroup.colophon.runtime;
  * A single flow (execution) node in a graph: it runs when control flow reaches
  * it, may have side effects, and returns a {@link NodeResult} telling the
  * {@link TickScheduler} where to go next. This is one of the two node kinds
- * (contract c); the other is {@code PureNode}, a side-effect-free value producer.
+ * (contract c); the other is {@link PureNode}, a side-effect-free value producer.
  * <p>
  * Implementations run on the main server thread and must return quickly: never
  * block or sleep. To wait for time or a condition, return
