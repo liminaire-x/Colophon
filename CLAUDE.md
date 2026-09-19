@@ -23,8 +23,8 @@
 - **v2 1순위 상태·저장 계층 = 완료**(커밋 bbb780e). 등록 노드 13개(trigger2/action3/flow2/economy4/state2).
 - **v2 2순위 데이터 포트: 계약 a~e 전부 확정(설계 완료)**, 구현 착수:
   - ✅ **a. 타입 레지스트리 뼈대** — `runtime/type/` (TypeKind, TypeDescriptor, TypeRegistry, BuiltinTypes 4종). /api/schema에 `types` 노출. 노드 미사용. **커밋 b989baa, 실행 검증 완료.**
-  - ⬜ **b. 다음** — 포트 category(flow/data) + 데이터 포트 연결 검증(`isValidConnection`을 타입까지 확장, 명목 매칭, 불일치 시 연결 시점 차단).
-  - ⬜ c. 노드 종류 분리(ExecNode/PureNode·읽기전용 PureContext) + per-execution value store(exec push/pure pull).
+  - ✅ **b. 포트 category(flow/data) + 데이터 포트 연결 검증** — `DataPort`(id/typeId/label), `NodeType.dataInPorts()/dataOutPorts()` default, /api/schema `dataIn`/`dataOut` 노출. GraphParser flow/data 분류(명목 타입 일치, flow↔data 금지, 데이터입력 단일 와이어; 데이터 엣지는 검증만·미배선). 에디터 `isValidConnection` 대칭 + `targetHandle` 왕복 + **블루프린트식 노드 레이아웃**(exec 삼각형 상단/데이터 원형 좌·우). **커밋 c71dddf·fdb0491·0048d62·ee553d5, 브라우저 실증 완료(타입 일치 연결·불일치 차단).**
+  - ⬜ **c. 다음** — 노드 종류 분리(ExecNode/PureNode·읽기전용 PureContext) + per-execution value store(exec push/pure pull).
   - ⬜ d. 입력 통합(`FieldSpec`→`InputSpec`: 타입+인라인 기본값+connectable) + 노드 전체 마이그레이트 + 에디터 폼(미연결=인라인, 연결=와이어).
   - ⬜ e. 첫 데이터 노드(get_balance·get_variable·format_text·compare) + 트리거 명시 출력(victim/killer). "값이 흐른다" 실증(economy/state로).
   - ⬜ f. 안정 ID·version(디스크립터 필드)·마이그레이션 3층·deprecation·/api/validate.
