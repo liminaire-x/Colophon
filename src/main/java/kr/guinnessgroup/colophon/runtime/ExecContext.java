@@ -18,7 +18,8 @@ import java.util.Map;
  * acting player (if any), and a local variable scope for this run.
  * <p>
  * Persistent state (LOCAL / PLAYER / GLOBAL scopes) is reached through the
- * {@link StorageService}; per-execution locals live in {@link #locals()}.
+ * {@link StorageService}; per-execution locals live in {@link #locals()};
+ * data-port values produced during this run live in {@link #values()} (contract c).
  */
 public final class ExecContext {
 
@@ -26,6 +27,7 @@ public final class ExecContext {
     private final ServerPlayer actor; // may be null for non-player triggers
     private final StorageService storage;
     private final Map<String, Object> locals = new HashMap<>();
+    private final ValueStore values = new ValueStore();
 
     public ExecContext(MinecraftServer server, ServerPlayer actor, StorageService storage) {
         this.server = server;
@@ -41,4 +43,7 @@ public final class ExecContext {
     public StorageService storage() { return storage; }
 
     public Map<String, Object> locals() { return locals; }
+
+    /** Data-port values produced during this execution (exec push / pure pull). */
+    public ValueStore values() { return values; }
 }
