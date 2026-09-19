@@ -6,6 +6,7 @@
 
 # Gradle build folder
 build
+repo
 
 # IntelliJ
 out/
@@ -21,3 +22,6 @@ hs_err_pid*
 run
 editor/node_modules
 editor/dist
+
+# graphify folder
+graphify-out
