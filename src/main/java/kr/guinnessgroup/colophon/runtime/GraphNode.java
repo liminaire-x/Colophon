@@ -16,6 +16,9 @@ public record GraphNode(String id, Node node, Map<String, String> outputs) {
 
     public static final String DEFAULT_PORT = "out";
 
+    /** Handle id of a node's single flow input (a node either has one or is an entry point). */
+    public static final String FLOW_IN_PORT = "in";
+
     /** The id of the node wired to the given output port, or null if none. */
     public String next(String port) {
         return outputs == null ? null : outputs.get(port);

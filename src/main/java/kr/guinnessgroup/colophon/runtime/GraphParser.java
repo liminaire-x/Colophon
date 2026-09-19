@@ -13,15 +13,20 @@ import com.google.gson.JsonParser;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Parses and validates the editor's published {nodes, edges} JSON into a runnable
- * {@link Graph}. Validation is port-aware: an edge is valid only if its source
- * port exists on the source node and the target node accepts a flow input.
- * Invalid graphs throw {@link GraphValidationException} with all errors.
+ * {@link Graph}. Validation is port-aware and category-aware: a flow edge is valid
+ * only if its source flow port exists and the target accepts a flow input; a data
+ * edge is valid only if it connects two data ports of the same type. Flow and data
+ * ports may not be cross-connected. Data edges are validated but not wired — values
+ * flow in contract c. Invalid graphs throw {@link GraphValidationException} with all
+ * errors.
  */
 public final class GraphParser {
 
@@ -64,8 +69,12 @@ public final class GraphParser {
                     ? data.getAsJsonObject("config") : new JsonObject());
         }
 
-        // Pass 2: validate edges and build wiring (source id -> port -> target id).
-        Map<String, Map<String, String>> outputs = new HashMap<>();
+        // Pass 2: validate edges. Flow edges build the runtime wiring; data edges
+        // are validated by nominal type match but not wired (values flow in
+        // contract c). Flow and data ports are separate categories and may not be
+        // connected to each other. (Contract b.)
+        Map<String, Map<String, String>> outputs = new HashMap<>();     // flow wiring only
+        Map<String, Set<String>> dataInputsUsed = new HashMap<>();       // target id -> its connected data-in port ids
         for (JsonElement e : edgesArr) {
             JsonObject edge = e.getAsJsonObject();
             String source = asString(edge, "source");
@@ -84,24 +93,61 @@ public final class GraphParser {
                 errors.add("edge references missing node '" + target + "'");
                 continue;
             }
-            String port = asString(edge, "sourceHandle");
-            if (port == null) {
-                port = GraphNode.DEFAULT_PORT;
-            }
-            if (!sType.flowOutPorts().contains(port)) {
-                errors.add("node '" + source + "' has no output port '" + port + "'");
+            String srcHandle = asString(edge, "sourceHandle");
+            String tgtHandle = asString(edge, "targetHandle");
+
+            // Classify the source handle: a flow output (default "out") or a data output.
+            String flowPort = srcHandle == null ? GraphNode.DEFAULT_PORT : srcHandle;
+            boolean srcIsFlow = sType.flowOutPorts().contains(flowPort);
+            DataPort srcData = srcIsFlow ? null : findPort(sType.dataOutPorts(), srcHandle);
+            if (!srcIsFlow && srcData == null) {
+                errors.add("node '" + source + "' has no output port '"
+                        + (srcHandle == null ? flowPort : srcHandle) + "'");
                 continue;
             }
-            if (!tType.hasFlowIn()) {
-                errors.add("node '" + target + "' cannot receive a connection (it is an entry point)");
-                continue;
+
+            if (srcIsFlow) {
+                // Flow edge: target must accept a flow input and must not be a data input.
+                if (tgtHandle != null && !GraphNode.FLOW_IN_PORT.equals(tgtHandle)
+                        && findPort(tType.dataInPorts(), tgtHandle) != null) {
+                    errors.add("cannot connect flow output '" + flowPort + "' of '" + source
+                            + "' to data input '" + tgtHandle + "' of '" + target + "'");
+                    continue;
+                }
+                if (!tType.hasFlowIn()) {
+                    errors.add("node '" + target + "' cannot receive a connection (it is an entry point)");
+                    continue;
+                }
+                Map<String, String> m = outputs.computeIfAbsent(source, k -> new HashMap<>());
+                if (m.containsKey(flowPort)) {
+                    errors.add("node '" + source + "' output '" + flowPort + "' is connected more than once");
+                    continue;
+                }
+                m.put(flowPort, target);
+            } else {
+                // Data edge: target must be a data input of the SAME type (nominal match).
+                if (tgtHandle == null || GraphNode.FLOW_IN_PORT.equals(tgtHandle)) {
+                    errors.add("cannot connect data output '" + srcData.id() + "' of '" + source
+                            + "' to a flow input of '" + target + "'");
+                    continue;
+                }
+                DataPort tgtData = findPort(tType.dataInPorts(), tgtHandle);
+                if (tgtData == null) {
+                    errors.add("node '" + target + "' has no data input port '" + tgtHandle + "'");
+                    continue;
+                }
+                if (!srcData.typeId().equals(tgtData.typeId())) {
+                    errors.add("type mismatch: '" + source + "." + srcData.id() + "' (" + srcData.typeId()
+                            + ") cannot connect to '" + target + "." + tgtData.id() + "' (" + tgtData.typeId() + ")");
+                    continue;
+                }
+                if (!dataInputsUsed.computeIfAbsent(target, k -> new HashSet<>()).add(tgtData.id())) {
+                    errors.add("data input '" + tgtData.id() + "' of '" + target + "' is connected more than once");
+                    continue;
+                }
+                // Validated. Not wired into the runtime flow graph (contract b validates
+                // connections only; the value store and pull wiring arrive in contract c).
             }
-            Map<String, String> m = outputs.computeIfAbsent(source, k -> new HashMap<>());
-            if (m.containsKey(port)) {
-                errors.add("node '" + source + "' output '" + port + "' is connected more than once");
-                continue;
-            }
-            m.put(port, target);
         }
 
         if (!errors.isEmpty()) {
@@ -125,5 +171,18 @@ public final class GraphParser {
 
     private static String asString(JsonObject o, String key) {
         return (o.has(key) && o.get(key).isJsonPrimitive()) ? o.get(key).getAsString() : null;
+    }
+
+    /** The data port with the given id, or null. */
+    private static DataPort findPort(List<DataPort> ports, String id) {
+        if (id == null) {
+            return null;
+        }
+        for (DataPort p : ports) {
+            if (p.id().equals(id)) {
+                return p;
+            }
+        }
+        return null;
     }
 }
