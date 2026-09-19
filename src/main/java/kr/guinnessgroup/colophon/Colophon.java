@@ -44,6 +44,7 @@ import kr.guinnessgroup.colophon.web.ColophonWebServer;
 import kr.guinnessgroup.colophon.runtime.TickScheduler;
 import kr.guinnessgroup.colophon.runtime.ColophonRuntime;
 import kr.guinnessgroup.colophon.nodes.BuiltinNodes;
+import kr.guinnessgroup.colophon.runtime.type.BuiltinTypes;
 import kr.guinnessgroup.colophon.runtime.state.StorageService;
 import kr.guinnessgroup.colophon.runtime.state.H2StateBackend;
 import kr.guinnessgroup.colophon.runtime.state.ColophonLocalState;
@@ -113,7 +114,8 @@ public class Colophon {
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
 
-        // Register Colophon's built-in node types.
+        // Register Colophon's built-in data types, then node types.
+        BuiltinTypes.registerAll();
         BuiltinNodes.registerAll();
     }
 

@@ -8,6 +8,7 @@ package kr.guinnessgroup.colophon.runtime;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import kr.guinnessgroup.colophon.runtime.type.TypeRegistry;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -71,6 +72,7 @@ public final class NodeRegistry {
         }
         JsonObject root = new JsonObject();
         root.add("nodes", arr);
+        root.add("types", TypeRegistry.typesJson());
         return root.toString();
     }
 }
