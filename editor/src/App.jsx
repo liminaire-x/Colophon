@@ -20,9 +20,16 @@ const CATEGORY_COLORS = {
 }
 const catColor = (c) => CATEGORY_COLORS[c] || '#555'
 
+// Data-type handle colors, filled from /api/schema `types` on boot (typeId -> hex).
+const typeColors = {}
+const dataColor = (typeId) => typeColors[typeId] || '#888'
+const FLOW_IN = 'in' // matches GraphNode.FLOW_IN_PORT on the server
+
 // --- custom node: renders ports from schema (flow-in handle + one source handle per flowOut port) ---
 function ColophonNode({ data, selected }) {
   const ports = data.flowOut && data.flowOut.length ? data.flowOut : []
+  const dataIn = data.dataIn || []
+  const dataOut = data.dataOut || []
   const cfg = data.config || {}
   const cfgEntries = Object.entries(cfg)
   return (
@@ -36,7 +43,7 @@ function ColophonNode({ data, selected }) {
         boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
       }}
     >
-      {data.hasFlowIn && <Handle type="target" position={Position.Left} id="in" />}
+      {data.hasFlowIn && <Handle type="target" position={Position.Left} id={FLOW_IN} />}
       <div
         style={{
           padding: '5px 10px',
@@ -57,6 +64,27 @@ function ColophonNode({ data, selected }) {
           ))}
         </div>
       )}
+      {/* typed data inputs (left) */}
+      {dataIn.map((p) => (
+        <div
+          key={`in-${p.id}`}
+          style={{ position: 'relative', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', padding: '3px 8px 3px 14px', minHeight: 18 }}
+        >
+          <Handle type="target" id={p.id} position={Position.Left} style={{ background: dataColor(p.type), borderColor: dataColor(p.type) }} />
+          <span style={{ fontSize: 10, color: '#555' }}>{p.label || p.id}</span>
+        </div>
+      ))}
+      {/* typed data outputs (right) */}
+      {dataOut.map((p) => (
+        <div
+          key={`out-${p.id}`}
+          style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '3px 14px 3px 8px', minHeight: 18 }}
+        >
+          <span style={{ fontSize: 10, color: '#555' }}>{p.label || p.id}</span>
+          <Handle type="source" id={p.id} position={Position.Right} style={{ background: dataColor(p.type), borderColor: dataColor(p.type) }} />
+        </div>
+      ))}
+      {/* flow outputs (right) */}
       <div style={{ padding: '2px 0' }}>
         {ports.map((p) => (
           <div
@@ -67,7 +95,7 @@ function ColophonNode({ data, selected }) {
             <Handle type="source" id={p} position={Position.Right} />
           </div>
         ))}
-        {ports.length === 0 && <div style={{ height: 6 }} />}
+        {ports.length === 0 && dataIn.length === 0 && dataOut.length === 0 && <div style={{ height: 6 }} />}
       </div>
     </div>
   )
@@ -96,6 +124,7 @@ export default function App() {
         const s = await fetch('/api/schema').then((r) => r.json())
         const defs = s.nodes || []
         if (cancelled) return
+        ;(s.types || []).forEach((t) => { typeColors[t.id] = t.color })
         schemaRef.current = defs
         setSchema(defs)
         setStatus('ok')
@@ -116,6 +145,8 @@ export default function App() {
               category: def.category,
               hasFlowIn: def.hasFlowIn,
               flowOut: def.flowOut,
+              dataIn: def.dataIn,
+              dataOut: def.dataOut,
             },
           }
         })
@@ -125,6 +156,7 @@ export default function App() {
           source: e.source,
           target: e.target,
           sourceHandle: e.sourceHandle ?? null,
+          targetHandle: e.targetHandle ?? null,
         })))
         // keep id sequence ahead of loaded ids
         loadedNodes.forEach((n) => {
@@ -148,15 +180,36 @@ export default function App() {
     const srcDef = s.find((d) => d.type === srcNode.data.nodeType)
     const tgtDef = s.find((d) => d.type === tgtNode.data.nodeType)
     if (!srcDef || !tgtDef) return false
-    if (!tgtDef.hasFlowIn) return false
-    const port = c.sourceHandle || 'out'
-    if (!(srcDef.flowOut || []).includes(port)) return false
-    return true
+
+    // Classify the source handle: a flow output (default "out") or a data output.
+    const flowPort = c.sourceHandle || 'out'
+    const isFlowSrc = (srcDef.flowOut || []).includes(flowPort)
+    const srcData = (srcDef.dataOut || []).find((p) => p.id === c.sourceHandle)
+
+    if (isFlowSrc) {
+      // Flow edge: target must accept a flow input and must not be a data input.
+      if (c.targetHandle && c.targetHandle !== FLOW_IN
+          && (tgtDef.dataIn || []).some((p) => p.id === c.targetHandle)) return false
+      return !!tgtDef.hasFlowIn
+    }
+    if (srcData) {
+      // Data edge: target must be a data input of the SAME type, and unconnected.
+      if (!c.targetHandle || c.targetHandle === FLOW_IN) return false
+      const tgtData = (tgtDef.dataIn || []).find((p) => p.id === c.targetHandle)
+      if (!tgtData) return false
+      if (tgtData.type !== srcData.type) return false
+      const already = edgesRef.current.some((e) => e.target === c.target && e.targetHandle === c.targetHandle)
+      if (already) return false
+      return true
+    }
+    return false
   }, [])
 
-  // keep a ref of nodes for isValidConnection (avoids stale closure)
+  // keep refs of nodes/edges for isValidConnection (avoids stale closure)
   const nodesRef = useRef([])
   useEffect(() => { nodesRef.current = nodes }, [nodes])
+  const edgesRef = useRef([])
+  useEffect(() => { edgesRef.current = edges }, [edges])
 
   const onConnect = useCallback((params) => {
     setEdges((eds) => addEdge({ ...params }, eds))
@@ -177,6 +230,8 @@ export default function App() {
         category: def.category,
         hasFlowIn: def.hasFlowIn,
         flowOut: def.flowOut,
+        dataIn: def.dataIn,
+        dataOut: def.dataOut,
       },
     }
     setNodes((ns) => ns.concat(node))
@@ -215,6 +270,7 @@ export default function App() {
           source: e.source,
           target: e.target,
           sourceHandle: e.sourceHandle ?? null,
+          targetHandle: e.targetHandle ?? null,
         })),
       }
       const res = await fetch('/api/publish', {
