@@ -12,6 +12,7 @@ import kr.guinnessgroup.colophon.runtime.type.TypeRegistry;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -53,6 +54,12 @@ public final class NodeRegistry {
             }
             o.add("flowOut", flowOut);
 
+            // Typed data ports (contract b). A separate category from flow ports:
+            // the editor draws them as typed handles and validates connections by
+            // nominal type match. Both default to empty for existing node types.
+            o.add("dataIn", dataPortsJson(t.dataInPorts()));
+            o.add("dataOut", dataPortsJson(t.dataOutPorts()));
+
             JsonArray fields = new JsonArray();
             for (FieldSpec f : t.fields()) {
                 JsonObject fo = new JsonObject();
@@ -74,5 +81,18 @@ public final class NodeRegistry {
         root.add("nodes", arr);
         root.add("types", TypeRegistry.typesJson());
         return root.toString();
+    }
+
+    /** Serializes a node's data ports (id, type id, label) for the editor schema. */
+    private static JsonArray dataPortsJson(List<DataPort> ports) {
+        JsonArray arr = new JsonArray();
+        for (DataPort p : ports) {
+            JsonObject o = new JsonObject();
+            o.addProperty("id", p.id());
+            o.addProperty("type", p.typeId());
+            o.addProperty("label", p.label());
+            arr.add(o);
+        }
+        return arr;
     }
 }
