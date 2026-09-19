@@ -26,24 +26,45 @@ const dataColor = (typeId) => typeColors[typeId] || '#888'
 const FLOW_IN = 'in' // matches GraphNode.FLOW_IN_PORT on the server
 
 // --- custom node: renders ports from schema (flow-in handle + one source handle per flowOut port) ---
+// Blueprint-style handle shapes: exec (flow) pins are right-pointing triangles at
+// the top; data pins are type-colored circles below, inputs left / outputs right.
+const execHandleStyle = {
+  width: 12,
+  height: 12,
+  background: '#e5e7eb',
+  border: '1px solid #4b5563',
+  borderRadius: 2,
+  clipPath: 'polygon(0 0, 100% 50%, 0 100%)',
+}
+const dataHandleStyle = (typeId) => ({
+  width: 11,
+  height: 11,
+  background: dataColor(typeId),
+  border: '2px solid #fff',
+  borderRadius: '50%',
+})
+
 function ColophonNode({ data, selected }) {
-  const ports = data.flowOut && data.flowOut.length ? data.flowOut : []
+  const flowOut = data.flowOut && data.flowOut.length ? data.flowOut : []
   const dataIn = data.dataIn || []
   const dataOut = data.dataOut || []
   const cfg = data.config || {}
   const cfgEntries = Object.entries(cfg)
+
+  const execRows = Math.max(data.hasFlowIn ? 1 : 0, flowOut.length)
+  const dataRows = Math.max(dataIn.length, dataOut.length)
+
   return (
     <div
       style={{
         border: `2px solid ${selected ? '#111' : '#c9c9c9'}`,
         borderRadius: 8,
         background: '#fff',
-        minWidth: 168,
+        minWidth: 184,
         fontSize: 12,
         boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
       }}
     >
-      {data.hasFlowIn && <Handle type="target" position={Position.Left} id={FLOW_IN} />}
       <div
         style={{
           padding: '5px 10px',
@@ -55,8 +76,53 @@ function ColophonNode({ data, selected }) {
       >
         {data.label || data.nodeType}
       </div>
+
+      {/* exec (flow) pins — in on the left, out(s) on the right */}
+      {execRows > 0 && (
+        <div style={{ padding: '2px 0', borderBottom: dataRows > 0 || cfgEntries.length > 0 ? '1px solid #eee' : 'none' }}>
+          {Array.from({ length: execRows }).map((_, i) => {
+            const showIn = i === 0 && data.hasFlowIn
+            const out = flowOut[i]
+            return (
+              <div
+                key={`exec-${i}`}
+                style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 20, padding: '2px 12px' }}
+              >
+                {showIn && <Handle type="target" id={FLOW_IN} position={Position.Left} style={execHandleStyle} />}
+                <span style={{ fontSize: 10, color: '#374151', fontWeight: 600 }} />
+                <span style={{ fontSize: 10, color: '#374151', fontWeight: 600 }}>
+                  {out && flowOut.length > 1 ? out : ''}
+                </span>
+                {out && <Handle type="source" id={out} position={Position.Right} style={execHandleStyle} />}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* data pins — inputs on the left, outputs on the right (paired rows) */}
+      {dataRows > 0 && (
+        <div style={{ padding: '2px 0', borderBottom: cfgEntries.length > 0 ? '1px solid #eee' : 'none' }}>
+          {Array.from({ length: dataRows }).map((_, i) => {
+            const inp = dataIn[i]
+            const out = dataOut[i]
+            return (
+              <div
+                key={`data-${i}`}
+                style={{ position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 20, padding: '2px 12px', gap: 14 }}
+              >
+                {inp && <Handle type="target" id={inp.id} position={Position.Left} style={dataHandleStyle(inp.type)} />}
+                <span style={{ fontSize: 10, color: '#555' }}>{inp ? inp.label || inp.id : ''}</span>
+                <span style={{ fontSize: 10, color: '#555' }}>{out ? out.label || out.id : ''}</span>
+                {out && <Handle type="source" id={out.id} position={Position.Right} style={dataHandleStyle(out.type)} />}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {cfgEntries.length > 0 && (
-        <div style={{ padding: '4px 10px', color: '#666', borderBottom: '1px solid #eee' }}>
+        <div style={{ padding: '4px 10px', color: '#666' }}>
           {cfgEntries.map(([k, v]) => (
             <div key={k} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>
               {k}: {String(v)}
@@ -64,39 +130,6 @@ function ColophonNode({ data, selected }) {
           ))}
         </div>
       )}
-      {/* typed data inputs (left) */}
-      {dataIn.map((p) => (
-        <div
-          key={`in-${p.id}`}
-          style={{ position: 'relative', display: 'flex', justifyContent: 'flex-start', alignItems: 'center', padding: '3px 8px 3px 14px', minHeight: 18 }}
-        >
-          <Handle type="target" id={p.id} position={Position.Left} style={{ background: dataColor(p.type), borderColor: dataColor(p.type) }} />
-          <span style={{ fontSize: 10, color: '#555' }}>{p.label || p.id}</span>
-        </div>
-      ))}
-      {/* typed data outputs (right) */}
-      {dataOut.map((p) => (
-        <div
-          key={`out-${p.id}`}
-          style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '3px 14px 3px 8px', minHeight: 18 }}
-        >
-          <span style={{ fontSize: 10, color: '#555' }}>{p.label || p.id}</span>
-          <Handle type="source" id={p.id} position={Position.Right} style={{ background: dataColor(p.type), borderColor: dataColor(p.type) }} />
-        </div>
-      ))}
-      {/* flow outputs (right) */}
-      <div style={{ padding: '2px 0' }}>
-        {ports.map((p) => (
-          <div
-            key={p}
-            style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', padding: '3px 14px 3px 8px', minHeight: 18 }}
-          >
-            <span style={{ fontSize: 10, color: '#888' }}>{ports.length > 1 ? p : ''}</span>
-            <Handle type="source" id={p} position={Position.Right} />
-          </div>
-        ))}
-        {ports.length === 0 && dataIn.length === 0 && dataOut.length === 0 && <div style={{ height: 6 }} />}
-      </div>
     </div>
   )
 }
