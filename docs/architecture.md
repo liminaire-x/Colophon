@@ -8,8 +8,8 @@
 
 ## 코드 구조
 
-- `runtime/` — 엔진(계약 + 기계). `ExecNode`/`PureNode`/`NodeType`/`NodeResult`/`ExecContext`, `NodeRegistry`, `Graph`/`GraphParser`, `TickScheduler`, `Nodes`(awaitAction 등 헬퍼), `ValueStore`/`PortRef`, `InputSpec`/`DataPort`, `state/`(스토리지 계층), `type/`(타입 레지스트리·`TypeId`).
-- `nodes/` — 빌트인 노드 라이브러리(`trigger/`·`action/`·`flow/`·`economy/`·`state/`). `BuiltinNodes.registerAll()`가 등록, 엔진은 구체 노드를 모름. 노드당 파일 하나(NodeType 구현). economy는 Impactor soft-dep(ModList 가드).
+- `runtime/` — 엔진(계약 + 기계). 러너블 `ExecNode`/`PureNode`; 디스크립터 `NodeType`(base)·`ExecNodeType`/`PureNodeType`(컴파일러 강제 분리); `NodeResult`, `ExecContext`/`PureContext`, `ValueStore`/`PortRef`/`ValueResolver`, `NodeRegistry`, `Graph`/`GraphNode`/`GraphParser`, `TickScheduler`, `Nodes`(awaitAction 등 헬퍼), `InputSpec`/`DataPort`, `state/`(스토리지 계층), `type/`(`TypeRegistry`·`TypeId`·`Type<T>`/`Types`).
+- `nodes/` — 빌트인 노드 라이브러리(`trigger/`·`action/`·`flow/`·`economy/`·`state/`). `BuiltinNodes.registerAll()`가 등록, 엔진은 구체 노드를 모름. 노드당 파일 하나(`ExecNodeType` 또는 `PureNodeType` 구현). economy는 Impactor soft-dep(ModList 가드).
 - `web/` — 에디터 서버. `Colophon.java` — 모드 부트스트랩(이벤트 구독·등록·서버 시작/정지).
 - `api`/`core` — 빈 패키지(미사용). SDK 경계 추출은 나중 점진적.
 
@@ -23,7 +23,7 @@ SDK 추출 시 `runtime` = SDK 표면, `nodes` = 빌트인 애드온으로 갈�
 
 - 선택: **틱 스케줄러 + 노드 상태머신**(순수 자바, 단순·디버깅 쉬움). Kotlin 코루틴은
   도입 비용으로 기각하되, 노드 인터페이스에 `Suspend` 자리를 미리 뚫어 둠.
-- 노드 인터페이스: `execute(ctx) → NodeResult { Continue | Branch | Suspend | Done | Fail }`.
+- exec 노드 인터페이스: `ExecNode.execute(ctx) → NodeResult { Continue | Branch | Suspend | Done | Fail }`. (pure 노드는 flow 없이 `PureNode.evaluate` — [decisions/0001-data-port-contract.md](decisions/0001-data-port-contract.md).)
 - `ExecContext` = 대상 액터/플레이어, 서버, 스토리지, 로컬 변수 스코프, 그리고 데이터
   포트 값 저장소(`ValueStore`, 실행 1회 수명).
 - **안전장치**: 사이클 + 무대기 그래프의 한 틱 무한루프 → **틱당 노드 예산**으로 방어.

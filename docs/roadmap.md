@@ -7,7 +7,7 @@
 - **v0**: "루프가 돈다" 증명. 틱 스케줄러 + 노드 상태머신, publish→검증→핫스왑.
 - **v1**: 저작 가능한 에디터 + 제어흐름(Suspend/Branch). 타입 있는 포트 모델(플로우
   포트만; 데이터는 v2). Impactor 경제 어댑터 스파이크(`Nodes.awaitAction` 추출).
-- 등록 노드 13개: trigger 2 / action 3 / flow 2 / economy 4 / state 2.
+- 등록 노드(v1 기준) 13개: trigger 2 / action 3 / flow 2 / economy 4 / state 2. (e에서 flow에 `compare`·`branch_if` 추가 → 현재 15.)
 
 ## v2 1순위 — 상태·저장 계층 (flow-only) — 완료
 
