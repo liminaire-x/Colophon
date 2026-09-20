@@ -25,6 +25,10 @@ const typeColors = {}
 const dataColor = (typeId) => typeColors[typeId] || '#888'
 const FLOW_IN = 'in' // matches GraphNode.FLOW_IN_PORT on the server
 
+// An input is a wireable data port when connectable; otherwise an inline config knob.
+const dataInputs = (def) => (def?.inputs || []).filter((i) => i.connectable)
+const configInputs = (def) => (def?.inputs || []).filter((i) => !i.connectable)
+
 // --- custom node: renders ports from schema (flow-in handle + one source handle per flowOut port) ---
 // Blueprint-style handle shapes: exec (flow) pins are right-pointing triangles at
 // the top; data pins are type-colored circles below, inputs left / outputs right.
@@ -46,7 +50,7 @@ const dataHandleStyle = (typeId) => ({
 
 function ColophonNode({ data, selected }) {
   const flowOut = data.flowOut && data.flowOut.length ? data.flowOut : []
-  const dataIn = data.dataIn || []
+  const dataIn = (data.inputs || []).filter((i) => i.connectable)
   const dataOut = data.dataOut || []
   const cfg = data.config || {}
   const cfgEntries = Object.entries(cfg)
@@ -178,7 +182,7 @@ export default function App() {
               category: def.category,
               hasFlowIn: def.hasFlowIn,
               flowOut: def.flowOut,
-              dataIn: def.dataIn,
+              inputs: def.inputs,
               dataOut: def.dataOut,
             },
           }
@@ -222,13 +226,13 @@ export default function App() {
     if (isFlowSrc) {
       // Flow edge: target must accept a flow input and must not be a data input.
       if (c.targetHandle && c.targetHandle !== FLOW_IN
-          && (tgtDef.dataIn || []).some((p) => p.id === c.targetHandle)) return false
+          && dataInputs(tgtDef).some((p) => p.id === c.targetHandle)) return false
       return !!tgtDef.hasFlowIn
     }
     if (srcData) {
       // Data edge: target must be a data input of the SAME type, and unconnected.
       if (!c.targetHandle || c.targetHandle === FLOW_IN) return false
-      const tgtData = (tgtDef.dataIn || []).find((p) => p.id === c.targetHandle)
+      const tgtData = dataInputs(tgtDef).find((p) => p.id === c.targetHandle)
       if (!tgtData) return false
       if (tgtData.type !== srcData.type) return false
       const already = edgesRef.current.some((e) => e.target === c.target && e.targetHandle === c.targetHandle)
@@ -250,7 +254,8 @@ export default function App() {
 
   const addNode = useCallback((def) => {
     const config = {}
-    ;(def.fields || []).forEach((f) => { config[f.name] = f.default ?? '' })
+    // Inline-only inputs (config knobs) seed the config with their defaults.
+    ;(def.inputs || []).filter((i) => !i.connectable).forEach((i) => { config[i.id] = i.default ?? '' })
     const id = nextId(def.type)
     const node = {
       id,
@@ -263,7 +268,7 @@ export default function App() {
         category: def.category,
         hasFlowIn: def.hasFlowIn,
         flowOut: def.flowOut,
-        dataIn: def.dataIn,
+        inputs: def.inputs,
         dataOut: def.dataOut,
       },
     }
@@ -386,14 +391,14 @@ export default function App() {
             <>
               <div style={{ fontWeight: 600, marginBottom: 2 }}>{selectedDef?.label || selectedNode.data.nodeType}</div>
               <div style={{ color: '#888', marginBottom: 10 }}>{selectedNode.data.nodeType}</div>
-              {(selectedDef?.fields || []).length === 0 && <div style={{ color: '#999', marginBottom: 10 }}>No config.</div>}
-              {(selectedDef?.fields || []).map((f) => (
-                <label key={f.name} style={{ display: 'block', marginBottom: 10 }}>
-                  <div style={{ marginBottom: 3 }}>{f.name}</div>
-                  {f.type === 'enum' ? (
+              {configInputs(selectedDef).length === 0 && <div style={{ color: '#999', marginBottom: 10 }}>No config.</div>}
+              {configInputs(selectedDef).map((f) => (
+                <label key={f.id} style={{ display: 'block', marginBottom: 10 }}>
+                  <div style={{ marginBottom: 3 }}>{f.label || f.id}</div>
+                  {(f.options || []).length > 0 ? (
                     <select
-                      value={selectedNode.data.config?.[f.name] ?? (f.default ?? '')}
-                      onChange={(e) => setConfigField(f.name, e.target.value)}
+                      value={selectedNode.data.config?.[f.id] ?? (f.default ?? '')}
+                      onChange={(e) => setConfigField(f.id, e.target.value)}
                       style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
                     >
                       {(f.options || []).map((opt) => (
@@ -403,8 +408,8 @@ export default function App() {
                   ) : (
                     <input
                       type={f.type === 'number' ? 'number' : 'text'}
-                      value={selectedNode.data.config?.[f.name] ?? ''}
-                      onChange={(e) => setConfigField(f.name, e.target.value)}
+                      value={selectedNode.data.config?.[f.id] ?? ''}
+                      onChange={(e) => setConfigField(f.id, e.target.value)}
                       style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
                     />
                   )}
