@@ -2,7 +2,10 @@
 
 > Colophon의 **타입 시스템 설계** — 결정·근거·코드·미해결 과제. [0001-data-port-contract.md](0001-data-port-contract.md)의 계약 b를 확장한다.
 >
-> **구현 상태(2026-09-20):** §11 "지금" 항목 중 bare 원시(§1)·`TypeId` 구조체(§3)·number=double(§6)는 d-1에서 반영 완료. `item_type`/`item_stack`(§4)·값 필드 분리(§2)는 아이템 노드가 생기는 e에서. 서브타이핑/autocast/컨테이너(§7 미래)·실행 계층(§9)은 미래.
+> **구현 상태(2026-09-20):**
+> - **완료**: bare 원시(§1)·`TypeId` 구조체(§3)·number=double(§6)는 d에서. **`Type<T>`+코덱(§5)은 e 수직 슬라이스에서 구현**(`runtime/type/Type.java`·`Types.java`, string/number/boolean/player) — 단 §5의 `Node` 추상클래스+`InputPort<T>` **필드 선언 sugar는 미채택**, 실제는 함수형 노드 + `ctx.get(portId, Types.NUMBER)` 경량형. 연결 판정은 지금 exact match(`TypeId.equals`)만.
+> - **나중**: `item_type`/`item_stack`(§4)·값 필드 분리(§2)는 아이템/값 노드가 느는 e 확장에서. 서브타이핑/autocast/컨테이너(§7)·실행 계층(§9)은 additive 미래.
+> - 값 흐름 파이프라인 전체 설계·진행은 [0003-value-flow.md](0003-value-flow.md).
 
 ---
 
@@ -305,13 +308,16 @@ MC 클래스 계층: `Entity → LivingEntity → Player(추상, 클라/서버 �
 
 ---
 
-## 11. 구현 상태 (계약 d 완료 시점)
+## 11. 구현 상태
 
 **완료 (d, 커밋 3749085·ede6c99·5749cc1·9cb24fd·367e351·1f7bc73)**
 - [x] `TypeId` 구조체 도입(`runtime/type/TypeId.java`, sealed Builtin/Named), GraphParser 매칭을 `TypeId.parse().equals()` 경유로 (§3)
 - [x] 값 원시 3개(`string/number/boolean`) **bare**, `colophon:player`·참조는 네임스페이스 유지 (§1) — `BuiltinTypes`, `InputSpec` 매핑
 - [x] 저장 그래프 마이그레이션 **불필요** — 저장 포맷은 `{nodeType, config, 와이어}`만 담고 타입 id를 저장하지 않음(스키마에서 런타임 유도)
 - [x] `number = double` 계약 문서화 (§6)
+
+**완료 (e 수직 슬라이스)**
+- [x] `Type<T>` + 코덱 (§5) — `runtime/type/Type.java`·`Types.java`(string/number/boolean/player). 접근은 `ctx.get(portId, Types.NUMBER)` 경량형(§5의 `InputPort<T>` 필드 sugar 미채택). 상세 [0003-value-flow.md](0003-value-flow.md).
 
 **나중 (값이 흐르는 e / additive)**
 - [ ] `item_type` / `item_stack` 확정 (§4) — 아이템 노드가 생길 때. 지금은 item 타입 미등록.
