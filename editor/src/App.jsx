@@ -27,7 +27,6 @@ const FLOW_IN = 'in' // matches GraphNode.FLOW_IN_PORT on the server
 
 // An input is a wireable data port when connectable; otherwise an inline config knob.
 const dataInputs = (def) => (def?.inputs || []).filter((i) => i.connectable)
-const configInputs = (def) => (def?.inputs || []).filter((i) => !i.connectable)
 
 // --- custom node: renders ports from schema (flow-in handle + one source handle per flowOut port) ---
 // Blueprint-style handle shapes: exec (flow) pins are right-pointing triangles at
@@ -254,8 +253,8 @@ export default function App() {
 
   const addNode = useCallback((def) => {
     const config = {}
-    // Inline-only inputs (config knobs) seed the config with their defaults.
-    ;(def.inputs || []).filter((i) => !i.connectable).forEach((i) => { config[i.id] = i.default ?? '' })
+    // Seed every input's inline default (connectable inputs fall back to it when unwired).
+    ;(def.inputs || []).forEach((i) => { config[i.id] = i.default ?? '' })
     const id = nextId(def.type)
     const node = {
       id,
@@ -278,6 +277,11 @@ export default function App() {
 
   const selectedNode = nodes.find((n) => n.id === selectedId) || null
   const selectedDef = selectedNode ? byType[selectedNode.data.nodeType] : null
+  // Data input ports of the selected node that are currently wired (so they take a
+  // value from the wire, not an inline field).
+  const connectedInputs = useMemo(
+    () => new Set(edges.filter((e) => e.target === selectedId && e.targetHandle).map((e) => e.targetHandle)),
+    [edges, selectedId])
 
   const setConfigField = useCallback((name, value) => {
     setNodes((ns) => ns.map((n) =>
@@ -391,30 +395,38 @@ export default function App() {
             <>
               <div style={{ fontWeight: 600, marginBottom: 2 }}>{selectedDef?.label || selectedNode.data.nodeType}</div>
               <div style={{ color: '#888', marginBottom: 10 }}>{selectedNode.data.nodeType}</div>
-              {configInputs(selectedDef).length === 0 && <div style={{ color: '#999', marginBottom: 10 }}>No config.</div>}
-              {configInputs(selectedDef).map((f) => (
-                <label key={f.id} style={{ display: 'block', marginBottom: 10 }}>
-                  <div style={{ marginBottom: 3 }}>{f.label || f.id}</div>
-                  {(f.options || []).length > 0 ? (
-                    <select
-                      value={selectedNode.data.config?.[f.id] ?? (f.default ?? '')}
-                      onChange={(e) => setConfigField(f.id, e.target.value)}
-                      style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
-                    >
-                      {(f.options || []).map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type={f.type === 'number' ? 'number' : 'text'}
-                      value={selectedNode.data.config?.[f.id] ?? ''}
-                      onChange={(e) => setConfigField(f.id, e.target.value)}
-                      style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
-                    />
-                  )}
-                </label>
-              ))}
+              {(selectedDef?.inputs || []).length === 0 && <div style={{ color: '#999', marginBottom: 10 }}>No inputs.</div>}
+              {(selectedDef?.inputs || []).map((f) => {
+                const wired = f.connectable && connectedInputs.has(f.id)
+                return (
+                  <label key={f.id} style={{ display: 'block', marginBottom: 10 }}>
+                    <div style={{ marginBottom: 3 }}>
+                      {f.label || f.id}
+                      {f.connectable && <span style={{ color: '#888', fontSize: 10 }}> · {wired ? 'wired' : 'input'}</span>}
+                    </div>
+                    {wired ? (
+                      <div style={{ color: '#0d9488', fontStyle: 'italic', padding: '4px 0' }}>connected (from wire)</div>
+                    ) : (f.options || []).length > 0 ? (
+                      <select
+                        value={selectedNode.data.config?.[f.id] ?? (f.default ?? '')}
+                        onChange={(e) => setConfigField(f.id, e.target.value)}
+                        style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
+                      >
+                        {(f.options || []).map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={f.type === 'number' ? 'number' : 'text'}
+                        value={selectedNode.data.config?.[f.id] ?? ''}
+                        onChange={(e) => setConfigField(f.id, e.target.value)}
+                        style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
+                      />
+                    )}
+                  </label>
+                )
+              })}
               <button onClick={deleteSelected} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>
                 Delete node
               </button>
