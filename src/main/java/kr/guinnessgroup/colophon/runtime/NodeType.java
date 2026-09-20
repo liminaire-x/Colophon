@@ -8,6 +8,7 @@ package kr.guinnessgroup.colophon.runtime;
 
 import com.google.gson.JsonObject;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -36,6 +37,23 @@ public interface NodeType {
     String category();
 
     List<FieldSpec> fields();
+
+    /**
+     * Unified inputs (contract d): config fields and data inputs as one list.
+     * Defaults to bridging {@link #fields()} (inline-only knobs) and
+     * {@link #dataInPorts()} (connectable data), so existing node types need no
+     * change; nodes will later declare {@code inputs()} directly.
+     */
+    default List<InputSpec> inputs() {
+        List<InputSpec> all = new ArrayList<>();
+        for (FieldSpec f : fields()) {
+            all.add(InputSpec.fromField(f));
+        }
+        for (DataPort p : dataInPorts()) {
+            all.add(InputSpec.fromDataPort(p));
+        }
+        return all;
+    }
 
     /** Whether this node accepts an incoming execution edge. Triggers: false. */
     boolean hasFlowIn();

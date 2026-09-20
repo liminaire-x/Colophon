@@ -60,6 +60,24 @@ public final class NodeRegistry {
             o.add("dataIn", dataPortsJson(t.dataInPorts()));
             o.add("dataOut", dataPortsJson(t.dataOutPorts()));
 
+            // Unified inputs (contract d): config knobs + data inputs as one list.
+            JsonArray inputs = new JsonArray();
+            for (InputSpec in : t.inputs()) {
+                JsonObject io = new JsonObject();
+                io.addProperty("id", in.id());
+                io.addProperty("type", in.typeId());
+                io.addProperty("label", in.label());
+                io.addProperty("default", in.defaultValue());
+                io.addProperty("connectable", in.connectable());
+                JsonArray opts = new JsonArray();
+                for (String opt : in.options()) {
+                    opts.add(opt);
+                }
+                io.add("options", opts);
+                inputs.add(io);
+            }
+            o.add("inputs", inputs);
+
             JsonArray fields = new JsonArray();
             for (FieldSpec f : t.fields()) {
                 JsonObject fo = new JsonObject();
