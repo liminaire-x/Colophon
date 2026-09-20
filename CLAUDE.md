@@ -24,15 +24,15 @@
 - **v2 2순위 데이터 포트: 계약 a~e 전부 확정(설계 완료)**, 구현 착수:
   - ✅ **a. 타입 레지스트리 뼈대** — `runtime/type/` (TypeKind, TypeDescriptor, TypeRegistry, BuiltinTypes 4종). /api/schema에 `types` 노출. 노드 미사용. **커밋 b989baa, 실행 검증 완료.**
   - ✅ **b. 포트 category(flow/data) + 데이터 포트 연결 검증** — `DataPort`(id/typeId/label), `NodeType.dataInPorts()/dataOutPorts()` default, /api/schema `dataIn`/`dataOut` 노출. GraphParser flow/data 분류(명목 타입 일치, flow↔data 금지, 데이터입력 단일 와이어; 데이터 엣지는 검증만·미배선). 에디터 `isValidConnection` 대칭 + `targetHandle` 왕복 + **블루프린트식 노드 레이아웃**(exec 삼각형 상단/데이터 원형 좌·우). **커밋 c71dddf·fdb0491·0048d62·ee553d5, 브라우저 실증 완료(타입 일치 연결·불일치 차단).**
-  - ⬜ **c. 다음** — 노드 종류 분리(ExecNode/PureNode·읽기전용 PureContext) + per-execution value store(exec push/pure pull).
-  - ⬜ d. 입력 통합(`FieldSpec`→`InputSpec`: 타입+인라인 기본값+connectable) + 노드 전체 마이그레이트 + 에디터 폼(미연결=인라인, 연결=와이어).
+  - ✅ **c. 노드 종류 분리 + value store 뼈대** — `ValueStore`+`PortRef`(ExecContext.values, unset=부재), `Node`→`ExecNode` 리네임+`NodeKind{EXEC,PURE}`, `PureNode`+읽기전용 `PureContext` 스켈레톤, `NodeType.kind()/createPure()`. 노드 미사용(무회귀). **커밋 bcd3c31·9e5ef23·9ba058b.** _(exec push/pure pull 실배선은 데이터 노드 생기는 e에서.)_
+  - 🔄 **d. 입력 통합(진행 중)** — `FieldSpec`→`InputSpec`(타입+인라인 기본값+connectable). **d-1 완료**: `InputSpec` + `NodeType.inputs()` 브리지(fields=inline·connectable false / dataIn=connectable true) + /api/schema `inputs`. **타입 표기 결정**(타입시스템 인수인계 문서 반영): 값 원시는 **bare**(`string/number/boolean`), 참조만 네임스페이스(`colophon:player`). 내부 `TypeId` sealed(Builtin/Named). `number`=단일 IEEE754 double. **커밋 3749085·ede6c99.** 남음: 에디터 폼(미연결=인라인/연결=와이어), 13노드 `inputs()` 직접 선언으로 마이그레이트→`FieldSpec` 제거.
   - ⬜ e. 첫 데이터 노드(get_balance·get_variable·format_text·compare) + 트리거 명시 출력(victim/killer). "값이 흐른다" 실증(economy/state로).
   - ⬜ f. 안정 ID·version(디스크립터 필드)·마이그레이션 3층·deprecation·/api/validate.
 
 ## 데이터 포트 계약 요약 (전체·근거·기각 대안은 Trilium)
 **블루프린트를 따라가되 세 곳만 더 엄격**: 거대한 타입 시스템 X, 암묵 자동 캐스트/ToString X, `self` 문맥 기본값 X. 원칙: 계약을 잠그고 메커니즘은 미룬다.
 - **a 노드 종류**: `ExecNode`/`PureNode` 물리 분리(컴파일러 강제). PureNode=읽기전용 PureContext. per-exec value store(exec push/pure pull, 수명=플로우 실행 전체). exec 데이터출력=실행 후 유효(미실행=unset→정의결과).
-- **b 타입**: 열린 TypeRegistry(명목 매칭, 서브타이핑 X). 값(string/number/boolean) vs 참조(player=UUID, resolve 실패=unset, serializable=false). 단일 number(decimal). flow/data category. 연결 시점 검증, 암묵 자동변환 없음. 값→텍스트=전용 `format_text` Pure 노드.
+- **b 타입**: 열린 TypeRegistry(명목 매칭, 서브타이핑 X). 값(string/number/boolean) vs 참조(player=UUID, resolve 실패=unset, serializable=false). **표기: 값 원시=bare(`string`), 참조·애드온=`네임스페이스:이름`(`colophon:player`, `economy:account`)**. 내부는 `TypeId` sealed(Builtin/Named), JSON은 문자열 불변. `number`=단일 IEEE754 double(int/float 재분할 X, 정확 64bit는 별도 `int64` 문자열 인코딩=미래). 연결 판정=단일 진입점(지금 exact, 서브타이핑/autocast는 additive 미래). flow/data category. 암묵 자동변환 없음. 값→텍스트=전용 `format_text` Pure 노드. _(상세: `~/Downloads/colophon-type-system-handoff.md`)_
 - **c 입력 통합**: config+데이터를 "입력" 하나(타입+인라인 기본값+connectable, 입력별 SDK 속성, 기본 true·구성 노브만 false). 입력=와이어1 or 인라인, 출력=fan-out.
 - **d 주체 = 균일 명시**: 주체는 값(마법 아님), 모든 참조 타입 균일. 트리거가 이름 있는 타입 출력(victim/killer). 참조 입력=명시 연결·문맥 기본값 없음(미연결=unset). exec선≠데이터(앞 노드 대상 자동 안 물려감, 같은 대상=fan-out).
 - **e 직렬화·버전**: 포트 ID=불변 semantic 문자열(라벨은 별도 번역 키). version=디스크립터 필드(`default int version(){return 1;}`, ID/타입/구조/제거 변경 시만↑). 마이그레이션 3층(관대한 파싱=안 터짐 / 선언적 리다이렉트=rename / 명시적 마이그레이터=값·구조). deprecation=노드 단위(soft). 진단은 /api/validate 드라이런 + (Javalin 후) 에디터 push.
