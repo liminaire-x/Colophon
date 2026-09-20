@@ -39,11 +39,15 @@ public interface NodeType {
         return List.of();
     }
 
-    /** Whether this node accepts an incoming execution edge. Triggers: false. */
-    boolean hasFlowIn();
+    /** Whether this node accepts an incoming execution edge. Triggers and pure nodes: false. */
+    default boolean hasFlowIn() {
+        return false;
+    }
 
-    /** Named execution outputs, in order. Straight node: ["out"]; branch: ["true","false"]; terminal: []. */
-    List<String> flowOutPorts();
+    /** Named flow outputs, in order. Straight: ["out"]; branch: ["true","false"]; terminal/pure: []. */
+    default List<String> flowOutPorts() {
+        return List.of();
+    }
 
     /** Typed data outputs this node produces, in order. Default: none. (Contract b.) */
     default List<DataPort> dataOutPorts() {
