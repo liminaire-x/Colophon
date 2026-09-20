@@ -66,7 +66,11 @@ Suspend, 완료 후 진행. 배관은 `Nodes.awaitAction` 헬퍼로 추출.
 
 ## 개발 워크플로우 원칙
 
-1. **단계로 쪼갠다.** 각 단계 끝에 빌드/동작 확인(CI 그린 또는 IntelliJ) → 그 단계 커밋.
-2. 코어 인터페이스 진화는 **default 메서드로 하위호환** 유지.
-3. **계약(포트/타입/직렬화 표면) 결정은 잠김** — 재논의 말고 구현. 근거·기각 대안은 `decisions/`.
-4. 패키지 재편 불필요 — `runtime`/`nodes` 유지, 신규는 `runtime/type`·`runtime/migration` 등 추가.
+1. **단계로 쪼갠다.** 검증은 **2단**:
+   - **CI = 컴파일 게이트**. GitHub Actions가 push마다 `./gradlew build`(모드+에디터)를 클린 리눅스에서 돌린다. 구조·리팩터 단계는 이걸로 충분. 운영(초기): 커밋 → master push → `gh run watch`로 사후 확인, 실패 시 fix-forward. (에이전트는 로컬 Java 컴파일 안 함 — Windows Gradle 캐시 꼬임.)
+   - **IntelliJ/브라우저 = 동작 게이트**. CI는 컴파일만 본다. 관찰 가능한 동작(publish, 에디터 폼/연결, 실제 값 흐름)이 있는 단계는 IntelliJ/브라우저 확인까지 받고 진행.
+   - 향후 협업이 늘면 feature 브랜치+PR로 CI를 머지 전에 돌리는 방식으로 전환 가능.
+2. **광범위 변경·새 단계 설계 전 graphify 선질의** — 호출부·교차 관심사를 그래프로 오리엔테이션. 국소(아는 파일 몇 개) 변경은 grep/read가 더 빠르고 정확.
+3. 코어 인터페이스 진화는 **default 메서드로 하위호환** 유지.
+4. **계약(포트/타입/직렬화 표면) 결정은 잠김** — 재논의 말고 구현. 근거·기각 대안은 `decisions/`.
+5. 패키지 재편 불필요 — `runtime`/`nodes` 유지, 신규는 `runtime/type`·`runtime/migration` 등 추가.

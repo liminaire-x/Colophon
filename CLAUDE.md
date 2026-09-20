@@ -27,10 +27,13 @@
 - 상세 체크리스트·커밋·진행 로그 → [docs/roadmap.md](docs/roadmap.md).
 
 ## 개발 워크플로우 (꼭 지킬 것)
-1. **단계로 쪼갠다.** 각 단계 끝에 빌드/동작 확인(CI 그린 또는 IntelliJ) → 확인되면 그 단계 **커밋**.
-2. 코어 인터페이스 진화는 **default 메서드로 하위호환** 유지.
-3. **계약(포트/타입/직렬화 표면) 결정은 잠김** — 재논의 말고 구현. 근거·기각 대안은 [docs/decisions/](docs/decisions/).
-4. 패키지 재편 불필요 — `runtime`/`nodes` 유지, 신규는 `runtime/type`·`runtime/migration` 등으로 추가.
+1. **단계로 쪼갠다.** 검증 2단:
+   - **CI = 컴파일 게이트** — 구조·리팩터 단계는 이걸로 충분. 운영(초기): **커밋 → master push → `gh run watch`로 사후 CI 확인**, 실패 시 fix-forward.
+   - **IntelliJ/브라우저 = 동작 게이트** — 관찰 가능한 동작이 있는 단계(데모·에디터 UX·값 흐름)는 이 확인까지 받고 진행.
+2. **광범위 변경·새 단계 설계 전 graphify 선(先)질의**로 호출부·교차 관심사 오리엔테이션(국소 변경은 grep/read).
+3. 코어 인터페이스 진화는 **default 메서드로 하위호환** 유지.
+4. **계약(포트/타입/직렬화 표면) 결정은 잠김** — 재논의 말고 구현. 근거·기각 대안은 [docs/decisions/](docs/decisions/).
+5. 패키지 재편 불필요 — `runtime`/`nodes` 유지, 신규는 `runtime/type`·`runtime/migration` 등으로 추가.
 
 ## 문서 (docs/)
 - [docs/README.md](docs/README.md) — 문서 지도 / [roadmap.md](docs/roadmap.md) — 로드맵·진행 / [architecture.md](docs/architecture.md) — 아키텍처
