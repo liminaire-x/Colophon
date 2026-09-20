@@ -10,13 +10,13 @@ import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
-import kr.guinnessgroup.colophon.runtime.NodeType;
+import kr.guinnessgroup.colophon.runtime.ExecNodeType;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
 
 /** Action: broadcasts a chat message to every player on the server. */
-public final class BroadcastNode implements NodeType {
+public final class BroadcastNode implements ExecNodeType {
 
     @Override public String id() { return "broadcast"; }
     @Override public String label() { return "Broadcast"; }

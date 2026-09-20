@@ -10,12 +10,12 @@ import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
-import kr.guinnessgroup.colophon.runtime.NodeType;
+import kr.guinnessgroup.colophon.runtime.ExecNodeType;
 
 import java.util.List;
 
 /** Trigger: fires when a player joins the server. Entry point (no flow-in). */
-public final class OnPlayerJoinNode implements NodeType {
+public final class OnPlayerJoinNode implements ExecNodeType {
 
     @Override public String id() { return "on_player_join"; }
     @Override public String label() { return "On Player Join"; }

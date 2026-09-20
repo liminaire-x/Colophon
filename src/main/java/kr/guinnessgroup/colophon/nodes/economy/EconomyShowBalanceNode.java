@@ -11,7 +11,7 @@ import com.mojang.logging.LogUtils;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
-import kr.guinnessgroup.colophon.runtime.NodeType;
+import kr.guinnessgroup.colophon.runtime.ExecNodeType;
 import net.impactdev.impactor.api.economy.EconomyService;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -25,7 +25,7 @@ import java.util.List;
  * Action: sends the acting player their current balance as a chat message.
  * A stopgap until data ports let a value flow into a Send Message node.
  */
-public final class EconomyShowBalanceNode implements NodeType {
+public final class EconomyShowBalanceNode implements ExecNodeType {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 

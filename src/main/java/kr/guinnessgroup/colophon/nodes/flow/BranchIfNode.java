@@ -10,7 +10,7 @@ import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
-import kr.guinnessgroup.colophon.runtime.NodeType;
+import kr.guinnessgroup.colophon.runtime.ExecNodeType;
 import kr.guinnessgroup.colophon.runtime.type.Types;
 
 import java.util.List;
@@ -21,7 +21,7 @@ import java.util.List;
  * value a pure node produced (e.g. {@link CompareNode}). An unset condition takes
  * "false" (defined result).
  */
-public final class BranchIfNode implements NodeType {
+public final class BranchIfNode implements ExecNodeType {
 
     @Override public String id() { return "branch_if"; }
     @Override public String label() { return "Branch (if)"; }

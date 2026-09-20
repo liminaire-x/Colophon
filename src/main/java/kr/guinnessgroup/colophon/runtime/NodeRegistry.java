@@ -46,12 +46,17 @@ public final class NodeRegistry {
             o.addProperty("type", t.id());
             o.addProperty("label", t.label());
             o.addProperty("category", t.category());
-            o.addProperty("hasFlowIn", t.hasFlowIn());
 
+            // Flow ports exist only on exec node types; pure nodes report none.
             JsonArray flowOut = new JsonArray();
-            for (String port : t.flowOutPorts()) {
-                flowOut.add(port);
+            boolean hasFlowIn = false;
+            if (t instanceof ExecNodeType e) {
+                hasFlowIn = e.hasFlowIn();
+                for (String port : e.flowOutPorts()) {
+                    flowOut.add(port);
+                }
             }
+            o.addProperty("hasFlowIn", hasFlowIn);
             o.add("flowOut", flowOut);
 
             // Typed data outputs (contract b). Data inputs live in `inputs` below

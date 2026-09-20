@@ -99,8 +99,9 @@ public final class GraphParser {
             String tgtHandle = asString(edge, "targetHandle");
 
             // Classify the source handle: a flow output (default "out") or a data output.
+            // Only exec node types have flow outputs; pure nodes never do.
             String flowPort = srcHandle == null ? GraphNode.DEFAULT_PORT : srcHandle;
-            boolean srcIsFlow = sType.flowOutPorts().contains(flowPort);
+            boolean srcIsFlow = (sType instanceof ExecNodeType se) && se.flowOutPorts().contains(flowPort);
             DataPort srcData = srcIsFlow ? null : findPort(sType.dataOutPorts(), srcHandle);
             if (!srcIsFlow && srcData == null) {
                 errors.add("node '" + source + "' has no output port '"
@@ -116,7 +117,7 @@ public final class GraphParser {
                             + "' to data input '" + tgtHandle + "' of '" + target + "'");
                     continue;
                 }
-                if (!tType.hasFlowIn()) {
+                if (!(tType instanceof ExecNodeType te) || !te.hasFlowIn()) {
                     errors.add("node '" + target + "' cannot receive a connection (it is an entry point)");
                     continue;
                 }
@@ -168,10 +169,10 @@ public final class GraphParser {
             JsonObject config = configById.get(id);
             ExecNode exec = null;
             PureNode pure = null;
-            if (nt.kind() == NodeKind.PURE) {
-                pure = nt.createPure(config);
-            } else {
-                exec = nt.create(config);
+            if (nt instanceof PureNodeType p) {
+                pure = p.createPure(config);
+            } else if (nt instanceof ExecNodeType e) {
+                exec = e.create(config);
             }
             graphNodes.put(id, new GraphNode(id, nt, exec, pure, config,
                     outputs.getOrDefault(id, Map.of()),

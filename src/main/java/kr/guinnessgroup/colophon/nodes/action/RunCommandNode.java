@@ -10,14 +10,14 @@ import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
-import kr.guinnessgroup.colophon.runtime.NodeType;
+import kr.guinnessgroup.colophon.runtime.ExecNodeType;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
 
 import java.util.List;
 
 /** Action: runs a server command as the console (permission level 4). */
-public final class RunCommandNode implements NodeType {
+public final class RunCommandNode implements ExecNodeType {
 
     @Override public String id() { return "run_command"; }
     @Override public String label() { return "Run Command"; }

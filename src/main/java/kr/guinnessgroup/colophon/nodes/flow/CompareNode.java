@@ -9,9 +9,8 @@ package kr.guinnessgroup.colophon.nodes.flow;
 import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.runtime.DataPort;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
-import kr.guinnessgroup.colophon.runtime.NodeKind;
-import kr.guinnessgroup.colophon.runtime.NodeType;
 import kr.guinnessgroup.colophon.runtime.PureNode;
+import kr.guinnessgroup.colophon.runtime.PureNodeType;
 import kr.guinnessgroup.colophon.runtime.type.Types;
 
 import java.util.List;
@@ -22,12 +21,11 @@ import java.util.Map;
  * no side effects — it is pulled when a consumer reads its {@code result} output.
  * If either input is unset, the result is unset (no value produced).
  */
-public final class CompareNode implements NodeType {
+public final class CompareNode implements PureNodeType {
 
     @Override public String id() { return "compare"; }
     @Override public String label() { return "Compare"; }
     @Override public String category() { return "flow"; }
-    @Override public NodeKind kind() { return NodeKind.PURE; }
     @Override public List<InputSpec> inputs() {
         return List.of(
                 InputSpec.data("a", "number", "A"),

@@ -10,13 +10,13 @@ import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
-import kr.guinnessgroup.colophon.runtime.NodeType;
+import kr.guinnessgroup.colophon.runtime.ExecNodeType;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 /** Flow: branches true/false by a percentage chance (exercises Branch). */
-public final class ChanceNode implements NodeType {
+public final class ChanceNode implements ExecNodeType {
 
     @Override public String id() { return "chance"; }
     @Override public String label() { return "Chance"; }

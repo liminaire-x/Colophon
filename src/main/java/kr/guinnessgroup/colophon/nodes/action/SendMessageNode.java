@@ -10,14 +10,14 @@ import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
-import kr.guinnessgroup.colophon.runtime.NodeType;
+import kr.guinnessgroup.colophon.runtime.ExecNodeType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.List;
 
 /** Action: sends a chat message to the acting player. */
-public final class SendMessageNode implements NodeType {
+public final class SendMessageNode implements ExecNodeType {
 
     @Override public String id() { return "send_message"; }
     @Override public String label() { return "Send Message"; }

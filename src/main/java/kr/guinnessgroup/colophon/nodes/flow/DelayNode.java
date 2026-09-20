@@ -10,13 +10,13 @@ import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
-import kr.guinnessgroup.colophon.runtime.NodeType;
+import kr.guinnessgroup.colophon.runtime.ExecNodeType;
 import kr.guinnessgroup.colophon.runtime.ResumeCondition;
 
 import java.util.List;
 
 /** Flow: waits N server ticks, then continues (exercises Suspend/resume). */
-public final class DelayNode implements NodeType {
+public final class DelayNode implements ExecNodeType {
 
     @Override public String id() { return "delay"; }
     @Override public String label() { return "Delay"; }

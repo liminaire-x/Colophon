@@ -10,7 +10,7 @@ import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
-import kr.guinnessgroup.colophon.runtime.NodeType;
+import kr.guinnessgroup.colophon.runtime.ExecNodeType;
 import kr.guinnessgroup.colophon.runtime.state.Scope;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -22,7 +22,7 @@ import java.util.UUID;
  * it checks existence; with one it checks string equality. Read-only &mdash; it
  * decides the path but does not pass the value on (that is a data port, v2).
  */
-public final class HasVariableNode implements NodeType {
+public final class HasVariableNode implements ExecNodeType {
 
     @Override public String id() { return "has_variable"; }
     @Override public String label() { return "Has Variable"; }

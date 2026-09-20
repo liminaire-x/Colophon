@@ -11,7 +11,7 @@ import com.mojang.logging.LogUtils;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
-import kr.guinnessgroup.colophon.runtime.NodeType;
+import kr.guinnessgroup.colophon.runtime.ExecNodeType;
 import net.impactdev.impactor.api.economy.EconomyService;
 import net.impactdev.impactor.api.economy.accounts.Account;
 import net.minecraft.server.level.ServerPlayer;
@@ -26,7 +26,7 @@ import java.util.List;
  * account only if already loaded (getNow); if not ready it takes "false".
  * (A proper async-aware query is a v2 item — see spike retrospective.)
  */
-public final class EconomyBalanceCheckNode implements NodeType {
+public final class EconomyBalanceCheckNode implements ExecNodeType {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 

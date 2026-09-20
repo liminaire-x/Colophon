@@ -10,7 +10,7 @@ import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
-import kr.guinnessgroup.colophon.runtime.NodeType;
+import kr.guinnessgroup.colophon.runtime.ExecNodeType;
 import kr.guinnessgroup.colophon.runtime.Nodes;
 import net.impactdev.impactor.api.economy.EconomyService;
 import net.impactdev.impactor.api.economy.transactions.EconomyTransaction;
@@ -25,7 +25,7 @@ import java.util.List;
  * async transaction to complete before continuing. Logs when the withdrawal was
  * not successful (e.g. not enough funds).
  */
-public final class EconomyWithdrawNode implements NodeType {
+public final class EconomyWithdrawNode implements ExecNodeType {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 

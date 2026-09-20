@@ -10,7 +10,7 @@ import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
-import kr.guinnessgroup.colophon.runtime.NodeType;
+import kr.guinnessgroup.colophon.runtime.ExecNodeType;
 import kr.guinnessgroup.colophon.runtime.Nodes;
 import net.impactdev.impactor.api.economy.EconomyService;
 import net.minecraft.server.level.ServerPlayer;
@@ -24,7 +24,7 @@ import java.util.List;
  * async transaction to complete before continuing (via Nodes.awaitAction), so
  * downstream nodes see the new balance.
  */
-public final class EconomyDepositNode implements NodeType {
+public final class EconomyDepositNode implements ExecNodeType {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 

@@ -10,7 +10,7 @@ import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
-import kr.guinnessgroup.colophon.runtime.NodeType;
+import kr.guinnessgroup.colophon.runtime.ExecNodeType;
 import kr.guinnessgroup.colophon.runtime.state.Scope;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -21,7 +21,7 @@ import java.util.UUID;
  * Action: stores a variable in the given scope. Flow-only &mdash; the value is a
  * constant from config, not a data-port input.
  */
-public final class SetVariableNode implements NodeType {
+public final class SetVariableNode implements ExecNodeType {
 
     @Override public String id() { return "set_variable"; }
     @Override public String label() { return "Set Variable"; }
