@@ -8,6 +8,7 @@ Colophon 개발의 **근거·로드맵·설계 결정**을 담는다. 진행 상
 
 | 파일 | 내용 |
 |---|---|
+| [handoff.md](handoff.md) | 새 세션용 서술형 인수인계 — 지금 어디인지, 무엇을 했는지, 다음, 일하는 방식, 함정 |
 | [roadmap.md](roadmap.md) | 버전별 로드맵, v2 데이터 포트 구현 체크리스트(a~f), 진행 로그, 백로그 |
 | [architecture.md](architecture.md) | 스택·코드 구조·런타임 실행 모델·영속화·핵심 설계 선택(이름/애드온/라이선스) |
 | [decisions/0001-data-port-contract.md](decisions/0001-data-port-contract.md) | v2 데이터 포트 계약 a~e + 기각한 대안 |
