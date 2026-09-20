@@ -1,0 +1,46 @@
+name: build
+
+# Compiles the mod and the editor on a clean Linux runner, so BUILD SUCCESS/FAIL
+# is readable via `gh run` without a local IntelliJ build. `./gradlew build`
+# packages the editor (npm install -> vite build -> resources) then compiles Java.
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Set up Node 20 (editor build)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: editor/package-lock.json
+
+      - name: Build (mod + editor)
+        run: |
+          chmod +x gradlew
+          ./gradlew build --no-daemon --stacktrace
+
+      - name: Upload jar
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: colophon-jar
+          path: build/libs/*.jar
+          if-no-files-found: warn
