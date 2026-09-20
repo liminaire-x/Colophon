@@ -28,7 +28,7 @@ save flush / quit markOffline). 노드 `set_variable` / `has_variable`. (커밋 
 - [x] **b. 포트 category + 데이터 포트 연결 검증** — `DataPort`, `dataInPorts()/dataOutPorts()`, GraphParser flow/data 분류(명목 타입 일치, flow↔data 금지, 단일 와이어), 에디터 `isValidConnection` + 블루프린트식 노드 레이아웃. (c71dddf·fdb0491·0048d62·ee553d5)
 - [x] **c. 노드 종류 분리 + value store 뼈대** — `ValueStore`+`PortRef`(ExecContext.values), `Node`→`ExecNode`+`NodeKind`, `PureNode`+`PureContext` 스켈레톤. (bcd3c31·9e5ef23·9ba058b)
 - [x] **d. 입력 통합** — `FieldSpec`→`InputSpec` 단일 소스, 13노드 마이그레이트, `FieldSpec`/`SimpleNodeType`/`dataInPorts()` 제거. 타입 표기 bare 원시 + `TypeId` 구조체 + number=double. (3749085·ede6c99·5749cc1·9cb24fd·367e351·1f7bc73)
-- [ ] **e. 다음** — 첫 데이터 노드(get_balance·get_variable·format_text·compare) + 트리거 명시 출력(victim/killer). **여기서 c의 exec push/pure pull 실배선 + b에서 미룬 데이터 엣지 그래프 배선.** "값이 흐른다" 실증.
+- [ ] **e. 다음 (진행 중)** — 값 흐름: 데이터 엣지 배선 + `ValueResolver`(exec push/pure pull) + typed `Type<T>` I/O + 첫 데이터 노드(get_variable·compare·format_text·get_balance·branch_if) + 트리거 명시 출력(victim/killer). 설계: [decisions/0003-value-flow.md](decisions/0003-value-flow.md). 수직 슬라이스(get_variable→send_message)부터.
 - [ ] **f.** 안정 ID·version(디스크립터 필드)·마이그레이션 3층·deprecation·/api/validate.
 
 ## v2 3순위 — 안전 원칙 강화 (크로스커팅 하드닝)
