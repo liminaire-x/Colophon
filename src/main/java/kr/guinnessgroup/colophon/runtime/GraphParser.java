@@ -110,7 +110,7 @@ public final class GraphParser {
             if (srcIsFlow) {
                 // Flow edge: target must accept a flow input and must not be a data input.
                 if (tgtHandle != null && !GraphNode.FLOW_IN_PORT.equals(tgtHandle)
-                        && findPort(tType.dataInPorts(), tgtHandle) != null) {
+                        && findDataInput(tType, tgtHandle) != null) {
                     errors.add("cannot connect flow output '" + flowPort + "' of '" + source
                             + "' to data input '" + tgtHandle + "' of '" + target + "'");
                     continue;
@@ -132,7 +132,7 @@ public final class GraphParser {
                             + "' to a flow input of '" + target + "'");
                     continue;
                 }
-                DataPort tgtData = findPort(tType.dataInPorts(), tgtHandle);
+                InputSpec tgtData = findDataInput(tType, tgtHandle);
                 if (tgtData == null) {
                     errors.add("node '" + target + "' has no data input port '" + tgtHandle + "'");
                     continue;
@@ -184,6 +184,19 @@ public final class GraphParser {
         for (DataPort p : ports) {
             if (p.id().equals(id)) {
                 return p;
+            }
+        }
+        return null;
+    }
+
+    /** The connectable (data) input of the given node type with this id, or null. */
+    private static InputSpec findDataInput(NodeType type, String id) {
+        if (id == null) {
+            return null;
+        }
+        for (InputSpec in : type.inputs()) {
+            if (in.connectable() && in.id().equals(id)) {
+                return in;
             }
         }
         return null;

@@ -54,10 +54,8 @@ public final class NodeRegistry {
             }
             o.add("flowOut", flowOut);
 
-            // Typed data ports (contract b). A separate category from flow ports:
-            // the editor draws them as typed handles and validates connections by
-            // nominal type match. Both default to empty for existing node types.
-            o.add("dataIn", dataPortsJson(t.dataInPorts()));
+            // Typed data outputs (contract b). Data inputs live in `inputs` below
+            // (connectable ones); the editor draws both as typed handles.
             o.add("dataOut", dataPortsJson(t.dataOutPorts()));
 
             // Unified inputs (contract d): config knobs + data inputs as one list.
@@ -77,21 +75,6 @@ public final class NodeRegistry {
                 inputs.add(io);
             }
             o.add("inputs", inputs);
-
-            JsonArray fields = new JsonArray();
-            for (FieldSpec f : t.fields()) {
-                JsonObject fo = new JsonObject();
-                fo.addProperty("name", f.name());
-                fo.addProperty("type", f.type());
-                fo.addProperty("default", f.defaultValue());
-                JsonArray opts = new JsonArray();
-                for (String opt : f.options()) {
-                    opts.add(opt);
-                }
-                fo.add("options", opts);
-                fields.add(fo);
-            }
-            o.add("fields", fields);
 
             arr.add(o);
         }
