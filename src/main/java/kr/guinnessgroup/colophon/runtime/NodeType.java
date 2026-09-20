@@ -8,24 +8,22 @@ package kr.guinnessgroup.colophon.runtime;
 
 import com.google.gson.JsonObject;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A registered node type: its editor-facing descriptor (label, category,
- * config fields, flow ports) plus a factory that builds a runnable {@link ExecNode}
- * from a node's saved config.
+ * A registered node type: its editor-facing descriptor (label, category, inputs,
+ * flow/data ports) plus a factory that builds a runnable {@link ExecNode} from a
+ * node's saved config.
  * <p>
  * Flow ports model control flow. A node with no flow-in is an entry point
  * (a trigger); a node's flow-out ports name its downstream connections
  * ("out" for a straight action, "true"/"false" for a branch, none for a
  * terminal).
  * <p>
- * Data ports ({@link DataPort}) carry typed values and are a separate category
- * from flow ports: a data port may only connect to another data port of the same
- * {@code typeId}, and never to a flow port (contract b). Both port lists default
- * to empty, so existing node types need no change; values do not flow yet
- * (contract b locks the port surface and connection validation only).
+ * Inputs ({@link InputSpec}) unify config knobs and typed data inputs (contract d):
+ * a connectable input is a data port that may only connect to a data output of the
+ * same {@code typeId} (never a flow port), an inline-only input is a config knob.
+ * Data outputs ({@link DataPort}) are declared separately via {@link #dataOutPorts()}.
  */
 public interface NodeType {
 
@@ -36,26 +34,9 @@ public interface NodeType {
     /** "trigger" (an entry point bound to a game event) or "action". */
     String category();
 
-    /** @deprecated superseded by {@link #inputs()} (contract d); kept only as an empty default during migration. */
-    @Deprecated
-    default List<FieldSpec> fields() {
-        return List.of();
-    }
-
-    /**
-     * Unified inputs (contract d): config knobs and data inputs as one list. Nodes
-     * declare this directly. Defaults to bridging the deprecated {@link #fields()}
-     * and {@link #dataInPorts()} for any not-yet-migrated type.
-     */
+    /** Unified inputs (contract d): config knobs (inline-only) and data inputs (connectable). */
     default List<InputSpec> inputs() {
-        List<InputSpec> all = new ArrayList<>();
-        for (FieldSpec f : fields()) {
-            all.add(InputSpec.fromField(f));
-        }
-        for (DataPort p : dataInPorts()) {
-            all.add(InputSpec.fromDataPort(p));
-        }
-        return all;
+        return List.of();
     }
 
     /** Whether this node accepts an incoming execution edge. Triggers: false. */
@@ -63,11 +44,6 @@ public interface NodeType {
 
     /** Named execution outputs, in order. Straight node: ["out"]; branch: ["true","false"]; terminal: []. */
     List<String> flowOutPorts();
-
-    /** Typed data inputs this node accepts, in order. Default: none. (Contract b.) */
-    default List<DataPort> dataInPorts() {
-        return List.of();
-    }
 
     /** Typed data outputs this node produces, in order. Default: none. (Contract b.) */
     default List<DataPort> dataOutPorts() {
