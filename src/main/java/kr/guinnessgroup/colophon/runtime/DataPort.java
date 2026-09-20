@@ -23,7 +23,7 @@ package kr.guinnessgroup.colophon.runtime;
  * connection validation. The value store and pull/push wiring arrive in contract c.
  *
  * @param id     immutable semantic identity of the port, e.g. "amount" or "victim"
- * @param typeId a {@code TypeRegistry} id this port carries, e.g. "colophon:number"
+ * @param typeId a {@code TypeRegistry} id this port carries, e.g. "number" or "colophon:player"
  * @param label  human-facing label for the editor
  */
 public record DataPort(String id, String typeId, String label) {

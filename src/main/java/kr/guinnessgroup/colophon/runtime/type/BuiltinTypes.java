@@ -21,11 +21,13 @@ public final class BuiltinTypes {
     private BuiltinTypes() {}
 
     public static void registerAll() {
-        // Value types: flow and are stored by value.
-        TypeRegistry.register(new TypeDescriptor("colophon:string", "String", "#7048e8", TypeKind.VALUE, true));
-        TypeRegistry.register(new TypeDescriptor("colophon:number", "Number", "#2f9e44", TypeKind.VALUE, true));
-        TypeRegistry.register(new TypeDescriptor("colophon:boolean", "Boolean", "#e03131", TypeKind.VALUE, true));
-        // Reference type: a handle (player UUID), resolved live at use; not stored by value.
+        // Value primitives: bare (owner-less), stored by value. `number` is a single
+        // IEEE754 double — no separate int/float/double (type-system handoff §1, §6).
+        TypeRegistry.register(new TypeDescriptor("string", "String", "#7048e8", TypeKind.VALUE, true));
+        TypeRegistry.register(new TypeDescriptor("number", "Number", "#2f9e44", TypeKind.VALUE, true));
+        TypeRegistry.register(new TypeDescriptor("boolean", "Boolean", "#e03131", TypeKind.VALUE, true));
+        // Core reference type: namespaced. A handle (player UUID), resolved live at use;
+        // not stored by value.
         TypeRegistry.register(new TypeDescriptor("colophon:player", "Player", "#0d9488", TypeKind.REFERENCE, false));
 
         LOGGER.info("[Colophon] Registered {} data types total", TypeRegistry.all().size());

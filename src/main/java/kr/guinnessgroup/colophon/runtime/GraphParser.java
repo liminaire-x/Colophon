@@ -10,6 +10,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import kr.guinnessgroup.colophon.runtime.type.TypeId;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -136,7 +137,9 @@ public final class GraphParser {
                     errors.add("node '" + target + "' has no data input port '" + tgtHandle + "'");
                     continue;
                 }
-                if (!srcData.typeId().equals(tgtData.typeId())) {
+                // Nominal match through the canonical TypeId (exact-match only for now;
+                // subtyping/conversion attach here later — type-system handoff §7).
+                if (!TypeId.parse(srcData.typeId()).equals(TypeId.parse(tgtData.typeId()))) {
                     errors.add("type mismatch: '" + source + "." + srcData.id() + "' (" + srcData.typeId()
                             + ") cannot connect to '" + target + "." + tgtData.id() + "' (" + tgtData.typeId() + ")");
                     continue;
