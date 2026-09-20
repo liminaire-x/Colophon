@@ -7,7 +7,7 @@
 package kr.guinnessgroup.colophon.nodes.action;
 
 import com.google.gson.JsonObject;
-import kr.guinnessgroup.colophon.runtime.FieldSpec;
+import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
 import kr.guinnessgroup.colophon.runtime.NodeType;
@@ -21,7 +21,7 @@ public final class BroadcastNode implements NodeType {
     @Override public String id() { return "broadcast"; }
     @Override public String label() { return "Broadcast"; }
     @Override public String category() { return "action"; }
-    @Override public List<FieldSpec> fields() { return List.of(new FieldSpec("message", "string", "")); }
+    @Override public List<InputSpec> inputs() { return List.of(InputSpec.knob("message", "string", "")); }
     @Override public boolean hasFlowIn() { return true; }
     @Override public List<String> flowOutPorts() { return List.of("out"); }
 

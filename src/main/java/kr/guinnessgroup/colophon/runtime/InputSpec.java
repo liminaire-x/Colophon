@@ -45,4 +45,19 @@ public record InputSpec(String id, String typeId, String label, String defaultVa
     public static InputSpec fromDataPort(DataPort p) {
         return new InputSpec(p.id(), p.typeId(), p.label(), "", true, List.of());
     }
+
+    /** An inline-only config knob (not connectable), labelled by its id. */
+    public static InputSpec knob(String id, String typeId, String defaultValue) {
+        return new InputSpec(id, typeId, id, defaultValue, false, List.of());
+    }
+
+    /** An inline-only enum knob: a constrained string with dropdown options. */
+    public static InputSpec enumKnob(String id, String defaultValue, List<String> options) {
+        return new InputSpec(id, "string", id, defaultValue, false, options);
+    }
+
+    /** A connectable typed data input with no inline default. */
+    public static InputSpec data(String id, String typeId, String label) {
+        return new InputSpec(id, typeId, label, "", true, List.of());
+    }
 }

@@ -7,7 +7,7 @@
 package kr.guinnessgroup.colophon.nodes.state;
 
 import com.google.gson.JsonObject;
-import kr.guinnessgroup.colophon.runtime.FieldSpec;
+import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
 import kr.guinnessgroup.colophon.runtime.NodeType;
@@ -27,11 +27,11 @@ public final class HasVariableNode implements NodeType {
     @Override public String id() { return "has_variable"; }
     @Override public String label() { return "Has Variable"; }
     @Override public String category() { return "state"; }
-    @Override public List<FieldSpec> fields() {
+    @Override public List<InputSpec> inputs() {
         return List.of(
-                new FieldSpec("scope", "enum", "PLAYER", List.of("PLAYER", "GLOBAL", "LOCAL")),
-                new FieldSpec("key", "string", ""),
-                new FieldSpec("expected", "string", ""));
+                InputSpec.enumKnob("scope", "PLAYER", List.of("PLAYER", "GLOBAL", "LOCAL")),
+                InputSpec.knob("key", "string", ""),
+                InputSpec.knob("expected", "string", ""));
     }
     @Override public boolean hasFlowIn() { return true; }
     @Override public List<String> flowOutPorts() { return List.of("true", "false"); }

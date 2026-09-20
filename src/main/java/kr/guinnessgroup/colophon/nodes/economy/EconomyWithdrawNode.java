@@ -8,7 +8,7 @@ package kr.guinnessgroup.colophon.nodes.economy;
 
 import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
-import kr.guinnessgroup.colophon.runtime.FieldSpec;
+import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeType;
 import kr.guinnessgroup.colophon.runtime.Nodes;
@@ -32,7 +32,7 @@ public final class EconomyWithdrawNode implements NodeType {
     @Override public String id() { return "economy_withdraw"; }
     @Override public String label() { return "Economy: Withdraw"; }
     @Override public String category() { return "economy"; }
-    @Override public List<FieldSpec> fields() { return List.of(new FieldSpec("amount", "number", "0")); }
+    @Override public List<InputSpec> inputs() { return List.of(InputSpec.knob("amount", "number", "0")); }
     @Override public boolean hasFlowIn() { return true; }
     @Override public List<String> flowOutPorts() { return List.of("out"); }
 

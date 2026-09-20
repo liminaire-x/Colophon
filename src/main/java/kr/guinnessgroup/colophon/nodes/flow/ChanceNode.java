@@ -7,7 +7,7 @@
 package kr.guinnessgroup.colophon.nodes.flow;
 
 import com.google.gson.JsonObject;
-import kr.guinnessgroup.colophon.runtime.FieldSpec;
+import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
 import kr.guinnessgroup.colophon.runtime.NodeType;
@@ -21,7 +21,7 @@ public final class ChanceNode implements NodeType {
     @Override public String id() { return "chance"; }
     @Override public String label() { return "Chance"; }
     @Override public String category() { return "flow"; }
-    @Override public List<FieldSpec> fields() { return List.of(new FieldSpec("percent", "number", "50")); }
+    @Override public List<InputSpec> inputs() { return List.of(InputSpec.knob("percent", "number", "50")); }
     @Override public boolean hasFlowIn() { return true; }
     @Override public List<String> flowOutPorts() { return List.of("true", "false"); }
 

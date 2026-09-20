@@ -36,13 +36,16 @@ public interface NodeType {
     /** "trigger" (an entry point bound to a game event) or "action". */
     String category();
 
-    List<FieldSpec> fields();
+    /** @deprecated superseded by {@link #inputs()} (contract d); kept only as an empty default during migration. */
+    @Deprecated
+    default List<FieldSpec> fields() {
+        return List.of();
+    }
 
     /**
-     * Unified inputs (contract d): config fields and data inputs as one list.
-     * Defaults to bridging {@link #fields()} (inline-only knobs) and
-     * {@link #dataInPorts()} (connectable data), so existing node types need no
-     * change; nodes will later declare {@code inputs()} directly.
+     * Unified inputs (contract d): config knobs and data inputs as one list. Nodes
+     * declare this directly. Defaults to bridging the deprecated {@link #fields()}
+     * and {@link #dataInPorts()} for any not-yet-migrated type.
      */
     default List<InputSpec> inputs() {
         List<InputSpec> all = new ArrayList<>();
