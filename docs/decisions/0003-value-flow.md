@@ -1,7 +1,8 @@
 # ADR 0003 — 값 흐름 (계약 e)
 
-**상태:** 설계 확정, 구현 착수. 계약 a~d(표면)를 실제 동작으로 잇는 단계 — "값이 흐른다".
-계약 근거는 [0001-data-port-contract.md](0001-data-port-contract.md), 타입은
+**상태:** 수직 슬라이스 완료(in-game 실증), 확장 진행 중. 계약 a~d(표면)를 실제
+동작으로 잇는 단계 — "값이 흐른다". 계약 근거는
+[0001-data-port-contract.md](0001-data-port-contract.md), 타입은
 [0002-type-system.md](0002-type-system.md).
 
 ## 목표
@@ -49,19 +50,20 @@
 
 ## 하위 단계
 
-**수직 슬라이스(먼저):**
-- [ ] e-1. 데이터 엣지 그래프 배선(`GraphNode` dataSources, GraphParser가 구축).
-- [ ] e-2. `Type<T>` + `Types` 레지스트리(number/boolean/string/player 코덱) + `ValueResolver`.
-- [ ] e-3. 타입 컨텍스트(PureContext.get / ExecContext get·set + 스케줄러 exec push·current node).
-- [ ] e-4. `get_variable`(Pure) + `send_message.message` connectable → **데모**: 변수값이
-  와이어로 흘러 채팅 출력. (미연결=인라인/연결=와이어 실증.)
+**수직 슬라이스 — 완료 (in-game 실증).** 슬라이스 소비 노드는 `get_variable`(스토리지
+결합) 대신 **`compare`+`branch_if`**로 진행해 `PureContext`를 최소로 유지했다.
+- [x] e-1. 데이터 엣지 그래프 배선(`GraphNode`가 kind별 러너블·`config`·`dataSources` 보유). 커밋 65a86b8.
+- [x] e-2. `Type<T>` + `Types`(string/number/boolean/player) + `ValueResolver`(exec read/pure pull, 사이클 가드). 커밋 d3a068c.
+- [x] e-3. 타입 컨텍스트(`PureContext.get`/`ExecContext.get·set` + 스케줄러 resolver·current node) + 인스턴스 인라인값(config) + 에디터 인라인/와이어 폼. 커밋 8ca6f9f·46d51de·224140c.
+- [x] e-슬라이스. `compare`(Pure)·`branch_if`(Exec) + 데모 `on_player_join → branch_if(←compare(5,3,">")) → send_message`. **in-game 확인.**
+- [x] **노드 종류 컴파일러 강제**: `ExecNodeType`/`PureNodeType` 분리(계약 a). pure는 flow 메서드 없음 → 순수성이 타입으로 보장. 커밋 186ac9e.
 
-**확장:**
-- [ ] e-5. `compare`(Pure) + `branch_if`(Exec) — 값으로 분기.
-- [ ] e-6. `get_balance`(Exec, async) — exec push 실증.
-- [ ] e-7. `format_text`(Pure, 동적 포트).
-- [ ] e-8. 트리거 명시 출력(victim/killer, player).
-- [ ] e-9. 에디터 인라인 폼(미연결=인라인/연결=와이어) 다듬기 + E2E 데모(economy/state).
+**확장 — 남음:**
+- [ ] `get_balance`(Exec, async → awaitAction/Suspend → number push) — exec push 실증.
+- [ ] `format_text`(Pure, 동적 입력 포트) — 값→텍스트 유일 명시 노드.
+- [ ] 트리거 명시 출력(victim/killer, player) — 계약 d 주체. exec가 주체를 데이터로 push.
+- [ ] `get_variable`(Pure) — `PureContext`에 읽기전용 스토리지 접근 추가 설계 필요.
+- [ ] E2E 데모(economy/state 결합).
 
 ## 미룸
 
