@@ -53,6 +53,9 @@ public final class TickScheduler {
     }
 
     private void advance(Execution ex) {
+        // Bind a data resolver for this execution so nodes can read/push data ports.
+        ex.ctx().bindResolver(new ValueResolver(ex.graph(), ex.ctx()));
+
         // Resume a suspended execution once its condition is ready, then step past
         // the suspending node along the stored resume port.
         if (ex.state() == Execution.State.SUSPENDED) {
@@ -92,6 +95,7 @@ public final class TickScheduler {
                 ex.setState(Execution.State.FAILED);
                 return;
             }
+            ex.ctx().setCurrentNodeId(gn.id());
             NodeResult result;
             try {
                 result = gn.exec().execute(ex.ctx());

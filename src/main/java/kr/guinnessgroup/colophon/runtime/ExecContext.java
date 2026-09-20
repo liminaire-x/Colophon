@@ -7,6 +7,7 @@
 package kr.guinnessgroup.colophon.runtime;
 
 import kr.guinnessgroup.colophon.runtime.state.StorageService;
+import kr.guinnessgroup.colophon.runtime.type.Type;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -29,6 +30,10 @@ public final class ExecContext {
     private final Map<String, Object> locals = new HashMap<>();
     private final ValueStore values = new ValueStore();
 
+    // Data-flow wiring, set by the scheduler for the current run/step (contract e).
+    private ValueResolver resolver;
+    private String currentNodeId;
+
     public ExecContext(MinecraftServer server, ServerPlayer actor, StorageService storage) {
         this.server = server;
         this.actor = actor;
@@ -46,4 +51,22 @@ public final class ExecContext {
 
     /** Data-port values produced during this execution (exec push / pure pull). */
     public ValueStore values() { return values; }
+
+    // --- data flow (contract e), driven by the scheduler ---
+
+    /** Bind the per-execution resolver (scheduler-owned). */
+    public void bindResolver(ValueResolver resolver) { this.resolver = resolver; }
+
+    /** Set the node whose execute() is running, so get/set target its ports. */
+    public void setCurrentNodeId(String nodeId) { this.currentNodeId = nodeId; }
+
+    /** The typed value of the current exec node's data input, or {@code null} if unset. */
+    public <T> T get(String portId, Type<T> type) {
+        return resolver == null ? null : resolver.input(currentNodeId, portId, type);
+    }
+
+    /** Push a data output of the current exec node so downstream consumers can read it. */
+    public <T> void set(String portId, Type<T> type, T value) {
+        values.put(currentNodeId, portId, value);
+    }
 }

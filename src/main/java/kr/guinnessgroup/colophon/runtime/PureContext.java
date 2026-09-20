@@ -6,18 +6,17 @@
 
 package kr.guinnessgroup.colophon.runtime;
 
+import kr.guinnessgroup.colophon.runtime.type.Type;
+
 /**
  * Read-only context handed to a {@link PureNode} while it computes its outputs
- * (contract c). It exposes only the node's resolved data inputs — no storage
+ * (contract c/e). It exposes only the node's resolved data inputs — no storage
  * writes, no player, no flow — so the compiler keeps pure evaluation
  * side-effect-free. Inputs are resolved by pulling upstream producers; an input
- * with no producer (or an unresolved reference) reads as unset.
+ * with no producer (or an unresolved reference) reads as unset ({@code null}).
  */
 public interface PureContext {
 
-    /** The resolved value of a data input port, or {@code null} if it is unset. */
-    Object input(String portId);
-
-    /** Whether the given data input port resolved to a value. */
-    boolean hasInput(String portId);
+    /** The typed value of a data input port, or {@code null} if it is unset. */
+    <T> T get(String portId, Type<T> type);
 }
