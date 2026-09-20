@@ -305,22 +305,20 @@ MC 클래스 계층: `Entity → LivingEntity → Player(추상, 클라/서버 �
 
 ---
 
-## 11. d-1 체크리스트 (지금 할 것 vs 나중)
+## 11. 구현 상태 (계약 d 완료 시점)
 
-**지금 (d-1 전)**
-- [ ] `TypeId` 구조체 도입, 문자열 비교를 switch로 대체 (§3)
-- [ ] `colophon:item`을 실제 쓰임에 맞게 `item_stack`(주기/드롭 계열) 또는 `item_type`으로 확정, 나머지는 나중에 추가 (§4)
-- [ ] 기존 브리지의 원시 3개(`string/number/boolean`)에서 `colophon:` 접두사 제거, player·참조는 유지 (§1)
-- [ ] 저장 그래프에 `colophon:string` 등이 있으면 `string`으로 마이그레이션
-- [ ] 값 필드(ResourceLocation/UUID/인라인)를 타입 필드와 분리 (§2)
-- [ ] `number = double` 계약 문서화 (§6)
+**완료 (d, 커밋 3749085·ede6c99·5749cc1·9cb24fd·367e351·1f7bc73)**
+- [x] `TypeId` 구조체 도입(`runtime/type/TypeId.java`, sealed Builtin/Named), GraphParser 매칭을 `TypeId.parse().equals()` 경유로 (§3)
+- [x] 값 원시 3개(`string/number/boolean`) **bare**, `colophon:player`·참조는 네임스페이스 유지 (§1) — `BuiltinTypes`, `InputSpec` 매핑
+- [x] 저장 그래프 마이그레이션 **불필요** — 저장 포맷은 `{nodeType, config, 와이어}`만 담고 타입 id를 저장하지 않음(스키마에서 런타임 유도)
+- [x] `number = double` 계약 문서화 (§6)
 
-**나중 (additive)**
-- [ ] resolveConnection 이유 반환, autocast, 서브타이핑, 컨테이너/nullability
+**나중 (값이 흐르는 e / additive)**
+- [ ] `item_type` / `item_stack` 확정 (§4) — 아이템 노드가 생길 때. 지금은 item 타입 미등록.
+- [ ] 값 필드(ResourceLocation/UUID/인라인)를 타입 필드와 분리 (§2) — 값이 실제 저장/흐르는 e에서.
+- [ ] resolveConnection 이유 반환, autocast, 서브타이핑, 컨테이너/nullability (§7)
 - [ ] int64 타입(문자열 인코딩), 스키마 버전, unknown 라운드트립
-- [ ] 실행 계층 §9 (단, 1·2는 실행 엔진 붙일 때 우선)
-
-**영향 받는 코드(직전 작업 기준)**: `InputSpec.java`(타입 필드 표현), `NodeType.inputs()`, `NodeRegistry.schemaJson`(스키마에 타입 노출), `SetVariableNode.java` 등 원시/참조 타입을 쓰는 노드들. 기존 `string→colophon:string` 브리지 지점이 1차 수정 대상.
+- [ ] 실행 계층 §9 (1·2 = 스레드 안전·실패 격리는 실행 엔진 붙일 때 우선)
 
 ---
 
