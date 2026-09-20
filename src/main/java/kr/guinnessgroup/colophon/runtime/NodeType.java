@@ -55,10 +55,12 @@ public interface NodeType {
         return NodeKind.EXEC;
     }
 
-    /** Builds the runnable exec node from saved config. Only valid for EXEC types. */
-    ExecNode create(JsonObject config);
+    /** Builds the runnable exec node from saved config. EXEC types override this. (Contract c.) */
+    default ExecNode create(JsonObject config) {
+        throw new UnsupportedOperationException("not an exec node: " + id());
+    }
 
-    /** Builds the runnable pure node from saved config. Only PURE types override this. (Contract c.) */
+    /** Builds the runnable pure node from saved config. PURE types override this. (Contract c.) */
     default PureNode createPure(JsonObject config) {
         throw new UnsupportedOperationException("not a pure node: " + id());
     }
