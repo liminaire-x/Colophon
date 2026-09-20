@@ -85,9 +85,16 @@ public final class TickScheduler {
                 ex.setState(Execution.State.DONE);
                 return;
             }
+            if (gn.exec() == null) {
+                // Only exec nodes are walked in the flow; a pure node here means a
+                // wiring bug (pure nodes have no flow-in and are pulled, not stepped).
+                LOGGER.error("[Colophon] Flow reached non-exec node '{}'; failing execution", gn.id());
+                ex.setState(Execution.State.FAILED);
+                return;
+            }
             NodeResult result;
             try {
-                result = gn.node().execute(ex.ctx());
+                result = gn.exec().execute(ex.ctx());
             } catch (Exception e) {
                 LOGGER.error("[Colophon] Node '{}' threw; failing execution", gn.id(), e);
                 ex.setState(Execution.State.FAILED);

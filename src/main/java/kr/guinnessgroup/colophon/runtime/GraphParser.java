@@ -70,12 +70,13 @@ public final class GraphParser {
                     ? data.getAsJsonObject("config") : new JsonObject());
         }
 
-        // Pass 2: validate edges. Flow edges build the runtime wiring; data edges
-        // are validated by nominal type match but not wired (values flow in
-        // contract c). Flow and data ports are separate categories and may not be
-        // connected to each other. (Contract b.)
-        Map<String, Map<String, String>> outputs = new HashMap<>();     // flow wiring only
-        Map<String, Set<String>> dataInputsUsed = new HashMap<>();       // target id -> its connected data-in port ids
+        // Pass 2: validate edges and build wiring. Flow edges build the flow wiring;
+        // data edges are validated by nominal type match and wired as data sources
+        // (target input port -> producer output). Flow and data ports are separate
+        // categories and may not be connected to each other. (Contracts b, e.)
+        Map<String, Map<String, String>> outputs = new HashMap<>();       // flow wiring: source -> port -> target
+        Map<String, Map<String, PortRef>> dataSources = new HashMap<>();   // target -> input port -> producer PortRef
+        Map<String, Set<String>> dataInputsUsed = new HashMap<>();         // target id -> its connected data-in port ids
         for (JsonElement e : edgesArr) {
             JsonObject edge = e.getAsJsonObject();
             String source = asString(edge, "source");
@@ -148,8 +149,9 @@ public final class GraphParser {
                     errors.add("data input '" + tgtData.id() + "' of '" + target + "' is connected more than once");
                     continue;
                 }
-                // Validated. Not wired into the runtime flow graph (contract b validates
-                // connections only; the value store and pull wiring arrive in contract c).
+                // Wire the data source: the target's input port is fed by the producer's output.
+                dataSources.computeIfAbsent(target, k -> new HashMap<>())
+                        .put(tgtData.id(), new PortRef(source, srcData.id()));
             }
         }
 
@@ -163,8 +165,17 @@ public final class GraphParser {
         for (Map.Entry<String, NodeType> entry : typeById.entrySet()) {
             String id = entry.getKey();
             NodeType nt = entry.getValue();
-            ExecNode runtime = nt.create(configById.get(id));
-            graphNodes.put(id, new GraphNode(id, runtime, outputs.getOrDefault(id, Map.of())));
+            JsonObject config = configById.get(id);
+            ExecNode exec = null;
+            PureNode pure = null;
+            if (nt.kind() == NodeKind.PURE) {
+                pure = nt.createPure(config);
+            } else {
+                exec = nt.create(config);
+            }
+            graphNodes.put(id, new GraphNode(id, nt, exec, pure,
+                    outputs.getOrDefault(id, Map.of()),
+                    dataSources.getOrDefault(id, Map.of())));
             if ("trigger".equals(nt.category())) {
                 triggersByType.computeIfAbsent(nt.id(), k -> new ArrayList<>()).add(id);
             }
