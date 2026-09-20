@@ -10,7 +10,9 @@ import com.mojang.logging.LogUtils;
 import kr.guinnessgroup.colophon.nodes.action.BroadcastNode;
 import kr.guinnessgroup.colophon.nodes.action.RunCommandNode;
 import kr.guinnessgroup.colophon.nodes.action.SendMessageNode;
+import kr.guinnessgroup.colophon.nodes.flow.BranchIfNode;
 import kr.guinnessgroup.colophon.nodes.flow.ChanceNode;
+import kr.guinnessgroup.colophon.nodes.flow.CompareNode;
 import kr.guinnessgroup.colophon.nodes.flow.DelayNode;
 import kr.guinnessgroup.colophon.nodes.trigger.OnPlayerDeathNode;
 import kr.guinnessgroup.colophon.nodes.trigger.OnPlayerJoinNode;
@@ -42,6 +44,8 @@ public final class BuiltinNodes {
         // flow
         NodeRegistry.register(new DelayNode());
         NodeRegistry.register(new ChanceNode());
+        NodeRegistry.register(new CompareNode());
+        NodeRegistry.register(new BranchIfNode());
         // state
         NodeRegistry.register(new SetVariableNode());
         NodeRegistry.register(new HasVariableNode());
