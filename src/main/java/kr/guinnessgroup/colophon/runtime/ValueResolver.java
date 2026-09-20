@@ -6,6 +6,7 @@
 
 package kr.guinnessgroup.colophon.runtime;
 
+import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.runtime.type.Type;
 
 import java.util.HashSet;
@@ -73,11 +74,21 @@ public final class ValueResolver {
     }
 
     private Object inlineDefault(GraphNode gn, String portId, Type<?> type) {
-        return gn.type().inputs().stream()
-                .filter(in -> in.id().equals(portId))
-                .findFirst()
-                .map(in -> type.fromInline(in.defaultValue()))
-                .orElse(null);
+        // Per-instance inline value (saved config) wins over the descriptor default;
+        // both are string literals parsed by the type.
+        String literal = null;
+        JsonObject config = gn.config();
+        if (config != null && config.has(portId) && config.get(portId).isJsonPrimitive()) {
+            literal = config.get(portId).getAsString();
+        }
+        if (literal == null || literal.isEmpty()) {
+            literal = gn.type().inputs().stream()
+                    .filter(in -> in.id().equals(portId))
+                    .findFirst()
+                    .map(InputSpec::defaultValue)
+                    .orElse(null);
+        }
+        return type.fromInline(literal);
     }
 
     /** Read-only pure context bound to one node: its inputs resolve through this resolver. */

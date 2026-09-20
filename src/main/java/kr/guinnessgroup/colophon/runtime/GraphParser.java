@@ -173,7 +173,7 @@ public final class GraphParser {
             } else {
                 exec = nt.create(config);
             }
-            graphNodes.put(id, new GraphNode(id, nt, exec, pure,
+            graphNodes.put(id, new GraphNode(id, nt, exec, pure, config,
                     outputs.getOrDefault(id, Map.of()),
                     dataSources.getOrDefault(id, Map.of())));
             if ("trigger".equals(nt.category())) {

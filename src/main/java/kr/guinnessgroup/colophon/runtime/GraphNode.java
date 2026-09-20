@@ -6,17 +6,20 @@
 
 package kr.guinnessgroup.colophon.runtime;
 
+import com.google.gson.JsonObject;
+
 import java.util.Map;
 
 /**
  * A node instance placed in a graph. Holds its built runnable — an {@link ExecNode}
  * (when {@code type.kind() == EXEC}) or a {@link PureNode} (when PURE), exactly one
- * of which is non-null — plus its wiring: {@code outputs} maps a flow output port to
- * the next node id, and {@code dataSources} maps each data input port to the producer
- * output that feeds it. Pure nodes have no flow wiring; they are pulled on demand.
+ * of which is non-null — plus its saved {@code config} (per-instance inline input
+ * values) and its wiring: {@code outputs} maps a flow output port to the next node
+ * id, and {@code dataSources} maps each data input port to the producer output that
+ * feeds it. Pure nodes have no flow wiring; they are pulled on demand.
  */
 public record GraphNode(String id, NodeType type, ExecNode exec, PureNode pure,
-                        Map<String, String> outputs, Map<String, PortRef> dataSources) {
+                        JsonObject config, Map<String, String> outputs, Map<String, PortRef> dataSources) {
 
     public static final String DEFAULT_PORT = "out";
 
