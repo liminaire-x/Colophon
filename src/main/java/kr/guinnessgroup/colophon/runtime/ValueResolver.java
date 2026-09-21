@@ -7,11 +7,14 @@
 package kr.guinnessgroup.colophon.runtime;
 
 import com.google.gson.JsonObject;
+import kr.guinnessgroup.colophon.runtime.state.Scope;
 import kr.guinnessgroup.colophon.runtime.type.Type;
+import net.minecraft.server.level.ServerPlayer;
 
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Resolves data-port values during one flow execution (contract e). A node's data
@@ -102,6 +105,16 @@ public final class ValueResolver {
         @Override
         public <T> T get(String portId, Type<T> type) {
             return input(nodeId, portId, type);
+        }
+
+        @Override
+        public String readVar(Scope scope, String key) {
+            if (ctx.storage() == null) {
+                return null;
+            }
+            ServerPlayer actor = ctx.actor();
+            UUID uuid = (actor != null) ? actor.getUUID() : null;
+            return ctx.storage().get(scope, key, uuid);
         }
     }
 }

@@ -31,20 +31,20 @@ public final class SendMessageNode implements ExecNodeType {
     @Override public List<InputSpec> inputs() {
         return List.of(
                 InputSpec.data("target", "colophon:player", "Target"),
-                InputSpec.knob("message", "string", ""));
+                InputSpec.data("message", "string", "Message"));
     }
     @Override public boolean hasFlowIn() { return true; }
     @Override public List<String> flowOutPorts() { return List.of("out"); }
 
     @Override
     public ExecNode create(JsonObject config) {
-        final String message = (config != null && config.has("message") && !config.get("message").isJsonNull())
-                ? config.get("message").getAsString() : "";
         return ctx -> {
             // Wired target wins; unset target falls back to the acting player.
             ServerPlayer target = ctx.get("target", Types.PLAYER);
             ServerPlayer player = (target != null) ? target : ctx.actor();
-            if (player != null) {
+            // message resolves from a wire (e.g. get_variable.value) or the inline default.
+            String message = ctx.get("message", Types.STRING);
+            if (player != null && message != null) {
                 player.sendSystemMessage(Component.literal(message));
             }
             return NodeResult.cont();

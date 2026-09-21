@@ -19,6 +19,7 @@ import kr.guinnessgroup.colophon.nodes.trigger.OnPlayerJoinNode;
 import kr.guinnessgroup.colophon.nodes.economy.EconomyNodes;
 import kr.guinnessgroup.colophon.nodes.state.SetVariableNode;
 import kr.guinnessgroup.colophon.nodes.state.HasVariableNode;
+import kr.guinnessgroup.colophon.nodes.state.GetVariableNode;
 import kr.guinnessgroup.colophon.runtime.NodeRegistry;
 import net.neoforged.fml.ModList;
 import org.slf4j.Logger;
@@ -49,6 +50,7 @@ public final class BuiltinNodes {
         // state
         NodeRegistry.register(new SetVariableNode());
         NodeRegistry.register(new HasVariableNode());
+        NodeRegistry.register(new GetVariableNode());
 
         // Optional adapter: economy nodes only when Impactor is installed.
         if (ModList.get().isLoaded("impactor")) {
