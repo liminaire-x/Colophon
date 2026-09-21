@@ -61,7 +61,8 @@
 **확장 — 남음:**
 - [ ] `get_balance`(Exec, async → awaitAction/Suspend → number push) — exec push 실증.
 - [ ] `format_text`(Pure, 동적 입력 포트) — 값→텍스트 유일 명시 노드.
-- [ ] 트리거 명시 출력(victim/killer, player) — 계약 d 주체. exec가 주체를 데이터로 push.
+- [x] 트리거 명시 출력 **player**(`on_player_join`) — **첫 exec push 실증**. `dataOutPorts`에 `player` + `ctx.set` push, 소비자 `send_message.target`(연결 시 우선, 미연결=actor 폴백). in-game 확인. 커밋 61ae820.
+- [ ] 트리거 명시 출력 **victim/killer**(`on_player_death`) — 이벤트 데이터(`LivingDeathEvent.getSource()`)를 `fireTrigger`가 받아 ValueStore seed하도록 확장 필요.
 - [ ] `get_variable`(Pure) — `PureContext`에 읽기전용 스토리지 접근 추가 설계 필요.
 - [ ] E2E 데모(economy/state 결합).
 
