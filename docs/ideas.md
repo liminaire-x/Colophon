@@ -19,6 +19,13 @@
 
 ## 구조·확장
 
+- **`sequence` 플로우 노드** — 다중 순차 플로우 출력(`then 0`·`then 1`·…)을 순서대로 발화.
+  플로우 출력은 단일 와이어라 한 트리거로 N개를 하려면 지금은 체인(A→B→C)뿐인데, Unreal
+  블루프린트 Sequence 노드와 동일한 관용구를 제공. `ExecNodeType`의 `flowOutPorts()`가 이미
+  다중 명명 출력을 지원하므로(branch_if의 true/false와 같은 메커니즘) 노드 하나로 구현 가능 —
+  스케줄러는 한 출력만 따라가므로 "각 then을 끝까지 실행 후 다음 then" 시맨틱(재진입/컨티뉴에이션)
+  설계가 관건. 데이터 팬아웃과 대비되는 플로우 팬아웃 해법. (연결 다중도 관례는 Unreal과 일치:
+  실행출력·데이터입력=단일, 데이터출력·실행입력=다중.)
 - **애드온 패키징** — `implementation`→`compileOnly` + optional `mods.toml`, 별도 애드온 모드 분리.
 - **애드온 SDK 경계 정식 추출** — `runtime`=SDK 표면, `nodes`=빌트인 애드온. → 경제/NPC 애드온.
 - **다중 그래프(페이지)** / Suspend 이벤트 wake / 트리거 동적 구독.
