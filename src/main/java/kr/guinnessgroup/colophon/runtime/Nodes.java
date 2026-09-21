@@ -6,6 +6,8 @@
 
 package kr.guinnessgroup.colophon.runtime;
 
+import kr.guinnessgroup.colophon.runtime.type.Type;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -30,6 +32,35 @@ public final class Nodes {
         return ctx -> {
             CompletableFuture<?> future = op.apply(ctx);
             return (future == null) ? NodeResult.cont() : NodeResult.suspend(ResumeCondition.whenDone(future));
+        };
+    }
+
+    /**
+     * An {@link ExecNode} that starts an async operation, suspends until it completes,
+     * then pushes its result into the given data output port (contract e) and continues
+     * along "out". This is the exec async-value pattern: the node is not re-executed on
+     * resume, so the value is pushed by a resume action. A {@code null} future continues
+     * immediately with the output unset; a future that fails (or yields null) leaves the
+     * output unset (defined result, never crashes the flow).
+     */
+    public static <T> ExecNode awaitValue(String port, Type<T> type,
+                                          Function<ExecContext, CompletableFuture<T>> op) {
+        return ctx -> {
+            CompletableFuture<T> future = op.apply(ctx);
+            if (future == null) {
+                return NodeResult.cont();
+            }
+            return NodeResult.suspend(ResumeCondition.whenDone(future), GraphNode.DEFAULT_PORT, resumeCtx -> {
+                T value;
+                try {
+                    value = future.getNow(null); // completed by now; null if it failed/absent
+                } catch (RuntimeException e) {
+                    value = null; // exceptional completion -> unset
+                }
+                if (value != null) {
+                    resumeCtx.set(port, type, value);
+                }
+            });
         };
     }
 }

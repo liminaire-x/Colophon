@@ -29,6 +29,7 @@ public final class EconomyNodes {
         NodeRegistry.register(new EconomyWithdrawNode());
         NodeRegistry.register(new EconomyBalanceCheckNode());
         NodeRegistry.register(new EconomyShowBalanceNode());
+        NodeRegistry.register(new EconomyGetBalanceNode());
         LOGGER.info("[Colophon] Registered economy nodes (Impactor adapter)");
     }
 

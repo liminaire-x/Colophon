@@ -65,12 +65,24 @@ public final class TickScheduler {
             }
             GraphNode suspended = ex.graph().node(ex.currentNodeId());
             String port = ex.resumePort();
+            ResumeAction action = ex.resumeAction();
             ex.setResumeCondition(null);
             ex.setResumePort(null);
+            ex.setResumeAction(null);
             ex.setState(Execution.State.RUNNING);
             if (suspended == null) {
                 ex.setState(Execution.State.DONE);
                 return;
+            }
+            // Push any async result into the suspending node's data outputs before
+            // stepping on (the node is not re-executed). Bind the context to it first.
+            if (action != null) {
+                ex.ctx().setCurrentNodeId(suspended.id());
+                try {
+                    action.run(ex.ctx());
+                } catch (Exception e) {
+                    LOGGER.warn("[Colophon] resume action of '{}' threw; output left unset", suspended.id(), e);
+                }
             }
             step(ex, suspended, port);
         }
@@ -110,6 +122,7 @@ public final class TickScheduler {
                 case NodeResult.Suspend s -> {
                     ex.setResumeCondition(s.until());
                     ex.setResumePort(s.thenPort());
+                    ex.setResumeAction(s.onResume());
                     ex.setState(Execution.State.SUSPENDED);
                 }
                 case NodeResult.Done ignored -> ex.setState(Execution.State.DONE);

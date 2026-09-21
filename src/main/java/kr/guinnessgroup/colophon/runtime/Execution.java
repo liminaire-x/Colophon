@@ -20,6 +20,7 @@ public final class Execution {
     private State state = State.RUNNING;
     private ResumeCondition resumeCondition;
     private String resumePort;
+    private ResumeAction resumeAction;
 
     public Execution(Graph graph, ExecContext ctx, String startNodeId) {
         this.graph = graph;
@@ -46,4 +47,8 @@ public final class Execution {
     public String resumePort() { return resumePort; }
 
     public void setResumePort(String port) { this.resumePort = port; }
+
+    public ResumeAction resumeAction() { return resumeAction; }
+
+    public void setResumeAction(ResumeAction action) { this.resumeAction = action; }
 }
