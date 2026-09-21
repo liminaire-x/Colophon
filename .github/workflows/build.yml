@@ -32,10 +32,18 @@ jobs:
           cache: npm
           cache-dependency-path: editor/package-lock.json
 
-      - name: Build (mod + editor)
+      - name: Build (mod + editor + tests)
         run: |
           chmod +x gradlew
           ./gradlew build --no-daemon --stacktrace
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: test-reports
+          path: build/reports/tests/
+          if-no-files-found: ignore
 
       - name: Upload jar
         if: success()
