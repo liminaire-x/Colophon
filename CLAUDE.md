@@ -29,9 +29,11 @@
 - 상세 체크리스트·백로그 → [docs/roadmap.md](docs/roadmap.md). 커밋 이력은 git.
 
 ## 개발 워크플로우 (꼭 지킬 것)
-1. **단계로 쪼갠다.** 검증 2단:
+1. **단계로 쪼갠다.** 검증 3단(테스트 하니스 도입 후, [decisions/0004-testing-strategy.md](docs/decisions/0004-testing-strategy.md)):
+   - **자동 테스트 게이트** — 1층 순수 단위(값 흐름 코어) + 2층 노드 계약(mock=MC 경계만), CI 실행. *하니스 미구현이면 이 단계는 아직 생략.*
    - **CI = 컴파일 게이트** — 구조·리팩터 단계는 이걸로 충분. 운영(초기): **커밋 → master push → 사후 CI 확인**, 실패 시 fix-forward. CI 성공 판정은 **`gh run view <id> --json conclusion`으로 명시 확인**(`gh run watch` exit 코드만 믿지 말 것 — 오독 사례 있음).
-   - **IntelliJ/브라우저 = 동작 게이트** — 관찰 가능한 동작이 있는 단계(데모·에디터 UX·값 흐름)는 이 확인까지 받고 진행.
+   - **IntelliJ/브라우저 = 동작 게이트** — 진짜 런타임/MC 통합이 필요한 것(트리거 발화·economy·에디터 UX)만 이 확인까지 받고 진행.
+   - **커밋 위생**: 커밋 전 `git status` 확인, **관련 파일만 명시 `add`**(`git add -A` 금지 — 사용자가 로컬 병행 편집함).
 2. **광범위 변경·새 단계 설계 전 graphify 선(先)질의**로 호출부·교차 관심사 오리엔테이션(국소 변경은 grep/read).
 3. 코어 인터페이스 진화는 **default 메서드로 하위호환** 유지.
 4. **계약(포트/타입/직렬화 표면) 결정은 잠김** — 재논의 말고 구현. 근거·기각 대안은 [docs/decisions/](docs/decisions/).
@@ -39,5 +41,5 @@
 
 ## 문서 (docs/)
 - [docs/README.md](docs/README.md) — 문서 지도 / [roadmap.md](docs/roadmap.md) — 로드맵·진행 / [architecture.md](docs/architecture.md) — 아키텍처
-- [decisions/0001-data-port-contract.md](docs/decisions/0001-data-port-contract.md) — 계약 a~e / [decisions/0002-type-system.md](docs/decisions/0002-type-system.md) — 타입 시스템
+- [decisions/0001-data-port-contract.md](docs/decisions/0001-data-port-contract.md) — 계약 a~e / [decisions/0002-type-system.md](docs/decisions/0002-type-system.md) — 타입 시스템 / [0003-value-flow.md](docs/decisions/0003-value-flow.md) — 값 흐름(e) / [0004-testing-strategy.md](docs/decisions/0004-testing-strategy.md) — 테스트 전략
 - [ideas.md](docs/ideas.md) — 아이디어·백로그 / [discussions.md](docs/discussions.md) — 미해결 질문

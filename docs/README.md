@@ -12,7 +12,8 @@ Colophon 개발의 **근거·로드맵·설계 결정**을 담는다. 진행 상
 | [architecture.md](architecture.md) | 스택·코드 구조·런타임 실행 모델·영속화·핵심 설계 선택(이름/애드온/라이선스) |
 | [decisions/0001-data-port-contract.md](decisions/0001-data-port-contract.md) | v2 데이터 포트 계약 a~e + 기각한 대안 |
 | [decisions/0002-type-system.md](decisions/0002-type-system.md) | 타입 시스템 설계(표기·TypeId·number·연결 판정·실행 계층) |
-| [decisions/0003-value-flow.md](decisions/0003-value-flow.md) | 값 흐름(계약 e): 데이터 배선 + resolver + typed I/O + 첫 데이터 노드 |
+| [decisions/0003-value-flow.md](decisions/0003-value-flow.md) | 값 흐름(계약 e): 데이터 배선 + resolver + typed I/O + 데이터 노드 + 동적 포트 + async 값 push |
+| [decisions/0004-testing-strategy.md](decisions/0004-testing-strategy.md) | 테스트 전략: 3층 피라미드, 계약 스코프 원칙, mock 경계, 토큰·유지보수 관리 |
 | [ideas.md](ideas.md) | 아이디어·미래 방향(NC 시네마틱, GeckoLib, 멀티서버 …) |
 | [discussions.md](discussions.md) | 미해결 질문·재검토 대상 |
 
