@@ -21,12 +21,12 @@
 - `api`/`core` — 빈 패키지. SDK 경계 추출은 나중.
 
 ## 현재 상태
-- v2 1순위 상태·저장 계층 = **완료**. 등록 노드 15개(+compare/branch_if).
-- v2 2순위 데이터 포트(계약 a~e 확정): **a✅ b✅ c✅ d✅ e🔄** / f(직렬화·버전).
-  - **e 수직 슬라이스 = 완료(in-game 실증)**: 데이터 엣지 배선 + `ValueResolver`(exec push/pure pull) + typed `Type<T>` + `compare`(pure)·`branch_if`(exec) + 에디터 인라인/와이어.
-  - **e 확장 = 다음**: `get_balance`(async)·`format_text`·트리거 명시 출력(victim/killer)·`get_variable`. 설계 [docs/decisions/0003-value-flow.md](docs/decisions/0003-value-flow.md).
-- 잠긴 계약: 노드 종류 = `ExecNodeType`/`PureNodeType`(컴파일러 강제), 타입 명목 매칭(값 원시 bare·참조 네임스페이스, `TypeId`, `Type<T>`, number=double), 입력 통합(`InputSpec`), 주체 균일 명시. **상세·근거·기각 대안 → [docs/decisions/](docs/decisions/).**
-- 상세 체크리스트·커밋·진행 로그 → [docs/roadmap.md](docs/roadmap.md), 새 세션 온보딩 → [docs/handoff.md](docs/handoff.md).
+- v2 1순위 상태·저장 계층 = **완료**. 등록 노드 19개(e에서 +get_variable·format_text·player_info·get_balance).
+- v2 2순위 데이터 포트(계약 a~e 확정): **a✅ b✅ c✅ d✅ e✅** / **f = 다음**(직렬화·버전).
+  - **e = 완료(수직 슬라이스 + 확장 전부 in-game 실증)**: 데이터 엣지 배선 + `ValueResolver`(exec push/pure pull) + typed `Type<T>` + 데이터 노드(compare·branch_if·get_variable·format_text·player_info·get_balance) + 트리거 명시 출력(player/victim/killer) + 동적 포트 계약(`instanceInputs`/`instanceOutputs`) + exec async 값 push(`Suspend.onResume`/`Nodes.awaitValue`). 설계·커밋 [docs/decisions/0003-value-flow.md](docs/decisions/0003-value-flow.md).
+  - **f = 다음**: 안정 ID·version·마이그레이션 3층·deprecation·/api/validate.
+- 잠긴 계약: 노드 종류 = `ExecNodeType`/`PureNodeType`(컴파일러 강제), 타입 명목 매칭(값 원시 bare·참조 네임스페이스, `TypeId`, `Type<T>`, number=double), 입력 통합(`InputSpec`), 주체 균일 명시, 동적 포트(`instanceInputs`/`instanceOutputs`), async 값 push(`Suspend.onResume`). **상세·근거·기각 대안 → [docs/decisions/](docs/decisions/).**
+- 상세 체크리스트·백로그 → [docs/roadmap.md](docs/roadmap.md). 커밋 이력은 git.
 
 ## 개발 워크플로우 (꼭 지킬 것)
 1. **단계로 쪼갠다.** 검증 2단:

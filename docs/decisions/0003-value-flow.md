@@ -1,6 +1,6 @@
 # ADR 0003 — 값 흐름 (계약 e)
 
-**상태:** 수직 슬라이스 완료(in-game 실증), 확장 진행 중. 계약 a~d(표면)를 실제
+**상태:** 완료(수직 슬라이스 + 확장 전부 in-game 실증). 계약 a~d(표면)를 실제
 동작으로 잇는 단계 — "값이 흐른다". 계약 근거는
 [0001-data-port-contract.md](0001-data-port-contract.md), 타입은
 [0002-type-system.md](0002-type-system.md).
@@ -58,14 +58,14 @@
 - [x] e-슬라이스. `compare`(Pure)·`branch_if`(Exec) + 데모 `on_player_join → branch_if(←compare(5,3,">")) → send_message`. **in-game 확인.**
 - [x] **노드 종류 컴파일러 강제**: `ExecNodeType`/`PureNodeType` 분리(계약 a). pure는 flow 메서드 없음 → 순수성이 타입으로 보장. 커밋 186ac9e.
 
-**확장 — 남음:**
-- [ ] `get_balance`(Exec, async → awaitAction/Suspend → number push) — exec push 실증.
+**확장 — 완료:**
+- [x] `get_balance`(Exec, async → number push) — **exec async 값 push 실증**: `NodeResult.Suspend`에 `onResume` 액션 추가(스케줄러가 resume 시 suspending 노드에 바인딩해 실행 → async 결과를 데이터 출력에 push, 노드 재실행 없이). `Nodes.awaitValue(port,type,op)` 공통 패턴(모든 async→값 노드 재사용). `get_balance`(economy): player 입력(미연결=actor) → async 잔액 → `balance:number`. in-game 확인. 커밋 2e2bbed.
 - [x] `format_text`(Pure, 동적 입력 포트) — **동적 포트 계약 도입**: `NodeType.instanceInputs(config)` 훅(default→`inputs()`). 템플릿 `{name}` 토큰 → 연결 가능 string 입력 파생 → `text:string` 보간. GraphParser 검증·ValueResolver 기본값이 `instanceInputs` 참조, 스키마는 static만 노출·에디터가 config에서 파생. in-game 확인. 커밋 da88b75.
 - [x] `player_info`(Pure, **동적 출력 포트**) — 동적 포트 계약의 출력 대칭: `NodeType.instanceOutputs(config)` 훅(default→`dataOutPorts()`). player 참조를 카탈로그(name/x/y/z)에서 선택한 스칼라로 분해(블루프린트 Break Struct opt-in). `dataOutPorts`=카탈로그, `instanceOutputs`=선택분, GraphParser가 소스 핸들 검증. player→string/number 변환 경로 확보(format_text·compare 소비). 에디터 출력 체크박스. in-game 확인. 커밋 4a879c9.
 - [x] 트리거 명시 출력 **player**(`on_player_join`) — **첫 exec push 실증**. `dataOutPorts`에 `player` + `ctx.set` push, 소비자 `send_message.target`(연결 시 우선, 미연결=actor 폴백). in-game 확인. 커밋 61ae820.
 - [x] 트리거 명시 출력 **victim/killer**(`on_player_death`) — `fireTrigger`가 이벤트 주체를 ValueStore에 **seed**(트리거만 이벤트를 앎). killer는 `LivingDeathEvent.getSource().getEntity()`가 player일 때만, 아니면 unset. `on_player_join.player`도 seed 모델로 통일(execute push 제거). in-game 확인(PvP killer→send_message.target). 커밋 f2fea44.
 - [x] `get_variable`(Pure) — **PureContext 읽기전용 확장**. `PureContext.readVar(scope,key)` default 메서드(전체 StorageService 노출 대신 read만 → 순수성 유지, 읽기는 부작용 아님). `ValueResolver.PureView`가 exec ctx의 storage+actor로 해석. `value:string` 출력. 소비자로 `send_message.message`를 knob→연결 가능 string 입력으로 승격. in-game 확인. 커밋 d73b292.
-- [ ] E2E 데모(economy/state 결합).
+- [x] E2E: 각 슬라이스를 트리거→pure/exec→소비 흐름으로 in-game 실증(트리거 주체·state·economy·텍스트 결합).
 
 ## 미룸
 

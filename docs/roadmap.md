@@ -28,23 +28,13 @@ save flush / quit markOffline). 노드 `set_variable` / `has_variable`. (커밋 
 - [x] **b. 포트 category + 데이터 포트 연결 검증** — `DataPort`, `dataInPorts()/dataOutPorts()`, GraphParser flow/data 분류(명목 타입 일치, flow↔data 금지, 단일 와이어), 에디터 `isValidConnection` + 블루프린트식 노드 레이아웃. (c71dddf·fdb0491·0048d62·ee553d5)
 - [x] **c. 노드 종류 분리 + value store 뼈대** — `ValueStore`+`PortRef`(ExecContext.values), `Node`→`ExecNode`+`NodeKind`, `PureNode`+`PureContext` 스켈레톤. (bcd3c31·9e5ef23·9ba058b)
 - [x] **d. 입력 통합** — `FieldSpec`→`InputSpec` 단일 소스, 13노드 마이그레이트, `FieldSpec`/`SimpleNodeType`/`dataInPorts()` 제거. 타입 표기 bare 원시 + `TypeId` 구조체 + number=double. (3749085·ede6c99·5749cc1·9cb24fd·367e351·1f7bc73)
-- [ ] **e. 다음 (진행 중)** — 값 흐름: 데이터 엣지 배선 + `ValueResolver`(exec push/pure pull) + typed `Type<T>` I/O + 첫 데이터 노드(get_variable·compare·format_text·get_balance·branch_if) + 트리거 명시 출력(victim/killer). 설계: [decisions/0003-value-flow.md](decisions/0003-value-flow.md). 수직 슬라이스(get_variable→send_message)부터.
-- [ ] **f.** 안정 ID·version(디스크립터 필드)·마이그레이션 3층·deprecation·/api/validate.
+- [x] **e. 값 흐름 — 완료** — 데이터 엣지 배선 + `ValueResolver`(exec push/pure pull) + typed `Type<T>` I/O + 데이터 노드(compare·branch_if·get_variable·format_text·player_info·get_balance) + 트리거 명시 출력(player/victim/killer) + 동적 포트 계약(`instanceInputs`/`instanceOutputs`) + exec async 값 push(`Suspend.onResume`/`Nodes.awaitValue`). 전부 in-game 실증. 상세·커밋: [decisions/0003-value-flow.md](decisions/0003-value-flow.md).
+- [ ] **f. 다음** — 안정 ID·version(디스크립터 필드)·마이그레이션 3층·deprecation·/api/validate.
 
 ## v2 3순위 — 안전 원칙 강화 (크로스커팅 하드닝)
 
 - [ ] 없는 대상·미준비 값 → 예외 대신 **정의된 결과**(false/skip + 경고). (StorageService는 이미 warn+skip.) unset 처리와 같은 갈래.
 - [ ] 2순위 "잘못된 대상 지정" 케이스와 함께 처리.
-
-## 진행 로그
-
-- **2026-09-19** — 2순위 b 완료(포트 category + 연결 검증, 블루프린트 노드 레이아웃, 브라우저 실증).
-- **2026-09-20** — 2순위 c(뼈대)·d 완료. 타입 표기 결정(bare 원시 + TypeId + number=double, 외부 논의 반영). Trilium → `docs/` 이관, GitHub Actions CI 도입.
-- **2026-09-21** — e 확장 시작: 트리거 **player 출력**(`on_player_join`) = 첫 exec push 실증. `send_message.target`(player 입력) 소비자 추가. in-game 확인. 커밋 61ae820.
-- **2026-09-21** — e 확장: **`get_variable`**(Pure) — `PureContext.readVar` 읽기전용 확장(순수성 유지). `send_message.message` 연결 가능 string 승격. in-game 확인. 커밋 d73b292.
-- **2026-09-21** — e 확장: **트리거 명시 출력** victim/killer/player — `fireTrigger`가 이벤트 주체를 ValueStore seed. 트리거 출력 = seed 모델로 통일. in-game 확인. 커밋 f2fea44.
-- **2026-09-21** — e 확장: **동적 포트 계약** 도입(`instanceInputs`/`instanceOutputs` 훅). `format_text`(Pure, 동적 입력 = 템플릿 토큰) 커밋 da88b75, `player_info`(Pure, 동적 출력 = player 분해, player→string/number 경로) 커밋 4a879c9. in-game 확인.
-- **2026-09-20** — 2순위 e 수직 슬라이스 완료(값이 흐른다 실증): 데이터 엣지 배선 + `ValueResolver`(exec push/pure pull) + typed `Type<T>`/`Types` + `compare`(pure)·`branch_if`(exec) + 에디터 인라인/와이어. 데모 in-game 확인. **노드 종류 = `ExecNodeType`/`PureNodeType` 인터페이스로 분리(컴파일러 강제, 계약 a)** — pure 노드는 flow 메서드가 없어 순수성이 타입으로 보장됨. NodeType은 애드온 SDK 경계라 애드온 생기기 전 지금 분리(나중엔 breaking).
 
 ## 백로그
 
