@@ -50,6 +50,8 @@ import kr.guinnessgroup.colophon.runtime.state.H2StateBackend;
 import kr.guinnessgroup.colophon.runtime.state.ColophonLocalState;
 import net.neoforged.fml.loading.FMLPaths;
 import java.nio.file.Path;
+import java.util.Map;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
@@ -168,7 +170,8 @@ public class Colophon {
             // fires, so has_variable/set_variable see it. Same server thread, so the
             // ordering is deterministic (no race).
             STORAGE.loadPlayer(player.getUUID());
-            RUNTIME.fireTrigger("on_player_join", player.getServer(), player);
+            RUNTIME.fireTrigger("on_player_join", player.getServer(), player,
+                    Map.of("player", player));
         }
     }
 
@@ -192,7 +195,13 @@ public class Colophon {
     @SubscribeEvent
     public void onPlayerDeath(LivingDeathEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            RUNTIME.fireTrigger("on_player_death", player.getServer(), player);
+            // killer = the player responsible, if the damage came from one; else unset.
+            Entity source = event.getSource().getEntity();
+            ServerPlayer killer = (source instanceof ServerPlayer sp) ? sp : null;
+            java.util.HashMap<String, Object> outputs = new java.util.HashMap<>();
+            outputs.put("victim", player);
+            outputs.put("killer", killer); // null is left unset by fireTrigger
+            RUNTIME.fireTrigger("on_player_death", player.getServer(), player, outputs);
         }
     }
 

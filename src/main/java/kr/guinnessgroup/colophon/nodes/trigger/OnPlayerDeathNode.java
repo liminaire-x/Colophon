@@ -7,6 +7,7 @@
 package kr.guinnessgroup.colophon.nodes.trigger;
 
 import com.google.gson.JsonObject;
+import kr.guinnessgroup.colophon.runtime.DataPort;
 import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
@@ -14,18 +15,32 @@ import kr.guinnessgroup.colophon.runtime.ExecNodeType;
 
 import java.util.List;
 
-/** Trigger: fires when a player dies. Entry point (no flow-in). */
+/**
+ * Trigger: fires when a player dies. Entry point (no flow-in).
+ * <p>
+ * Exposes two explicit player data outputs (contract d/e): {@code victim} (the
+ * player who died) and {@code killer} (the player responsible, if any). Both are
+ * seeded by the runtime when the trigger fires (see
+ * {@code ColophonRuntime.fireTrigger}); {@code killer} stays unset when the death
+ * had no player source (environmental, mob, etc.).
+ */
 public final class OnPlayerDeathNode implements ExecNodeType {
 
     @Override public String id() { return "on_player_death"; }
     @Override public String label() { return "On Player Death"; }
     @Override public String category() { return "trigger"; }
     @Override public List<InputSpec> inputs() { return List.of(); }
+    @Override public List<DataPort> dataOutPorts() {
+        return List.of(
+                new DataPort("victim", "colophon:player", "Victim"),
+                new DataPort("killer", "colophon:player", "Killer"));
+    }
     @Override public boolean hasFlowIn() { return false; }
     @Override public List<String> flowOutPorts() { return List.of("out"); }
 
     @Override
     public ExecNode create(JsonObject config) {
+        // Entry point: data outputs are seeded by the runtime; just pass execution on.
         return ctx -> NodeResult.cont();
     }
 }

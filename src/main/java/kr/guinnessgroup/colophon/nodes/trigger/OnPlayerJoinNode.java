@@ -12,18 +12,17 @@ import kr.guinnessgroup.colophon.runtime.InputSpec;
 import kr.guinnessgroup.colophon.runtime.ExecNode;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
 import kr.guinnessgroup.colophon.runtime.ExecNodeType;
-import kr.guinnessgroup.colophon.runtime.type.Types;
-import net.minecraft.server.level.ServerPlayer;
 
 import java.util.List;
 
 /**
  * Trigger: fires when a player joins the server. Entry point (no flow-in).
  * <p>
- * Exposes the joining player as an explicit data output (contract d/e): the exec
- * node pushes the acting player so downstream nodes can read the subject as a
- * value instead of relying on the implicit acting player. If there is no acting
- * player the output stays unset (absent), not a stored null.
+ * Exposes the joining player as an explicit {@code player} data output (contract
+ * d/e). The value is seeded by the runtime when the trigger fires (see
+ * {@code ColophonRuntime.fireTrigger}), since only the trigger knows its event's
+ * subject; downstream nodes read it as data instead of relying on the implicit
+ * acting player.
  */
 public final class OnPlayerJoinNode implements ExecNodeType {
 
@@ -39,13 +38,7 @@ public final class OnPlayerJoinNode implements ExecNodeType {
 
     @Override
     public ExecNode create(JsonObject config) {
-        // Entry point: push the joining player as data, then pass execution downstream.
-        return ctx -> {
-            ServerPlayer player = ctx.actor();
-            if (player != null) {
-                ctx.set("player", Types.PLAYER, player);
-            }
-            return NodeResult.cont();
-        };
+        // Entry point: data output is seeded by the runtime; just pass execution on.
+        return ctx -> NodeResult.cont();
     }
 }

@@ -96,13 +96,31 @@ public final class ColophonRuntime {
 
     /** Start every trigger node of the given type against the active graph. */
     public void fireTrigger(String triggerType, MinecraftServer server, ServerPlayer player) {
+        fireTrigger(triggerType, server, player, Map.of());
+    }
+
+    /**
+     * Start every trigger node of the given type, seeding its explicit data outputs
+     * (contract d/e). A trigger is the only place that knows its event's subjects
+     * (e.g. victim/killer), so it pushes them into the value store before the flow
+     * runs; downstream nodes then read them as data. A {@code null} output value is
+     * left unset (absent), not stored as null.
+     */
+    public void fireTrigger(String triggerType, MinecraftServer server, ServerPlayer player,
+                            Map<String, Object> triggerOutputs) {
         Graph graph = activeGraph;
         if (graph == null) {
             return;
         }
         List<String> ids = triggersByType.getOrDefault(triggerType, List.of());
         for (String id : ids) {
-            scheduler.start(graph, new ExecContext(server, player, storage), id);
+            ExecContext ctx = new ExecContext(server, player, storage);
+            triggerOutputs.forEach((port, value) -> {
+                if (value != null) {
+                    ctx.values().put(id, port, value);
+                }
+            });
+            scheduler.start(graph, ctx, id);
         }
     }
 
