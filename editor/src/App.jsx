@@ -45,6 +45,17 @@ const instanceInputs = (def, config) => (def?.inputs || []).concat(tokenInputs(d
 // Connectable (data) inputs of an instance.
 const instanceDataInputs = (def, config) => instanceInputs(def, config).filter((i) => i.connectable)
 
+// player_info exposes only the fields picked in config.fields (comma list); the
+// schema's dataOut is the full catalog. Mirrors PlayerInfoNode.instanceOutputs.
+const selectedFields = (config) => new Set(((config && config.fields) || '')
+  .split(',').map((s) => s.trim()).filter(Boolean))
+const instanceDataOut = (nodeType, dataOut, config) => {
+  const all = dataOut || []
+  if (nodeType !== 'player_info') return all
+  const sel = selectedFields(config)
+  return all.filter((p) => sel.has(p.id))
+}
+
 // --- custom node: renders ports from schema (flow-in handle + one source handle per flowOut port) ---
 // Blueprint-style handle shapes: exec (flow) pins are right-pointing triangles at
 // the top; data pins are type-colored circles below, inputs left / outputs right.
@@ -68,7 +79,7 @@ function ColophonNode({ data, selected }) {
   const flowOut = data.flowOut && data.flowOut.length ? data.flowOut : []
   const dataIn = (data.inputs || []).filter((i) => i.connectable)
     .concat(tokenInputs(data.nodeType, data.config))
-  const dataOut = data.dataOut || []
+  const dataOut = instanceDataOut(data.nodeType, data.dataOut, data.config)
   const cfg = data.config || {}
   const cfgEntries = Object.entries(cfg)
 
@@ -238,7 +249,8 @@ export default function App() {
     // Classify the source handle: a flow output (default "out") or a data output.
     const flowPort = c.sourceHandle || 'out'
     const isFlowSrc = (srcDef.flowOut || []).includes(flowPort)
-    const srcData = (srcDef.dataOut || []).find((p) => p.id === c.sourceHandle)
+    const srcData = instanceDataOut(srcNode.data.nodeType, srcDef.dataOut, srcNode.data.config)
+      .find((p) => p.id === c.sourceHandle)
 
     if (isFlowSrc) {
       // Flow edge: target must accept a flow input and must not be a data input.
@@ -413,8 +425,9 @@ export default function App() {
             <>
               <div style={{ fontWeight: 600, marginBottom: 2 }}>{selectedDef?.label || selectedNode.data.nodeType}</div>
               <div style={{ color: '#888', marginBottom: 10 }}>{selectedNode.data.nodeType}</div>
-              {instanceInputs(selectedDef, selectedNode.data.config).length === 0 && <div style={{ color: '#999', marginBottom: 10 }}>No inputs.</div>}
-              {instanceInputs(selectedDef, selectedNode.data.config).map((f) => {
+              {instanceInputs(selectedDef, selectedNode.data.config)
+                .filter((f) => !(selectedNode.data.nodeType === 'player_info' && f.id === 'fields'))
+                .map((f) => {
                 const wired = f.connectable && connectedInputs.has(f.id)
                 return (
                   <label key={f.id} style={{ display: 'block', marginBottom: 10 }}>
@@ -445,6 +458,32 @@ export default function App() {
                   </label>
                 )
               })}
+              {selectedNode.data.nodeType === 'player_info' && (
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ marginBottom: 4, fontWeight: 600 }}>Outputs</div>
+                  {(selectedDef?.dataOut || []).map((p) => {
+                    const sel = selectedFields(selectedNode.data.config)
+                    const checked = sel.has(p.id)
+                    return (
+                      <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const next = new Set(sel)
+                            if (checked) next.delete(p.id); else next.add(p.id)
+                            // preserve catalog order
+                            const list = (selectedDef?.dataOut || []).filter((q) => next.has(q.id)).map((q) => q.id)
+                            setConfigField('fields', list.join(','))
+                          }}
+                        />
+                        <span>{p.label || p.id}</span>
+                        <span style={{ color: '#888', fontSize: 10 }}>· {p.type}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
               <button onClick={deleteSelected} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>
                 Delete node
               </button>

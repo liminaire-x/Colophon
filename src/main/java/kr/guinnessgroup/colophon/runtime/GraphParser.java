@@ -102,7 +102,7 @@ public final class GraphParser {
             // Only exec node types have flow outputs; pure nodes never do.
             String flowPort = srcHandle == null ? GraphNode.DEFAULT_PORT : srcHandle;
             boolean srcIsFlow = (sType instanceof ExecNodeType se) && se.flowOutPorts().contains(flowPort);
-            DataPort srcData = srcIsFlow ? null : findPort(sType.dataOutPorts(), srcHandle);
+            DataPort srcData = srcIsFlow ? null : findPort(sType.instanceOutputs(configById.get(source)), srcHandle);
             if (!srcIsFlow && srcData == null) {
                 errors.add("node '" + source + "' has no output port '"
                         + (srcHandle == null ? flowPort : srcHandle) + "'");

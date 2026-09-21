@@ -50,9 +50,25 @@ public interface NodeType {
         return inputs();
     }
 
-    /** Typed data outputs this node produces, in order. Default: none. (Contract b.) */
+    /**
+     * Typed data outputs this node can produce, in order. For a node with selectable
+     * outputs (e.g. {@code player_info}) this is the full catalog; {@link #instanceOutputs}
+     * narrows it per instance. Default: none. (Contract b.)
+     */
     default List<DataPort> dataOutPorts() {
         return List.of();
+    }
+
+    /**
+     * The data outputs of one placed instance, given its config (contract e) — the
+     * output counterpart to {@link #instanceInputs}. Defaults to the full
+     * {@link #dataOutPorts()} catalog; a node with selectable outputs overrides this
+     * to return only the chosen ports. The parser validates source handles against
+     * this, so only selected outputs can be wired; the schema still exposes the whole
+     * catalog and the editor shows only the selected ones.
+     */
+    default List<DataPort> instanceOutputs(JsonObject config) {
+        return dataOutPorts();
     }
 
     /** This node's kind. {@link ExecNodeType} is EXEC; {@link PureNodeType} overrides to PURE. */
