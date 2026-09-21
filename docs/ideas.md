@@ -26,6 +26,9 @@
   스케줄러는 한 출력만 따라가므로 "각 then을 끝까지 실행 후 다음 then" 시맨틱(재진입/컨티뉴에이션)
   설계가 관건. 데이터 팬아웃과 대비되는 플로우 팬아웃 해법. (연결 다중도 관례는 Unreal과 일치:
   실행출력·데이터입력=단일, 데이터출력·실행입력=다중.)
+- **노드 계약 "잠금" 표시** — 지금은 어떤 노드가 계약 확정(=2층 테스트 대상)인지 코드로 알 수
+  없다. 계약 f의 **version 필드가 사실상 그 표시**가 될 수 있다(version 부여 = 계약 잠김 →
+  테스트 대상). 별도 플래그 대신 version을 재사용할지 f 설계 시 판단. 배경: [decisions/0004-testing-strategy.md](decisions/0004-testing-strategy.md) "테스트 작성 트리거".
 - **애드온 패키징** — `implementation`→`compileOnly` + optional `mods.toml`, 별도 애드온 모드 분리.
 - **애드온 SDK 경계 정식 추출** — `runtime`=SDK 표면, `nodes`=빌트인 애드온. → 경제/NPC 애드온.
 - **다중 그래프(페이지)** / Suspend 이벤트 wake / 트리거 동적 구독.

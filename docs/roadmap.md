@@ -36,7 +36,11 @@ save flush / quit markOffline). 노드 `set_variable` / `has_variable`. (커밋 
 - [x] **1층 + 인프라** — ModDevGradle `unitTest` + JUnit5/Mockito, CI `:test` 게이트 + 리포트
   아티팩트, 픽스처 헬퍼(`testkit/Fixtures`). 1층: `ValueResolver`·`GraphParser`·`CompareNode`·
   `FormatTextNode` 계약 테스트. CI 그린(ef48017). 근거: [decisions/0004-testing-strategy.md](decisions/0004-testing-strategy.md).
-- [ ] **2층 다음** — 노드 단위(MC 경계만 Mockito): `player_info`·`get_variable` 등 + 인메모리 `StorageService`.
+- [ ] **2층 보류(잠금 대기)** — 노드 로직이 유동적이라 미룸. 재개 트리거 = 노드 계약 잠금
+  (f의 안정 ID·version 부여, 또는 노드 "안정" 표시). 재개 시 `player_info`·`get_variable` +
+  인메모리 `StorageService`, MC 경계만 Mockito. [decisions/0004-testing-strategy.md](decisions/0004-testing-strategy.md) "테스트 작성 트리거".
+- [ ] **f 직렬화 계약 테스트(f와 함께)** — 라운드트립·버전 마이그레이션·/api/validate. 노드 로직과
+  달리 직렬화 표면은 잠긴 계약 + 저장 손상 치명적 → 1층급 우선.
 
 ## v2 3순위 — 안전 원칙 강화 (크로스커팅 하드닝)
 
