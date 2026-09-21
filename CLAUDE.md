@@ -18,11 +18,13 @@
 - `runtime/` — 엔진. 러너블 `ExecNode`/`PureNode`; 디스크립터 `NodeType`(base)·`ExecNodeType`/`PureNodeType`(컴파일러 강제 분리); `NodeResult`, `ExecContext`/`PureContext`, `ValueStore`/`PortRef`/`ValueResolver`, `NodeRegistry`, `Graph`/`GraphNode`/`GraphParser`, `TickScheduler`, `Nodes`(헬퍼), `InputSpec`/`DataPort`, `state/`(스토리지), `type/`(`TypeRegistry`·`TypeId`·`Type<T>`/`Types`).
 - `nodes/` — 빌트인 노드(`trigger/`·`action/`·`flow/`·`economy/`·`state/`). `BuiltinNodes.registerAll()`. 노드당 파일 하나(`ExecNodeType` 또는 `PureNodeType` 구현). economy는 Impactor soft-dep.
 - `web/` — 에디터 서버. `Colophon.java` — 모드 부트스트랩.
+- `src/test/` — JUnit 5 하니스(ADR 0004). `testkit/Fixtures`(조립 헬퍼 1곳) + 1층 계약 테스트. ModDevGradle `unitTest`로 MC 클래스패스.
 - `api`/`core` — 빈 패키지. SDK 경계 추출은 나중.
 
 ## 현재 상태
 - v2 1순위 상태·저장 계층 = **완료**. 등록 노드 19개(e에서 +get_variable·format_text·player_info·get_balance).
 - v2 2순위 데이터 포트(계약 a~e 확정): **a✅ b✅ c✅ d✅ e✅** / **f = 다음**(직렬화·버전).
+- 테스트 하니스(ADR 0004): **1층 + 인프라 완료**(CI `:test` 게이트 그린) / **2층 노드 단위 = 다음**.
   - **e = 완료(수직 슬라이스 + 확장 전부 in-game 실증)**: 데이터 엣지 배선 + `ValueResolver`(exec push/pure pull) + typed `Type<T>` + 데이터 노드(compare·branch_if·get_variable·format_text·player_info·get_balance) + 트리거 명시 출력(player/victim/killer) + 동적 포트 계약(`instanceInputs`/`instanceOutputs`) + exec async 값 push(`Suspend.onResume`/`Nodes.awaitValue`). 설계·커밋 [docs/decisions/0003-value-flow.md](docs/decisions/0003-value-flow.md).
   - **f = 다음**: 안정 ID·version·마이그레이션 3층·deprecation·/api/validate.
 - 잠긴 계약: 노드 종류 = `ExecNodeType`/`PureNodeType`(컴파일러 강제), 타입 명목 매칭(값 원시 bare·참조 네임스페이스, `TypeId`, `Type<T>`, number=double), 입력 통합(`InputSpec`), 주체 균일 명시, 동적 포트(`instanceInputs`/`instanceOutputs`), async 값 push(`Suspend.onResume`). **상세·근거·기각 대안 → [docs/decisions/](docs/decisions/).**
@@ -30,7 +32,7 @@
 
 ## 개발 워크플로우 (꼭 지킬 것)
 1. **단계로 쪼갠다.** 검증 3단(테스트 하니스 도입 후, [decisions/0004-testing-strategy.md](docs/decisions/0004-testing-strategy.md)):
-   - **자동 테스트 게이트** — 1층 순수 단위(값 흐름 코어) + 2층 노드 계약(mock=MC 경계만), CI 실행. *하니스 미구현이면 이 단계는 아직 생략.*
+   - **자동 테스트 게이트** — 1층 순수 단위(값 흐름 코어) **가동**(`src/test/`, `gradle build`가 `:test` 실행). 2층 노드 계약(mock=MC 경계만)은 다음. 신규 잠긴 계약엔 테스트 동반.
    - **CI = 컴파일 게이트** — 구조·리팩터 단계는 이걸로 충분. 운영(초기): **커밋 → master push → 사후 CI 확인**, 실패 시 fix-forward. CI 성공 판정은 **`gh run view <id> --json conclusion`으로 명시 확인**(`gh run watch` exit 코드만 믿지 말 것 — 오독 사례 있음).
    - **IntelliJ/브라우저 = 동작 게이트** — 진짜 런타임/MC 통합이 필요한 것(트리거 발화·economy·에디터 UX)만 이 확인까지 받고 진행.
    - **커밋 위생**: 커밋 전 `git status` 확인, **관련 파일만 명시 `add`**(`git add -A` 금지 — 사용자가 로컬 병행 편집함).

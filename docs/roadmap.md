@@ -29,7 +29,14 @@ save flush / quit markOffline). 노드 `set_variable` / `has_variable`. (커밋 
 - [x] **c. 노드 종류 분리 + value store 뼈대** — `ValueStore`+`PortRef`(ExecContext.values), `Node`→`ExecNode`+`NodeKind`, `PureNode`+`PureContext` 스켈레톤. (bcd3c31·9e5ef23·9ba058b)
 - [x] **d. 입력 통합** — `FieldSpec`→`InputSpec` 단일 소스, 13노드 마이그레이트, `FieldSpec`/`SimpleNodeType`/`dataInPorts()` 제거. 타입 표기 bare 원시 + `TypeId` 구조체 + number=double. (3749085·ede6c99·5749cc1·9cb24fd·367e351·1f7bc73)
 - [x] **e. 값 흐름 — 완료** — 데이터 엣지 배선 + `ValueResolver`(exec push/pure pull) + typed `Type<T>` I/O + 데이터 노드(compare·branch_if·get_variable·format_text·player_info·get_balance) + 트리거 명시 출력(player/victim/killer) + 동적 포트 계약(`instanceInputs`/`instanceOutputs`) + exec async 값 push(`Suspend.onResume`/`Nodes.awaitValue`). 전부 in-game 실증. 상세·커밋: [decisions/0003-value-flow.md](decisions/0003-value-flow.md).
-- [ ] **f. 다음** — 안정 ID·version(디스크립터 필드)·마이그레이션 3층·deprecation·/api/validate.
+- [ ] **f.** — 안정 ID·version(디스크립터 필드)·마이그레이션 3층·deprecation·/api/validate.
+
+## 테스트 하니스 (ADR 0004, 크로스커팅)
+
+- [x] **1층 + 인프라** — ModDevGradle `unitTest` + JUnit5/Mockito, CI `:test` 게이트 + 리포트
+  아티팩트, 픽스처 헬퍼(`testkit/Fixtures`). 1층: `ValueResolver`·`GraphParser`·`CompareNode`·
+  `FormatTextNode` 계약 테스트. CI 그린(ef48017). 근거: [decisions/0004-testing-strategy.md](decisions/0004-testing-strategy.md).
+- [ ] **2층 다음** — 노드 단위(MC 경계만 Mockito): `player_info`·`get_variable` 등 + 인메모리 `StorageService`.
 
 ## v2 3순위 — 안전 원칙 강화 (크로스커팅 하드닝)
 

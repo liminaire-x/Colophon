@@ -1,7 +1,12 @@
 # ADR 0004 — 테스트 전략
 
-**상태:** 결정(하니스 미구현). 계약 e 완료 후 도입 예정 — 다음 작업. 계약 f(직렬화·
-마이그레이션) 진입 전에 1·2층 하니스를 먼저 세운다.
+**상태:** 결정 + **1층 하니스 구현·CI 게이트 가동**(커밋 ef48017). ModDevGradle
+`unitTest`로 MC 클래스패스 확보, JUnit 5(+Mockito, 2층 대비), `gradle build`가 `:test`를
+포함해 컴파일+행위 게이트로 자동 실행(CI에서 test-reports 아티팩트 업로드). 1층 커버:
+`ValueResolver`(inline default·pure pull+memoize·exec-unset·사이클 가드)·`GraphParser`
+(명목 매칭·flow/data 분리·단일 와이어·인스턴스 포트·flow 배선)·`CompareNode`/`FormatTextNode`
+계약. 픽스처 조립은 `testkit/Fixtures`에 집중. **2층(노드 단위, MC 경계만 Mockito) = 다음.**
+계약 f(직렬화·마이그레이션) 진입 전에 2층까지 세운다.
 
 ## 맥락
 
@@ -76,12 +81,16 @@ AI 에이전트는 mock을 과하게 써 "mock의 설정만 검증하는" 테스
 - **실행은 CI**: 에이전트가 로컬 컴파일 금지([CLAUDE.md])이므로 테스트도 CI에서 실행. AI가
   반복 실행하지 않으니 실행 자체엔 토큰이 안 든다. 테스트 작성=에이전트, 실행/판정=CI.
 
-## 인프라 (도입 시 할 일)
+## 인프라
 
-- `build.gradle`: JUnit 5(+Mockito) test deps, NeoForge 테스트 소스셋.
-- CI(`.github/workflows/build.yml`): `test` 태스크 추가 → 1·2층이 컴파일 게이트와 함께 자동.
-- 첫 착수: 1층(ValueResolver·GraphParser) + 픽스처 헬퍼 + 2층 노드 1~2개(예: `player_info`,
-  `get_variable`)로 패턴 확립.
+- ✅ `build.gradle`: ModDevGradle `neoForge.unitTest{enable; testedMod}` +
+  JUnit 5/Mockito test deps + `test{useJUnitPlatform()}`. (MC 클래스패스는 `unitTest`가 제공.)
+- ✅ CI(`.github/workflows/build.yml`): `gradle build`가 `:test`를 포함(별도 태스크 불필요) +
+  실패/성공 시 `build/reports/tests/` 아티팩트 업로드로 `gh`에서 리포트 열람.
+- ✅ 첫 착수(1층 + 픽스처 헬퍼) 완료 — CI 그린 검증(run 35616292892).
+- **다음**: 2층 노드 1~2개(예: `player_info`, `get_variable`) — `ServerPlayer`/
+  `MinecraftServer`/`EconomyService`만 Mockito, 나머지는 실제 객체. 인메모리
+  `StorageService`를 `Fixtures`에 추가.
 
 ## 근거 (외부 검증)
 
