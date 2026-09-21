@@ -112,7 +112,7 @@ public final class GraphParser {
             if (srcIsFlow) {
                 // Flow edge: target must accept a flow input and must not be a data input.
                 if (tgtHandle != null && !GraphNode.FLOW_IN_PORT.equals(tgtHandle)
-                        && findDataInput(tType, tgtHandle) != null) {
+                        && findDataInput(tType, configById.get(target), tgtHandle) != null) {
                     errors.add("cannot connect flow output '" + flowPort + "' of '" + source
                             + "' to data input '" + tgtHandle + "' of '" + target + "'");
                     continue;
@@ -134,7 +134,7 @@ public final class GraphParser {
                             + "' to a flow input of '" + target + "'");
                     continue;
                 }
-                InputSpec tgtData = findDataInput(tType, tgtHandle);
+                InputSpec tgtData = findDataInput(tType, configById.get(target), tgtHandle);
                 if (tgtData == null) {
                     errors.add("node '" + target + "' has no data input port '" + tgtHandle + "'");
                     continue;
@@ -201,12 +201,16 @@ public final class GraphParser {
         return null;
     }
 
-    /** The connectable (data) input of the given node type with this id, or null. */
-    private static InputSpec findDataInput(NodeType type, String id) {
+    /**
+     * The connectable (data) input of the given node instance with this id, or null.
+     * Uses {@code instanceInputs} so instance-derived ports (e.g. a {@code format_text}
+     * template's tokens) validate, not just the static schema.
+     */
+    private static InputSpec findDataInput(NodeType type, JsonObject config, String id) {
         if (id == null) {
             return null;
         }
-        for (InputSpec in : type.inputs()) {
+        for (InputSpec in : type.instanceInputs(config)) {
             if (in.connectable() && in.id().equals(id)) {
                 return in;
             }

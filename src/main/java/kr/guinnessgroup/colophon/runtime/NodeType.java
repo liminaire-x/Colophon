@@ -6,6 +6,8 @@
 
 package kr.guinnessgroup.colophon.runtime;
 
+import com.google.gson.JsonObject;
+
 import java.util.List;
 
 /**
@@ -33,6 +35,19 @@ public interface NodeType {
     /** Unified inputs (contract d): config knobs (inline-only) and data inputs (connectable). */
     default List<InputSpec> inputs() {
         return List.of();
+    }
+
+    /**
+     * The inputs of one placed instance, given its saved config (contract e). Almost
+     * every node's ports are fixed, so this defaults to {@link #inputs()}; a node with
+     * instance-dependent ports (e.g. {@code format_text}, whose data inputs come from
+     * its template) overrides this to derive them from {@code config}. The parser and
+     * value resolver consult this — not {@link #inputs()} — so dynamic ports validate
+     * and resolve; the schema still exposes only the static {@link #inputs()}, and the
+     * editor derives the rest per instance.
+     */
+    default List<InputSpec> instanceInputs(JsonObject config) {
+        return inputs();
     }
 
     /** Typed data outputs this node produces, in order. Default: none. (Contract b.) */

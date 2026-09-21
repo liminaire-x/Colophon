@@ -26,7 +26,24 @@ const dataColor = (typeId) => typeColors[typeId] || '#888'
 const FLOW_IN = 'in' // matches GraphNode.FLOW_IN_PORT on the server
 
 // An input is a wireable data port when connectable; otherwise an inline config knob.
-const dataInputs = (def) => (def?.inputs || []).filter((i) => i.connectable)
+// {name} tokens in a format_text template become string data inputs (mirrors
+// FormatTextNode.instanceInputs on the server — instance-derived, not in the schema).
+const tokenInputs = (nodeType, config) => {
+  if (nodeType !== 'format_text') return []
+  const tpl = (config && config.template) || ''
+  const re = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g // fresh regex: /g lastIndex is stateful
+  const seen = new Set()
+  const out = []
+  let m
+  while ((m = re.exec(tpl))) {
+    if (!seen.has(m[1])) { seen.add(m[1]); out.push({ id: m[1], type: 'string', label: m[1], connectable: true }) }
+  }
+  return out
+}
+// Full inputs of a placed instance: static schema inputs + dynamic tokens.
+const instanceInputs = (def, config) => (def?.inputs || []).concat(tokenInputs(def?.type, config))
+// Connectable (data) inputs of an instance.
+const instanceDataInputs = (def, config) => instanceInputs(def, config).filter((i) => i.connectable)
 
 // --- custom node: renders ports from schema (flow-in handle + one source handle per flowOut port) ---
 // Blueprint-style handle shapes: exec (flow) pins are right-pointing triangles at
@@ -50,6 +67,7 @@ const dataHandleStyle = (typeId) => ({
 function ColophonNode({ data, selected }) {
   const flowOut = data.flowOut && data.flowOut.length ? data.flowOut : []
   const dataIn = (data.inputs || []).filter((i) => i.connectable)
+    .concat(tokenInputs(data.nodeType, data.config))
   const dataOut = data.dataOut || []
   const cfg = data.config || {}
   const cfgEntries = Object.entries(cfg)
@@ -225,13 +243,13 @@ export default function App() {
     if (isFlowSrc) {
       // Flow edge: target must accept a flow input and must not be a data input.
       if (c.targetHandle && c.targetHandle !== FLOW_IN
-          && dataInputs(tgtDef).some((p) => p.id === c.targetHandle)) return false
+          && instanceDataInputs(tgtDef, tgtNode.data.config).some((p) => p.id === c.targetHandle)) return false
       return !!tgtDef.hasFlowIn
     }
     if (srcData) {
       // Data edge: target must be a data input of the SAME type, and unconnected.
       if (!c.targetHandle || c.targetHandle === FLOW_IN) return false
-      const tgtData = dataInputs(tgtDef).find((p) => p.id === c.targetHandle)
+      const tgtData = instanceDataInputs(tgtDef, tgtNode.data.config).find((p) => p.id === c.targetHandle)
       if (!tgtData) return false
       if (tgtData.type !== srcData.type) return false
       const already = edgesRef.current.some((e) => e.target === c.target && e.targetHandle === c.targetHandle)
@@ -395,8 +413,8 @@ export default function App() {
             <>
               <div style={{ fontWeight: 600, marginBottom: 2 }}>{selectedDef?.label || selectedNode.data.nodeType}</div>
               <div style={{ color: '#888', marginBottom: 10 }}>{selectedNode.data.nodeType}</div>
-              {(selectedDef?.inputs || []).length === 0 && <div style={{ color: '#999', marginBottom: 10 }}>No inputs.</div>}
-              {(selectedDef?.inputs || []).map((f) => {
+              {instanceInputs(selectedDef, selectedNode.data.config).length === 0 && <div style={{ color: '#999', marginBottom: 10 }}>No inputs.</div>}
+              {instanceInputs(selectedDef, selectedNode.data.config).map((f) => {
                 const wired = f.connectable && connectedInputs.has(f.id)
                 return (
                   <label key={f.id} style={{ display: 'block', marginBottom: 10 }}>

@@ -14,6 +14,7 @@ import kr.guinnessgroup.colophon.nodes.flow.BranchIfNode;
 import kr.guinnessgroup.colophon.nodes.flow.ChanceNode;
 import kr.guinnessgroup.colophon.nodes.flow.CompareNode;
 import kr.guinnessgroup.colophon.nodes.flow.DelayNode;
+import kr.guinnessgroup.colophon.nodes.flow.FormatTextNode;
 import kr.guinnessgroup.colophon.nodes.trigger.OnPlayerDeathNode;
 import kr.guinnessgroup.colophon.nodes.trigger.OnPlayerJoinNode;
 import kr.guinnessgroup.colophon.nodes.economy.EconomyNodes;
@@ -47,6 +48,7 @@ public final class BuiltinNodes {
         NodeRegistry.register(new ChanceNode());
         NodeRegistry.register(new CompareNode());
         NodeRegistry.register(new BranchIfNode());
+        NodeRegistry.register(new FormatTextNode());
         // state
         NodeRegistry.register(new SetVariableNode());
         NodeRegistry.register(new HasVariableNode());

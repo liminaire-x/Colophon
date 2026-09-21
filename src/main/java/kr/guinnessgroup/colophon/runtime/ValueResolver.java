@@ -85,7 +85,7 @@ public final class ValueResolver {
             literal = config.get(portId).getAsString();
         }
         if (literal == null || literal.isEmpty()) {
-            literal = gn.type().inputs().stream()
+            literal = gn.type().instanceInputs(gn.config()).stream()
                     .filter(in -> in.id().equals(portId))
                     .findFirst()
                     .map(InputSpec::defaultValue)
