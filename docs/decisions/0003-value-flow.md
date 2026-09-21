@@ -62,7 +62,7 @@
 - [ ] `get_balance`(Exec, async → awaitAction/Suspend → number push) — exec push 실증.
 - [ ] `format_text`(Pure, 동적 입력 포트) — 값→텍스트 유일 명시 노드.
 - [x] 트리거 명시 출력 **player**(`on_player_join`) — **첫 exec push 실증**. `dataOutPorts`에 `player` + `ctx.set` push, 소비자 `send_message.target`(연결 시 우선, 미연결=actor 폴백). in-game 확인. 커밋 61ae820.
-- [ ] 트리거 명시 출력 **victim/killer**(`on_player_death`) — 이벤트 데이터(`LivingDeathEvent.getSource()`)를 `fireTrigger`가 받아 ValueStore seed하도록 확장 필요.
+- [x] 트리거 명시 출력 **victim/killer**(`on_player_death`) — `fireTrigger`가 이벤트 주체를 ValueStore에 **seed**(트리거만 이벤트를 앎). killer는 `LivingDeathEvent.getSource().getEntity()`가 player일 때만, 아니면 unset. `on_player_join.player`도 seed 모델로 통일(execute push 제거). in-game 확인(PvP killer→send_message.target). 커밋 f2fea44.
 - [x] `get_variable`(Pure) — **PureContext 읽기전용 확장**. `PureContext.readVar(scope,key)` default 메서드(전체 StorageService 노출 대신 read만 → 순수성 유지, 읽기는 부작용 아님). `ValueResolver.PureView`가 exec ctx의 storage+actor로 해석. `value:string` 출력. 소비자로 `send_message.message`를 knob→연결 가능 string 입력으로 승격. in-game 확인. 커밋 d73b292.
 - [ ] E2E 데모(economy/state 결합).
 

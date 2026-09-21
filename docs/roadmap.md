@@ -42,6 +42,7 @@ save flush / quit markOffline). 노드 `set_variable` / `has_variable`. (커밋 
 - **2026-09-20** — 2순위 c(뼈대)·d 완료. 타입 표기 결정(bare 원시 + TypeId + number=double, 외부 논의 반영). Trilium → `docs/` 이관, GitHub Actions CI 도입.
 - **2026-09-21** — e 확장 시작: 트리거 **player 출력**(`on_player_join`) = 첫 exec push 실증. `send_message.target`(player 입력) 소비자 추가. in-game 확인. 커밋 61ae820.
 - **2026-09-21** — e 확장: **`get_variable`**(Pure) — `PureContext.readVar` 읽기전용 확장(순수성 유지). `send_message.message` 연결 가능 string 승격. in-game 확인. 커밋 d73b292.
+- **2026-09-21** — e 확장: **트리거 명시 출력** victim/killer/player — `fireTrigger`가 이벤트 주체를 ValueStore seed. 트리거 출력 = seed 모델로 통일. in-game 확인. 커밋 f2fea44.
 - **2026-09-20** — 2순위 e 수직 슬라이스 완료(값이 흐른다 실증): 데이터 엣지 배선 + `ValueResolver`(exec push/pure pull) + typed `Type<T>`/`Types` + `compare`(pure)·`branch_if`(exec) + 에디터 인라인/와이어. 데모 in-game 확인. **노드 종류 = `ExecNodeType`/`PureNodeType` 인터페이스로 분리(컴파일러 강제, 계약 a)** — pure 노드는 flow 메서드가 없어 순수성이 타입으로 보장됨. NodeType은 애드온 SDK 경계라 애드온 생기기 전 지금 분리(나중엔 breaking).
 
 ## 백로그
