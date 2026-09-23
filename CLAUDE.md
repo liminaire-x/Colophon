@@ -18,10 +18,11 @@ v2 설계가 사용자가 소화하는 속도보다 빨리 두꺼워져서, **�
 - `runtime/` — 노드 종류(`NodeType`·`Field`·`NodeRegistry`), 문서 → 실행 그래프(`GraphBuilder`), 실행(`Runner`, 즉시·동기), 발행·트리거(`ColophonRuntime`).
 - `record/` — 기록(`Owner`·`RecordStore` 캐시·`H2RecordBackend`, schema 1).
 - `npc/` — NPC 정의 문서(`NpcFormat`, format 1)·배치(`Placement`, 서버 기록)·엔티티(`NpcEntity`)·명령어·`Npcs`(게임 쪽 창구).
+- `quest/` — 퀘스트 문서(`QuestFormat`, format 1)·상태(`QuestState`, 플레이어 기록)·`Quests`(게임 쪽 창구)·`QuestSyncPayload`(공개된 퀘스트만 그 플레이어에게).
 - `nodes/` — 빌트인 노드. 노드당 파일 하나, `BuiltinNodes.registerAll`.
-- `client/` — 클라이언트 전용(`NpcRenderer`: GeckoLib 모델 있으면 그것, 없으면 스티브 / `NpcGeoModel`: 리소스 경로 규칙). `FMLEnvironment.dist == CLIENT`일 때만 로드.
+- `client/` — 클라이언트 전용(`NpcRenderer`: GeckoLib 모델 있으면 그것, 없으면 스티브 / `NpcGeoModel`: 리소스 경로 규칙 / `QuestScreen`: `J` 퀘스트 화면 / `ClientQuests`: 받은 퀘스트). `FMLEnvironment.dist == CLIENT`일 때만 로드.
 - `web/` — 에디터 서버. `Colophon.java` — 부트스트랩·게임 이벤트 연결. `ColophonConfig` — `serverName`.
-- 결정 기록: [0001 저장 형식](docs/decisions/0001-storage-format.md), [0002 NPC](docs/decisions/0002-npc.md), [0003 NPC 외형](docs/decisions/0003-npc-looks.md), [0004 id·기록 키](docs/decisions/0004-ids-and-record-keys.md).
+- 결정 기록: [0001 저장 형식](docs/decisions/0001-storage-format.md), [0002 NPC](docs/decisions/0002-npc.md), [0003 NPC 외형](docs/decisions/0003-npc-looks.md), [0004 id·기록 키](docs/decisions/0004-ids-and-record-keys.md), [0005 퀘스트](docs/decisions/0005-quests.md).
 
 ## 설계 약속 (꼭 지킬 것)
 - **"잠김" 대신 고치는 비용**(비쌈 = 저장 형식·id·공개 API / 중간 / 쌈 = 내부 코드)을 표시한다.

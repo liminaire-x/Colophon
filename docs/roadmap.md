@@ -9,7 +9,7 @@
 - [x] **2. NPC 소환 + 우클릭 채팅**: 에디터 NPC 등록(`npcs.json`) → `/colophon npc spawn` 배치(기록 DB) → `On NPC Interact`. 서버 이름 설정. CI 그린(테스트 36), 게임 확인 완료(2026-09-23): 소환·이름표·우클릭·무적/고정·여러 배치·재접속 유지·참조 중인 NPC 삭제 거부·정의 삭제 시 사라짐.
   - 알려진 함정: `remove`(가까운 하나)와 `remove <id>`(전부)가 인자 하나 차이라, Tab 자동완성으로 전부 삭제가 실행될 수 있다. 배치 하나를 고르는 방법은 보류(아래 후보).
 - [x] **3. GeckoLib 외형**: NPC 정의 `model`·`idle`, 노드 `Play NPC Animation`, 모델 없으면 스티브. 테스트 모델 `chief`(Blockbench MCP, `animation.chief.wave`/`happy`). CI 그린(테스트 39), 게임 확인 완료(2026-09-23): 모델·idle 반복, 우클릭 시 happy 후 idle 복귀, 리소스팩 끄면 스티브.
-- [ ] **4. 퀘스트 공개 + 퀘스트 화면**: 아이콘, 내용, `밀 3/10` 표시.
+- [ ] **4. 퀘스트 공개 + 퀘스트 화면**: 아이콘, 내용, `밀 3/10` 표시. 결정: [0004 id·기록 키](decisions/0004-ids-and-record-keys.md), [0005 퀘스트](decisions/0005-quests.md). 구현 완료, CI·게임 확인 대기.
 - [ ] **5. 제출 + 보상**: 이야기 전체 완성.
 
 ## 다음 이야기 후보
