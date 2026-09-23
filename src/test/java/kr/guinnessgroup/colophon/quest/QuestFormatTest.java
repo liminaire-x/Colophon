@@ -56,6 +56,30 @@ class QuestFormatTest {
     }
 
     @Test
+    void rewardsMayCarryComponentsAsGiveWritesThem() {
+        String sword = "minecraft:iron_sword[custom_name='\\\"대장장이의 칼\\\"',enchantments={levels:{'minecraft:sharpness':2}}]";
+        QuestDoc doc = QuestFormat.read("""
+                { "format": 1, "quests": [ { "id": "quest_a", "title": "A", "goals": [],
+                  "rewards": [ { "item": "%s", "count": 1 } ] } ] }
+                """.formatted(sword));
+        assertEquals(sword.replace("\\\"", "\""), doc.find("quest_a").rewards().get(0).item());
+        assertEquals(doc, QuestFormat.read(QuestFormat.write(doc)));
+    }
+
+    @Test
+    void goalsAndIconsAreItemIdsOnly() {
+        DocumentException e = assertThrows(DocumentException.class, () -> QuestFormat.read("""
+                { "format": 1, "quests": [ { "id": "quest_a", "title": "A",
+                  "goals": [ { "item": "minecraft:wheat[custom_name='x']", "count": 1 } ], "rewards": [] } ] }
+                """));
+        assertTrue(e.errors().get(0).contains("goals cannot have [components]"), e.errors().toString());
+        assertThrows(DocumentException.class, () -> QuestFormat.read("""
+                { "format": 1, "quests": [ { "id": "quest_a", "title": "A", "icon": "minecraft:wheat[x=1]",
+                  "goals": [], "rewards": [] } ] }
+                """));
+    }
+
+    @Test
     void rejectsNewerFormat() {
         DocumentException e = assertThrows(DocumentException.class,
                 () -> QuestFormat.read("{\"format\":2,\"quests\":[]}"));

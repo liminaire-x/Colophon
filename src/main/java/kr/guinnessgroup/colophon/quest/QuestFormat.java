@@ -39,6 +39,13 @@ public final class QuestFormat {
     /** An item id with its namespace, e.g. {@code minecraft:wheat}. */
     public static final Pattern ITEM = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
 
+    /**
+     * An item as {@code /give} writes it: an id, optionally followed by components,
+     * e.g. {@code minecraft:iron_sword[custom_name='"Blade"']}. Only the
+     * shape is checked here; the game's item parser checks the rest on publish.
+     */
+    public static final Pattern ITEM_WITH_COMPONENTS = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+(\\[.*])?", Pattern.DOTALL);
+
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
     private QuestFormat() {}
@@ -95,8 +102,9 @@ public final class QuestFormat {
                 errors.add(where + ": icon '" + icon + "' is not an item id like minecraft:wheat");
             }
             String text = string(o, "text");
-            List<QuestDoc.Stack> goals = stacks(o, "goals", where, errors);
-            List<QuestDoc.Stack> rewards = stacks(o, "rewards", where, errors);
+            // Goals count by item type only, so they cannot carry components (yet).
+            List<QuestDoc.Stack> goals = stacks(o, "goals", ITEM, where, errors);
+            List<QuestDoc.Stack> rewards = stacks(o, "rewards", ITEM_WITH_COMPONENTS, where, errors);
             if (errors.size() == before) {
                 quests.add(new QuestDoc.Quest(id, title.trim(), icon, text == null ? "" : text, goals, rewards));
             }
@@ -107,7 +115,7 @@ public final class QuestFormat {
         return new QuestDoc(List.copyOf(quests));
     }
 
-    private static List<QuestDoc.Stack> stacks(JsonObject o, String key, String where, List<String> errors) {
+    private static List<QuestDoc.Stack> stacks(JsonObject o, String key, Pattern shape, String where, List<String> errors) {
         JsonElement e = o.get(key);
         if (e == null || !e.isJsonArray()) {
             errors.add(where + ": missing '" + key + "' list");
@@ -120,8 +128,15 @@ public final class QuestFormat {
                 continue;
             }
             String item = string(s.getAsJsonObject(), "item");
-            if (item == null || !ITEM.matcher(item).matches()) {
-                errors.add(where + ": " + key + " item " + (item == null ? "is missing" : "'" + item + "' is not an item id like minecraft:wheat"));
+            if (item != null) {
+                item = item.trim();
+            }
+            if (item == null || !shape.matcher(item).matches()) {
+                String hint = (shape == ITEM)
+                        ? "is not an item id like minecraft:wheat" + (ITEM_WITH_COMPONENTS.matcher(item == null ? "" : item).matches()
+                                ? " (goals cannot have [components] yet)" : "")
+                        : "is not an item like minecraft:iron_sword or minecraft:iron_sword[...]";
+                errors.add(where + ": " + key + " item " + (item == null ? "is missing" : "'" + item + "' " + hint));
                 continue;
             }
             JsonElement c = s.getAsJsonObject().get("count");

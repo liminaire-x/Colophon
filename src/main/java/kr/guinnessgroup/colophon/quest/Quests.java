@@ -5,10 +5,16 @@
  */
 package kr.guinnessgroup.colophon.quest;
 
+import com.mojang.brigadier.StringReader;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import kr.guinnessgroup.colophon.record.Owner;
 import kr.guinnessgroup.colophon.record.RecordStore;
 import kr.guinnessgroup.colophon.runtime.ColophonRuntime;
+import net.minecraft.commands.arguments.item.ItemParser;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -18,6 +24,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -90,7 +97,7 @@ public final class Quests {
             take(inventory, item(goal.item()), goal.count());
         }
         for (QuestDoc.Stack reward : quest.rewards()) {
-            give(player, item(reward.item()), reward.count());
+            give(player, stack(reward.item(), player.registryAccess()), reward.count());
         }
         records.set(Owner.player(player.getUUID()), questId, QuestState.DONE_VALUE);
         sync(player);
@@ -111,12 +118,15 @@ public final class Quests {
         inventory.setChanged();
     }
 
-    /** Give in stacks no larger than the item allows; what does not fit drops. */
-    private static void give(ServerPlayer player, Item item, int count) {
-        int max = new ItemStack(item).getMaxStackSize();
+    /** Give copies of {@code item} in stacks no larger than it allows; what does not fit drops. */
+    private static void give(ServerPlayer player, ItemStack item, int count) {
+        if (item.isEmpty()) {
+            return;
+        }
+        int max = item.getMaxStackSize();
         for (int left = count; left > 0; ) {
             int n = Math.min(left, max);
-            ItemHandlerHelper.giveItemToPlayer(player, new ItemStack(item, n));
+            ItemHandlerHelper.giveItemToPlayer(player, item.copyWithCount(n));
             left -= n;
         }
     }
@@ -157,9 +167,46 @@ public final class Quests {
         return rl == null ? Items.AIR : BuiltInRegistries.ITEM.get(rl);
     }
 
-    /** For publish: whether an item id names a real item. */
-    public static boolean itemExists(String id) {
-        ResourceLocation rl = ResourceLocation.tryParse(id);
-        return rl != null && BuiltInRegistries.ITEM.containsKey(rl);
+    /**
+     * One item as {@code /give} writes it ({@code minecraft:iron_sword[...]}), read by
+     * the game's own parser, so components from other mods work too. Empty if it
+     * cannot be read (publish rejects those).
+     *
+     * @param registries the running game's registries (enchantments live there)
+     */
+    public static ItemStack stack(String spec, HolderLookup.Provider registries) {
+        try {
+            ItemParser.ItemResult r = parse(spec, registries);
+            return new ItemStack(r.item(), 1, r.components());
+        } catch (CommandSyntaxException e) {
+            return ItemStack.EMPTY;
+        }
+    }
+
+    /**
+     * For publish: why an item cannot be used, or {@code null} if it can. Reads it the
+     * way {@link #stack} will, with the running server's registries.
+     */
+    public static String itemProblem(String spec) {
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        if (server == null) {
+            return "the server is not running";
+        }
+        try {
+            parse(spec, server.registryAccess());
+            return null;
+        } catch (CommandSyntaxException e) {
+            return e.getMessage();
+        }
+    }
+
+    private static ItemParser.ItemResult parse(String spec, HolderLookup.Provider registries) throws CommandSyntaxException {
+        StringReader reader = new StringReader(spec);
+        ItemParser.ItemResult r = new ItemParser(registries).parse(reader);
+        if (reader.canRead()) {
+            throw new SimpleCommandExceptionType(Component.literal(
+                    "unexpected text after the item: '" + reader.getRemaining() + "'")).createWithContext(reader);
+        }
+        return r;
     }
 }

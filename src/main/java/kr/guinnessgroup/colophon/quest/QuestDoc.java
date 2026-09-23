@@ -24,7 +24,11 @@ public record QuestDoc(List<Quest> quests) {
      */
     public record Quest(String id, String title, String icon, String text, List<Stack> goals, List<Stack> rewards) {}
 
-    /** Some number of one item, e.g. {@code minecraft:wheat} × 10. */
+    /**
+     * Some number of one item, e.g. {@code minecraft:wheat} × 10. A reward item may be
+     * written as {@code /give} writes it, with components (name, enchantments, data
+     * from other mods): {@code minecraft:iron_sword[custom_name=...]}. Goals are plain ids.
+     */
     public record Stack(String item, int count) {}
 
     public Quest find(String id) {

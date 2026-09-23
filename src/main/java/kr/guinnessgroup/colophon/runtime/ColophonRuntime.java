@@ -31,7 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Predicate;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -49,7 +49,7 @@ public final class ColophonRuntime {
     private final Path graphsFile;
     private final Path npcsFile;
     private final Path questsFile;
-    private final Predicate<String> itemExists;
+    private final Function<String, String> itemProblem;
     private volatile Owner serverOwner = Owner.server("main");
     private volatile Runnable onPublish = () -> {};
 
@@ -63,14 +63,17 @@ public final class ColophonRuntime {
 
     private volatile Active active = EMPTY;
 
-    /** @param itemExists whether an item id (e.g. {@code minecraft:wheat}) names a real item */
-    public ColophonRuntime(NodeRegistry registry, RecordStore records, Path dir, Predicate<String> itemExists) {
+    /**
+     * @param itemProblem why an item (e.g. {@code minecraft:wheat}, or with components as
+     *                    {@code /give} writes it) cannot be used in this game, or {@code null}
+     */
+    public ColophonRuntime(NodeRegistry registry, RecordStore records, Path dir, Function<String, String> itemProblem) {
         this.registry = registry;
         this.records = records;
         this.graphsFile = dir.resolve("graphs.json");
         this.npcsFile = dir.resolve("npcs.json");
         this.questsFile = dir.resolve("quests.json");
-        this.itemExists = itemExists;
+        this.itemProblem = itemProblem;
     }
 
     /** Run after every accepted publish, on the publishing (web) thread. */
@@ -147,7 +150,7 @@ public final class ColophonRuntime {
                 graphs.size(), npcDoc.npcs().size(), questDoc.quests().size());
     }
 
-    /** Quest items must exist in this game (a typo or a missing mod is rejected). */
+    /** Quest items must be readable in this game (a typo, a missing mod or bad components is rejected). */
     private void checkItems(QuestDoc questDoc) {
         List<String> errors = new ArrayList<>();
         for (QuestDoc.Quest q : questDoc.quests()) {
@@ -158,8 +161,9 @@ public final class ColophonRuntime {
             q.goals().forEach(s -> items.add(s.item()));
             q.rewards().forEach(s -> items.add(s.item()));
             for (String item : items) {
-                if (!itemExists.test(item)) {
-                    errors.add("quest '" + q.title() + "' (" + q.id() + "): no item '" + item + "' in this game");
+                String problem = itemProblem.apply(item);
+                if (problem != null) {
+                    errors.add("quest '" + q.title() + "' (" + q.id() + "): item '" + item + "': " + problem);
                 }
             }
         }

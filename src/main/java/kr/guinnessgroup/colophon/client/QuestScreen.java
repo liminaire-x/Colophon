@@ -15,7 +15,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The quest screen: revealed quests on the left, the chosen one's story, needs
@@ -36,6 +38,7 @@ public final class QuestScreen extends Screen {
     private static final int GOLD = 0xFFFFD84A;
     private static final int GREEN = 0xFF55FF55;
 
+    private final Map<String, ItemStack> rewards = new HashMap<>();
     private String selectedId;
     private int left;
     private int top;
@@ -176,7 +179,7 @@ public final class QuestScreen extends Screen {
             g.drawString(font, Component.translatable("colophon.quests.rewards"), dx, y, GRAY);
             y += font.lineHeight + 2;
             for (QuestDoc.Stack reward : q.rewards()) {
-                ItemStack stack = new ItemStack(Quests.item(reward.item()));
+                ItemStack stack = rewardStack(reward.item());
                 hovered = itemRow(g, stack, " × " + reward.count(), WHITE, dx, y, mouseX, mouseY, hovered);
                 y += 18;
             }
@@ -195,6 +198,13 @@ public final class QuestScreen extends Screen {
         g.drawString(font, line, x + 20, y + 5, color);
         boolean over = mouseX >= x && mouseX < x + 16 && mouseY >= y && mouseY < y + 16;
         return over ? stack : hovered;
+    }
+
+    /** A reward with its components (name, enchantments, ...), read once per screen. */
+    private ItemStack rewardStack(String spec) {
+        return rewards.computeIfAbsent(spec, s -> minecraft.player == null
+                ? ItemStack.EMPTY
+                : Quests.stack(s, minecraft.player.registryAccess()));
     }
 
     /** The list icon: the quest's icon, else its first goal's item, else a book. */

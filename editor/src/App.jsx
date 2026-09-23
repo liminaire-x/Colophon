@@ -125,22 +125,37 @@ const nodeTypes = { colophon: ColophonNode }
 
 const input = { width: '100%', padding: '4px 6px', boxSizing: 'border-box' }
 
-// A quest's goals or rewards: rows of item id + count.
-function StackList({ stacks, onChange }) {
+// A quest's goals or rewards: rows of item + count. Rewards (`wide`) take a whole
+// /give line such as minecraft:iron_sword[custom_name=...], so the item gets its own line.
+function StackList({ stacks, onChange, wide = false }) {
   const set = (i, key, value) => onChange(stacks.map((s, j) => (j === i ? { ...s, [key]: value } : s)))
   return (
     <div style={{ marginBottom: 10 }}>
-      {stacks.map((s, i) => (
-        <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 3 }}>
-          <input value={s.item} placeholder="minecraft:wheat" onChange={(e) => set(i, 'item', e.target.value)} style={{ ...input, flex: 1 }} />
+      {stacks.map((s, i) => {
+        const count = (
           <input
             type="number" min={1} value={s.count}
             onChange={(e) => set(i, 'count', e.target.value === '' ? '' : Number(e.target.value))}
             style={{ ...input, width: 52 }}
           />
-          <button onClick={() => onChange(stacks.filter((_, j) => j !== i))} style={{ cursor: 'pointer' }}>×</button>
-        </div>
-      ))}
+        )
+        const remove = <button onClick={() => onChange(stacks.filter((_, j) => j !== i))} style={{ cursor: 'pointer' }}>×</button>
+        return wide ? (
+          <div key={i} style={{ marginBottom: 6 }}>
+            <textarea
+              value={s.item} rows={2} placeholder="minecraft:iron_sword[custom_name='&quot;...&quot;']"
+              onChange={(e) => set(i, 'item', e.target.value)}
+              style={{ ...input, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
+            />
+            <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>{count}{remove}</div>
+          </div>
+        ) : (
+          <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 3 }}>
+            <input value={s.item} placeholder="minecraft:wheat" onChange={(e) => set(i, 'item', e.target.value)} style={{ ...input, flex: 1 }} />
+            {count}{remove}
+          </div>
+        )
+      })}
       <button onClick={() => onChange(stacks.concat({ item: '', count: 1 }))} style={{ cursor: 'pointer', color: '#2563eb' }}>+ add</button>
     </div>
   )
@@ -470,7 +485,7 @@ export default function App() {
             )}
           </div>
 
-          <aside style={{ width: 240, borderLeft: '1px solid #ddd', overflowY: 'auto', padding: 12, fontSize: 12 }}>
+          <aside style={{ width: 300, borderLeft: '1px solid #ddd', overflowY: 'auto', padding: 12, fontSize: 12 }}>
             {selectedNode ? (
               <>
                 <div style={{ fontWeight: 600 }}>{selectedDef?.label || selectedNode.data.type}</div>
@@ -579,8 +594,8 @@ export default function App() {
                 </label>
                 <div style={{ marginBottom: 3 }}>Needs <span style={{ color: '#888', fontSize: 10 }}>(handed in)</span></div>
                 <StackList stacks={selectedQuest.goals} onChange={(v) => setQuestField('goals', v)} />
-                <div style={{ marginBottom: 3 }}>Rewards</div>
-                <StackList stacks={selectedQuest.rewards} onChange={(v) => setQuestField('rewards', v)} />
+                <div style={{ marginBottom: 3 }}>Rewards <span style={{ color: '#888', fontSize: 10 }}>(item as /give writes it; [components] allowed)</span></div>
+                <StackList wide stacks={selectedQuest.rewards} onChange={(v) => setQuestField('rewards', v)} />
                 <button onClick={deleteQuest} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete quest</button>
               </>
             ) : current ? (
