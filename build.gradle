@@ -160,7 +160,7 @@ dependencies {
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
 
     // NPC looks and animations. Players need GeckoLib too (declared in neoforge.mods.toml).
-    implementation 'software.bernie.geckolib:geckolib-neoforge-1.21.1:4.7.7'
+    implementation 'software.bernie.geckolib:geckolib-neoforge-1.21.1:4.9.3'
 
     // Records store (embedded H2).
     //   implementation             -> compile against H2
