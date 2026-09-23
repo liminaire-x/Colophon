@@ -64,6 +64,21 @@ class GraphFormatTest {
     }
 
     @Test
+    void positionsAreWholeNumbersOnOneLine() {
+        String json = GraphFormat.write(GraphFormat.read(FIRST_GREETING));
+        assertTrue(json.contains("\"pos\": [300, 80]"), json);
+    }
+
+    @Test
+    void fractionalPositionsFromOlderSavesAreRounded() {
+        GraphDoc doc = GraphFormat.read("{\"format\":1,\"graphs\":[{\"id\":\"a\",\"name\":\"x\","
+                + "\"nodes\":[{\"id\":\"n1\",\"type\":\"t\",\"pos\":[-22.0,148.6]}],\"links\":[]}]}");
+        GraphDoc.DocNode n = doc.graphs().get(0).nodes().get(0);
+        assertEquals(-22, n.x());
+        assertEquals(149, n.y());
+    }
+
+    @Test
     void emptyDocumentIsValid() {
         assertEquals(0, GraphFormat.read("{\"format\":1,\"graphs\":[]}").graphs().size());
     }

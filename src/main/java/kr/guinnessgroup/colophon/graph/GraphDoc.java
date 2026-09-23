@@ -20,7 +20,7 @@ public record GraphDoc(List<DocGraph> graphs) {
     public record DocGraph(String id, String name, List<DocNode> nodes, List<DocLink> links) {}
 
     /** One placed node: its type id, its settings, and where it sits on the canvas. */
-    public record DocNode(String id, String type, JsonObject config, double x, double y) {}
+    public record DocNode(String id, String type, JsonObject config, int x, int y) {}
 
     /** "After node {@code from} leaves through {@code out}, go to node {@code to}." */
     public record DocLink(String from, String out, String to) {}

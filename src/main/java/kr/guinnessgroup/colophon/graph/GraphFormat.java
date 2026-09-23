@@ -160,14 +160,15 @@ public final class GraphFormat {
             }
             config = c.getAsJsonObject().deepCopy();
         }
-        // pos is cosmetic: a missing one places the node at the origin.
-        double x = 0;
-        double y = 0;
+        // pos is cosmetic: a missing one places the node at the origin. Whole pixels
+        // are enough; a fraction (e.g. 12.0 from an older save) is rounded.
+        int x = 0;
+        int y = 0;
         JsonElement p = o.get("pos");
         if (p != null && p.isJsonArray() && p.getAsJsonArray().size() == 2) {
             try {
-                x = p.getAsJsonArray().get(0).getAsDouble();
-                y = p.getAsJsonArray().get(1).getAsDouble();
+                x = (int) Math.round(p.getAsJsonArray().get(0).getAsDouble());
+                y = (int) Math.round(p.getAsJsonArray().get(1).getAsDouble());
             } catch (RuntimeException e) {
                 errors.add(where + ": node '" + id + "' pos must be two numbers");
             }
@@ -226,8 +227,11 @@ public final class GraphFormat {
             graphs.add(go);
         }
         root.add("graphs", graphs);
-        return GSON.toJson(root);
+        // Gson spreads every array over lines; keep "pos": [x, y] on one line for readability.
+        return POS_ARRAY.matcher(GSON.toJson(root)).replaceAll("\"pos\": [$1, $2]");
     }
+
+    private static final Pattern POS_ARRAY = Pattern.compile("\"pos\": \\[\\s*(-?\\d+),\\s*(-?\\d+)\\s*]");
 
     // --- helpers ---
 
