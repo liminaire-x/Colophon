@@ -50,6 +50,7 @@ class RecordStoreTest {
         public void close() {}
     }
 
+    private static final Owner SERVER = Owner.server("main");
     private final Owner alex = Owner.player(UUID.fromString("00000000-0000-0000-0000-000000000001"));
     private MemoryBackend backend;
     private RecordStore store;
@@ -58,7 +59,7 @@ class RecordStoreTest {
     void setUp() {
         backend = new MemoryBackend();
         store = new RecordStore();
-        store.open(backend);
+        store.open(backend, SERVER);
     }
 
     @Test
@@ -111,10 +112,10 @@ class RecordStoreTest {
 
     @Test
     void serverRecordsAreAlwaysLoaded() {
-        store.set(Owner.server(), "k", "v");
-        store.release(Owner.server());
+        store.set(SERVER, "k", "v");
+        store.release(SERVER);
         store.flush();
-        assertEquals("v", store.get(Owner.server(), "k"));
+        assertEquals("v", store.get(SERVER, "k"));
     }
 
     @Test

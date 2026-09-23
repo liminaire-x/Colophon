@@ -7,6 +7,7 @@ package kr.guinnessgroup.colophon.nodes;
 
 import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.runtime.Field;
+import kr.guinnessgroup.colophon.runtime.Catalog;
 import kr.guinnessgroup.colophon.runtime.Node;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
 import kr.guinnessgroup.colophon.runtime.NodeType;
@@ -17,7 +18,7 @@ import java.util.List;
 /** Sends a chat message to the player. */
 public final class SendMessage implements NodeType {
 
-    private static final Field MESSAGE = new Field("message", "Message", "");
+    private static final Field MESSAGE = Field.text("message", "Message");
 
     @Override public String id() { return "colophon:send_message"; }
     @Override public String label() { return "Send Message"; }
@@ -25,7 +26,7 @@ public final class SendMessage implements NodeType {
     @Override public List<Field> fields() { return List.of(MESSAGE); }
 
     @Override
-    public Node create(JsonObject config) {
+    public Node create(JsonObject config, Catalog catalog) {
         String message = MESSAGE.read(config);
         if (message.isBlank()) {
             throw new IllegalArgumentException("message is empty");

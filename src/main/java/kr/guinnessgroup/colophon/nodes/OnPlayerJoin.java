@@ -6,6 +6,7 @@
 package kr.guinnessgroup.colophon.nodes;
 
 import com.google.gson.JsonObject;
+import kr.guinnessgroup.colophon.runtime.Catalog;
 import kr.guinnessgroup.colophon.runtime.Node;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
 import kr.guinnessgroup.colophon.runtime.NodeType;
@@ -21,7 +22,7 @@ public final class OnPlayerJoin implements NodeType {
     @Override public boolean trigger() { return true; }
 
     @Override
-    public Node create(JsonObject config) {
+    public Node create(JsonObject config, Catalog catalog) {
         return ctx -> NodeResult.next();
     }
 }

@@ -9,7 +9,8 @@ import java.util.UUID;
 
 /**
  * Whose record it is. A new kind (e.g. party) is added here; the stored table does
- * not change. {@code id} is empty for the server.
+ * not change. A server's {@code id} is its configured name (e.g. {@code main}), so
+ * servers sharing one database keep their own records.
  */
 public record Owner(Kind kind, String id) {
 
@@ -34,13 +35,11 @@ public record Owner(Kind kind, String id) {
         }
     }
 
-    private static final Owner SERVER = new Owner(Kind.SERVER, "");
-
     public static Owner player(UUID uuid) {
         return new Owner(Kind.PLAYER, uuid.toString());
     }
 
-    public static Owner server() {
-        return SERVER;
+    public static Owner server(String name) {
+        return new Owner(Kind.SERVER, name);
     }
 }

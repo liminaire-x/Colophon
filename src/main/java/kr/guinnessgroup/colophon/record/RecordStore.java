@@ -21,7 +21,7 @@ import java.util.Set;
  * are saved at the same moment.
  * <p>
  * Lifecycle (called by the mod's event handlers): {@link #open} on server start
- * (loads the server's records), {@link #load} when a player joins, {@link #release}
+ * (loads this server's records, which stay loaded), {@link #load} when a player joins, {@link #release}
  * when they leave (their records stay until the next flush, then are dropped from
  * memory), {@link #close} on server stop.
  */
@@ -38,10 +38,11 @@ public final class RecordStore {
         boolean online = true;
     }
 
-    public synchronized void open(RecordBackend backend) {
+    /** @param server this server's owner; its records stay in memory while open */
+    public synchronized void open(RecordBackend backend, Owner server) {
         this.backend = backend;
         cache.clear();
-        load(Owner.server());
+        load(server);
     }
 
     /** Bring an owner's records into memory. Call before any graph can read them. */
@@ -77,6 +78,12 @@ public final class RecordStore {
             return null;
         }
         return e.values.get(key);
+    }
+
+    /** A copy of every record of a loaded owner (empty if not loaded). */
+    public synchronized Map<String, String> all(Owner owner) {
+        Entry e = cache.get(owner);
+        return (e == null) ? Map.of() : Map.copyOf(e.values);
     }
 
     /** Set a value; {@code null} deletes it. Saved on the next flush. */

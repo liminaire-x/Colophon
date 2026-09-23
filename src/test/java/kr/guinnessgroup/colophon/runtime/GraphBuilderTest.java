@@ -5,12 +5,15 @@
  */
 package kr.guinnessgroup.colophon.runtime;
 
-import kr.guinnessgroup.colophon.graph.GraphException;
+import kr.guinnessgroup.colophon.DocumentException;
 import kr.guinnessgroup.colophon.graph.GraphFormat;
 import kr.guinnessgroup.colophon.nodes.BuiltinNodes;
+import kr.guinnessgroup.colophon.record.Owner;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -26,8 +29,11 @@ class GraphBuilderTest {
         return r;
     }
 
+    /** Content published alongside: one NPC, "chief". */
+    private static final Catalog CATALOG = new Catalog(Set.of("chief"));
+
     private static List<Graph> build(String graphsJson) {
-        return GraphBuilder.build(GraphFormat.read("{\"format\":1,\"graphs\":[" + graphsJson + "]}"), builtins());
+        return GraphBuilder.build(GraphFormat.read("{\"format\":1,\"graphs\":[" + graphsJson + "]}"), builtins(), CATALOG);
     }
 
     private static String graph(String nodes, String links) {
@@ -49,34 +55,57 @@ class GraphBuilderTest {
 
     @Test
     void rejectsUnknownNodeType() {
-        GraphException e = assertThrows(GraphException.class,
+        DocumentException e = assertThrows(DocumentException.class,
                 () -> build(graph("{\"id\":\"x\",\"type\":\"colophon:nope\"}", "")));
         assertTrue(e.errors().get(0).contains("unknown type"));
     }
 
     @Test
     void rejectsUnusableSettings() {
-        assertThrows(GraphException.class, () -> build(graph(
+        assertThrows(DocumentException.class, () -> build(graph(
                 "{\"id\":\"f\",\"type\":\"colophon:has_flag\",\"config\":{\"flag\":\"Greeted!\"}}", "")));
-        assertThrows(GraphException.class, () -> build(graph(
+        assertThrows(DocumentException.class, () -> build(graph(
                 "{\"id\":\"m\",\"type\":\"colophon:send_message\",\"config\":{\"message\":\" \"}}", "")));
     }
 
     @Test
     void rejectsWayOutTheNodeDoesNotHave() {
-        assertThrows(GraphException.class, () -> build(graph(JOIN + "," + SAY,
+        assertThrows(DocumentException.class, () -> build(graph(JOIN + "," + SAY,
                 "{\"from\":\"j\",\"out\":\"yes\",\"to\":\"s\"}")));
     }
 
     @Test
     void rejectsLinkIntoTrigger() {
-        assertThrows(GraphException.class, () -> build(graph(JOIN + "," + SAY,
+        assertThrows(DocumentException.class, () -> build(graph(JOIN + "," + SAY,
                 "{\"from\":\"s\",\"to\":\"j\"}")));
     }
 
     @Test
     void rejectsTwoLinksFromOneWayOut() {
-        assertThrows(GraphException.class, () -> build(graph(JOIN + "," + CHECK + "," + SAY,
+        assertThrows(DocumentException.class, () -> build(graph(JOIN + "," + CHECK + "," + SAY,
                 "{\"from\":\"j\",\"to\":\"c\"},{\"from\":\"j\",\"to\":\"s\"}")));
+    }
+
+    private static String npcTrigger(String npc) {
+        return "{\"id\":\"t\",\"type\":\"colophon:on_npc_interact\",\"config\":{\"npc\":\"" + npc + "\"}}";
+    }
+
+    @Test
+    void npcTriggerMustNameAPublishedNpc() {
+        build(graph(npcTrigger("chief"), ""));
+        DocumentException e = assertThrows(DocumentException.class, () -> build(graph(npcTrigger("chef"), "")));
+        assertTrue(e.errors().get(0).contains("no NPC with id 'chef'"));
+        assertThrows(DocumentException.class, () -> build(graph(npcTrigger(""), "")));
+    }
+
+    @Test
+    void npcTriggerRunsOnlyForItsNpc() {
+        Node trigger = build(graph(npcTrigger("chief"), "")).get(0).node("t").node();
+        assertEquals(NodeResult.next(), trigger.run(npcEvent("chief")));
+        assertEquals(NodeResult.stop(), trigger.run(npcEvent("smith")));
+    }
+
+    private static Context npcEvent(String npc) {
+        return new Context(null, null, null, Owner.server("main"), Map.of("npc", npc));
     }
 }

@@ -6,7 +6,7 @@
 package kr.guinnessgroup.colophon.runtime;
 
 import kr.guinnessgroup.colophon.graph.GraphDoc;
-import kr.guinnessgroup.colophon.graph.GraphException;
+import kr.guinnessgroup.colophon.DocumentException;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,19 +23,19 @@ public final class GraphBuilder {
 
     private GraphBuilder() {}
 
-    public static List<Graph> build(GraphDoc doc, NodeRegistry registry) {
+    public static List<Graph> build(GraphDoc doc, NodeRegistry registry, Catalog catalog) {
         List<String> errors = new ArrayList<>();
         List<Graph> graphs = new ArrayList<>();
         for (GraphDoc.DocGraph g : doc.graphs()) {
-            graphs.add(buildGraph(g, registry, errors));
+            graphs.add(buildGraph(g, registry, catalog, errors));
         }
         if (!errors.isEmpty()) {
-            throw new GraphException(errors);
+            throw new DocumentException(errors);
         }
         return List.copyOf(graphs);
     }
 
-    private static Graph buildGraph(GraphDoc.DocGraph g, NodeRegistry registry, List<String> errors) {
+    private static Graph buildGraph(GraphDoc.DocGraph g, NodeRegistry registry, Catalog catalog, List<String> errors) {
         String where = "graph '" + g.id() + "'";
 
         Map<String, NodeType> typeOf = new HashMap<>();
@@ -48,7 +48,7 @@ public final class GraphBuilder {
             }
             typeOf.put(n.id(), type);
             try {
-                runnable.put(n.id(), type.create(n.config()));
+                runnable.put(n.id(), type.create(n.config(), catalog));
             } catch (IllegalArgumentException e) {
                 errors.add(where + ": node '" + n.id() + "' (" + type.label() + "): " + e.getMessage());
             }

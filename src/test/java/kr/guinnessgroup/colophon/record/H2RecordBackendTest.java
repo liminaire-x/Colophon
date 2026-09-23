@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** The records DB file (schema 1). Breaking these loses players' saved records. */
 class H2RecordBackendTest {
 
+    private static final Owner SERVER = Owner.server("main");
     private final Owner alex = Owner.player(UUID.fromString("00000000-0000-0000-0000-000000000001"));
     private final Owner sam = Owner.player(UUID.fromString("00000000-0000-0000-0000-000000000002"));
 
@@ -33,12 +34,12 @@ class H2RecordBackendTest {
         db.write(List.of(
                 new RecordBackend.Write(alex, "flag:greeted", "true"),
                 new RecordBackend.Write(sam, "flag:greeted", "true"),
-                new RecordBackend.Write(Owner.server(), "k", "v")));
+                new RecordBackend.Write(SERVER, "k", "v")));
         db.close();
 
         H2RecordBackend reopened = new H2RecordBackend(base);
         assertEquals(Map.of("flag:greeted", "true"), reopened.load(alex));
-        assertEquals(Map.of("k", "v"), reopened.load(Owner.server()));
+        assertEquals(Map.of("k", "v"), reopened.load(SERVER));
         reopened.close();
     }
 
@@ -47,7 +48,15 @@ class H2RecordBackendTest {
         H2RecordBackend db = new H2RecordBackend(dir.resolve("records"));
         db.write(List.of(new RecordBackend.Write(alex, "flag:greeted", "true")));
         assertTrue(db.load(sam).isEmpty());
-        assertTrue(db.load(Owner.server()).isEmpty());
+        assertTrue(db.load(SERVER).isEmpty());
+        db.close();
+    }
+
+    @Test
+    void serversSharingOneDbKeepTheirOwnRecords(@TempDir Path dir) {
+        H2RecordBackend db = new H2RecordBackend(dir.resolve("records"));
+        db.write(List.of(new RecordBackend.Write(SERVER, "npc:x", "main's")));
+        assertTrue(db.load(Owner.server("lobby")).isEmpty());
         db.close();
     }
 

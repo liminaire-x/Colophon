@@ -14,6 +14,7 @@ public final class BuiltinNodes {
 
     public static void registerAll(NodeRegistry registry) {
         registry.register(new OnPlayerJoin());
+        registry.register(new OnNpcInteract());
         registry.register(new HasFlag());
         registry.register(new SetFlag());
         registry.register(new SendMessage());

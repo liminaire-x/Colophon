@@ -8,6 +8,7 @@ package kr.guinnessgroup.colophon.nodes;
 import com.google.gson.JsonObject;
 import kr.guinnessgroup.colophon.record.Owner;
 import kr.guinnessgroup.colophon.runtime.Field;
+import kr.guinnessgroup.colophon.runtime.Catalog;
 import kr.guinnessgroup.colophon.runtime.Node;
 import kr.guinnessgroup.colophon.runtime.NodeResult;
 import kr.guinnessgroup.colophon.runtime.NodeType;
@@ -17,7 +18,7 @@ import java.util.List;
 /** Checks whether the player has a flag: leaves through "yes" or "no". */
 public final class HasFlag implements NodeType {
 
-    private static final Field FLAG = new Field("flag", "Flag", "");
+    private static final Field FLAG = Field.text("flag", "Flag");
 
     @Override public String id() { return "colophon:has_flag"; }
     @Override public String label() { return "Has Flag"; }
@@ -26,7 +27,7 @@ public final class HasFlag implements NodeType {
     @Override public List<Field> fields() { return List.of(FLAG); }
 
     @Override
-    public Node create(JsonObject config) {
+    public Node create(JsonObject config, Catalog catalog) {
         String key = Flags.key(Flags.requireName(FLAG.read(config)));
         return ctx -> {
             if (ctx.player() == null) {

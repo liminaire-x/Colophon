@@ -10,7 +10,8 @@ import com.google.gson.JsonObject;
 import com.mojang.logging.LogUtils;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import kr.guinnessgroup.colophon.graph.GraphException;
+import kr.guinnessgroup.colophon.DocumentException;
+import kr.guinnessgroup.colophon.npc.Npcs;
 import kr.guinnessgroup.colophon.runtime.ColophonRuntime;
 import kr.guinnessgroup.colophon.runtime.NodeRegistry;
 import org.slf4j.Logger;
@@ -29,7 +30,9 @@ import java.util.concurrent.Executors;
  *   <li>{@code GET /api/health}</li>
  *   <li>{@code GET /api/schema} — node types for the palette</li>
  *   <li>{@code GET /api/graphs} — the current graph document</li>
- *   <li>{@code POST /api/publish} — replace the graph document</li>
+ *   <li>{@code GET /api/npcs} — the current NPC document</li>
+ *   <li>{@code GET /api/npc-placements} — where each NPC stands</li>
+ *   <li>{@code POST /api/publish} — replace both documents: {@code {"graphs": ..., "npcs": ...}}</li>
  * </ul>
  */
 public final class ColophonWebServer {
@@ -42,11 +45,13 @@ public final class ColophonWebServer {
 
     private final ColophonRuntime runtime;
     private final NodeRegistry registry;
+    private final Npcs npcs;
     private HttpServer server;
 
-    public ColophonWebServer(ColophonRuntime runtime, NodeRegistry registry) {
+    public ColophonWebServer(ColophonRuntime runtime, NodeRegistry registry, Npcs npcs) {
         this.runtime = runtime;
         this.registry = registry;
+        this.npcs = npcs;
     }
 
     public synchronized void start() {
@@ -63,7 +68,9 @@ public final class ColophonWebServer {
             server.createContext("/", this::handleRoot);
             server.createContext("/api/health", ex -> send(ex, 200, JSON, "{\"status\":\"ok\"}"));
             server.createContext("/api/schema", ex -> send(ex, 200, JSON, registry.schemaJson()));
-            server.createContext("/api/graphs", this::handleGraphs);
+            server.createContext("/api/graphs", ex -> getOnly(ex, runtime.graphsJson()));
+            server.createContext("/api/npcs", ex -> getOnly(ex, runtime.npcsJson()));
+            server.createContext("/api/npc-placements", ex -> getOnly(ex, npcs.placementsJson()));
             server.createContext("/api/publish", this::handlePublish);
             server.start();
             LOGGER.info("[Colophon] Web editor at http://localhost:{}", PORT);
@@ -94,12 +101,12 @@ public final class ColophonWebServer {
         }
     }
 
-    private void handleGraphs(HttpExchange ex) throws IOException {
+    private static void getOnly(HttpExchange ex, String json) throws IOException {
         if (!"GET".equals(ex.getRequestMethod())) {
             send(ex, 405, "text/plain; charset=utf-8", "Method Not Allowed");
             return;
         }
-        send(ex, 200, JSON, runtime.documentJson());
+        send(ex, 200, JSON, json);
     }
 
     private void handlePublish(HttpExchange ex) throws IOException {
@@ -111,7 +118,7 @@ public final class ColophonWebServer {
         try {
             runtime.publish(body);
             send(ex, 200, JSON, "{\"accepted\":true}");
-        } catch (GraphException e) {
+        } catch (DocumentException e) {
             LOGGER.warn("[Colophon] Publish rejected: {}", e.errors());
             send(ex, 400, JSON, rejected(e.errors()));
         } catch (RuntimeException e) {

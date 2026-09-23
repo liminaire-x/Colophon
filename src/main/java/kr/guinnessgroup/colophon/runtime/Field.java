@@ -9,13 +9,22 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 /**
- * One setting of a node, shown in the editor as a text input.
+ * One setting of a node, shown in the editor.
  *
  * @param id           key in the node's saved config. Never rename.
  * @param label        shown in the editor
  * @param defaultValue used when the config has no value
+ * @param kind         how the editor asks for it: {@code text}, or {@code npc} (pick a defined NPC)
  */
-public record Field(String id, String label, String defaultValue) {
+public record Field(String id, String label, String defaultValue, String kind) {
+
+    public static Field text(String id, String label) {
+        return new Field(id, label, "", "text");
+    }
+
+    public static Field npc(String id, String label) {
+        return new Field(id, label, "", "npc");
+    }
 
     /** This field's value in {@code config}, or the default. */
     public String read(JsonObject config) {

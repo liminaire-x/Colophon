@@ -13,8 +13,15 @@ public sealed interface NodeResult {
     /** Leave through {@code port}. If nothing is linked there, the run ends. */
     record Next(String port) implements NodeResult {}
 
+    /** End this run quietly, e.g. a trigger that is not about this event. */
+    record Stop() implements NodeResult {}
+
     /** Stop this run and log {@code reason} as a warning. */
     record Fail(String reason) implements NodeResult {}
+
+    static NodeResult stop() {
+        return new Stop();
+    }
 
     static NodeResult next() {
         return new Next(GraphFormat.DEFAULT_OUT);

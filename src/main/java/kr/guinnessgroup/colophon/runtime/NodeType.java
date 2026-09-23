@@ -43,7 +43,8 @@ public interface NodeType {
     /**
      * Build a runnable node from its saved config. Throw
      * {@link IllegalArgumentException} with a readable message if the config is
-     * unusable; publish then rejects the graph with that message.
+     * unusable (including a reference missing from {@code catalog}); publish then
+     * rejects the graph with that message.
      */
-    Node create(JsonObject config);
+    Node create(JsonObject config, Catalog catalog);
 }

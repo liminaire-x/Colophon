@@ -3,16 +3,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-package kr.guinnessgroup.colophon.graph;
+package kr.guinnessgroup.colophon;
 
 import java.util.List;
 
-/** A graph document was rejected. Carries every problem found, not just the first. */
-public final class GraphException extends RuntimeException {
+/** A saved document (graphs, NPCs) was rejected. Carries every problem found, not just the first. */
+public final class DocumentException extends RuntimeException {
 
     private final List<String> errors;
 
-    public GraphException(List<String> errors) {
+    public DocumentException(List<String> errors) {
         super(String.join("; ", errors));
         this.errors = List.copyOf(errors);
     }

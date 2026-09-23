@@ -11,8 +11,9 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 
-// Must match the server (GraphFormat.java).
+// Must match the server (GraphFormat.java, NpcFormat.java).
 const FORMAT = 1
+const NPC_FORMAT = 1
 const NEXT = 'next'
 const GRAPH_ID = /^[a-z0-9_]+$/
 
@@ -119,12 +120,22 @@ export default function App() {
   const [graphs, setGraphs] = useState([])
   const [currentId, setCurrentId] = useState(null)
   const [selectedNodeId, setSelectedNodeId] = useState(null)
+  const [npcs, setNpcs] = useState([]) // [{ id, name }]
+  const [placements, setPlacements] = useState({}) // { npcId: [{ dim, x, y, z }] }
+  const [selectedNpcId, setSelectedNpcId] = useState(null)
   const [status, setStatus] = useState('connecting...')
   const [message, setMessage] = useState(null) // { ok, text }
   const [publishing, setPublishing] = useState(false)
 
   const byType = useMemo(() => Object.fromEntries(schema.map((d) => [d.type, d])), [schema])
   const current = graphs.find((g) => g.id === currentId) || null
+  const selectedNpc = npcs.find((n) => n.id === selectedNpcId) || null
+
+  const loadPlacements = useCallback(async () => {
+    try {
+      setPlacements(await fetch('/api/npc-placements').then((r) => r.json()))
+    } catch (e) { /* shown as offline elsewhere */ }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -132,19 +143,25 @@ export default function App() {
       try {
         const s = await fetch('/api/schema').then((r) => r.json())
         const doc = await fetch('/api/graphs').then((r) => r.json())
+        const npcDoc = await fetch('/api/npcs').then((r) => r.json())
         if (cancelled) return
         setSchema(s.nodes || [])
         const loaded = (doc.graphs || []).map(toFlow)
         setGraphs(loaded)
         setCurrentId(loaded[0]?.id ?? null)
+        setNpcs(npcDoc.npcs || [])
         setStatus('ok')
+        loadPlacements()
       } catch (e) {
         if (!cancelled) setStatus('offline')
       }
     }
     boot()
     return () => { cancelled = true }
-  }, [])
+  }, [loadPlacements])
+
+  const selectNode = useCallback((id) => { setSelectedNodeId(id); setSelectedNpcId(null) }, [])
+  const selectNpc = useCallback((id) => { setSelectedNpcId(id); setSelectedNodeId(null) }, [])
 
   const updateCurrent = useCallback(
     (fn) => setGraphs((gs) => gs.map((g) => (g.id === currentId ? fn(g) : g))),
@@ -192,8 +209,8 @@ export default function App() {
       data: { type: def.type, config },
     }
     updateCurrent((g) => ({ ...g, nodes: g.nodes.concat(node) }))
-    setSelectedNodeId(id)
-  }, [current, updateCurrent])
+    selectNode(id)
+  }, [current, updateCurrent, selectNode])
 
   const selectedNode = current?.nodes.find((n) => n.id === selectedNodeId) || null
   const selectedDef = selectedNode ? byType[selectedNode.data.type] : null
@@ -236,6 +253,30 @@ export default function App() {
     setSelectedNodeId(null)
   }, [current, graphs])
 
+  const newNpc = useCallback(() => {
+    const id = window.prompt('NPC id (a-z, 0-9, _). Graphs refer to it; it never changes:')
+    if (id == null) return
+    if (!GRAPH_ID.test(id)) { alert('Use only a-z, 0-9 and _'); return }
+    if (npcs.some((n) => n.id === id)) { alert(`'${id}' already exists`); return }
+    const name = window.prompt('Name (shown above the NPC in game):', id)
+    if (name == null) return
+    setNpcs((ns) => ns.concat({ id, name: name.trim() || id }))
+    selectNpc(id)
+  }, [npcs, selectNpc])
+
+  const renameNpc = useCallback((name) => {
+    setNpcs((ns) => ns.map((n) => (n.id === selectedNpcId ? { ...n, name } : n)))
+  }, [selectedNpcId])
+
+  const deleteNpc = useCallback(() => {
+    if (!selectedNpc) return
+    const placed = (placements[selectedNpc.id] || []).length
+    const warning = placed ? `\n${placed} placed in the world will disappear on publish.` : ''
+    if (!window.confirm(`Delete NPC '${selectedNpc.name}'?${warning}`)) return
+    setNpcs((ns) => ns.filter((n) => n.id !== selectedNpc.id))
+    setSelectedNpcId(null)
+  }, [selectedNpc, placements])
+
   const publish = useCallback(async () => {
     setPublishing(true)
     setMessage(null)
@@ -243,18 +284,19 @@ export default function App() {
       const res = await fetch('/api/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(toDoc(graphs)),
+        body: JSON.stringify({ graphs: toDoc(graphs), npcs: { format: NPC_FORMAT, npcs } }),
       })
       const data = await res.json()
       setMessage(data.accepted
         ? { ok: true, text: 'Published.' }
         : { ok: false, text: (data.errors || ['unknown error']).join('\n') })
+      if (data.accepted) loadPlacements()
     } catch (e) {
       setMessage({ ok: false, text: 'Publish error: ' + e })
     } finally {
       setPublishing(false)
     }
-  }, [graphs])
+  }, [graphs, npcs, loadPlacements])
 
   const palette = useMemo(() => {
     const g = {}
@@ -300,6 +342,18 @@ export default function App() {
             ))}
             <button onClick={newGraph} disabled={status !== 'ok'} style={{ ...button, color: '#2563eb' }}>+ New graph</button>
 
+            <div style={{ ...sectionTitle, marginTop: 14 }}>NPCs</div>
+            {npcs.map((n) => (
+              <button
+                key={n.id}
+                onClick={() => selectNpc(n.id)}
+                style={{ ...button, background: n.id === selectedNpcId ? '#e0e7ff' : '#fafafa' }}
+              >
+                {n.name} <span style={{ color: '#888', fontSize: 10 }}>{n.id} · {(placements[n.id] || []).length} placed</span>
+              </button>
+            ))}
+            <button onClick={newNpc} disabled={status !== 'ok'} style={{ ...button, color: '#2563eb' }}>+ New NPC</button>
+
             {current && (
               <>
                 <div style={{ ...sectionTitle, marginTop: 14 }}>Nodes</div>
@@ -326,7 +380,7 @@ export default function App() {
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 isValidConnection={isValidConnection}
-                onNodeClick={(_, n) => setSelectedNodeId(n.id)}
+                onNodeClick={(_, n) => selectNode(n.id)}
                 onPaneClick={() => setSelectedNodeId(null)}
                 fitView
               >
@@ -347,14 +401,51 @@ export default function App() {
                 {(selectedDef?.fields || []).map((f) => (
                   <label key={f.id} style={{ display: 'block', marginBottom: 10 }}>
                     <div style={{ marginBottom: 3 }}>{f.label}</div>
-                    <input
-                      value={selectedNode.data.config?.[f.id] ?? ''}
-                      onChange={(e) => setConfig(f.id, e.target.value)}
-                      style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
-                    />
+                    {f.kind === 'npc' ? (
+                      <select
+                        value={selectedNode.data.config?.[f.id] ?? ''}
+                        onChange={(e) => setConfig(f.id, e.target.value)}
+                        style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
+                      >
+                        <option value="">(choose an NPC)</option>
+                        {npcs.map((n) => <option key={n.id} value={n.id}>{n.name} ({n.id})</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        value={selectedNode.data.config?.[f.id] ?? ''}
+                        onChange={(e) => setConfig(f.id, e.target.value)}
+                        style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
+                      />
+                    )}
                   </label>
                 ))}
                 <button onClick={deleteNode} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete node</button>
+              </>
+            ) : selectedNpc ? (
+              <>
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>NPC</div>
+                <label style={{ display: 'block', marginBottom: 10 }}>
+                  <div style={{ marginBottom: 3 }}>Name</div>
+                  <input
+                    value={selectedNpc.name}
+                    onChange={(e) => renameNpc(e.target.value)}
+                    style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
+                  />
+                </label>
+                <div style={{ color: '#888', marginBottom: 12 }}>id: {selectedNpc.id} (fixed)</div>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>Placed in the world</div>
+                {(placements[selectedNpc.id] || []).length === 0 ? (
+                  <div style={{ color: '#888', marginBottom: 12 }}>
+                    Not placed yet. Publish, then in game: <code>/colophon npc spawn {selectedNpc.id}</code>
+                  </div>
+                ) : (
+                  <ul style={{ margin: '0 0 12px', paddingLeft: 16, color: '#555' }}>
+                    {placements[selectedNpc.id].map((p, i) => (
+                      <li key={i}>{p.dim.replace('minecraft:', '')} {p.x}, {p.y}, {p.z}</li>
+                    ))}
+                  </ul>
+                )}
+                <button onClick={deleteNpc} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete NPC</button>
               </>
             ) : current ? (
               <>

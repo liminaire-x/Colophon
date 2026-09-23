@@ -5,6 +5,7 @@
  */
 package kr.guinnessgroup.colophon.graph;
 
+import kr.guinnessgroup.colophon.DocumentException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -85,22 +86,22 @@ class GraphFormatTest {
 
     @Test
     void rejectsMissingOrNewerFormat() {
-        assertThrows(GraphException.class, () -> GraphFormat.read("{\"graphs\":[]}"));
-        GraphException newer = assertThrows(GraphException.class, () -> GraphFormat.read("{\"format\":2,\"graphs\":[]}"));
+        assertThrows(DocumentException.class, () -> GraphFormat.read("{\"graphs\":[]}"));
+        DocumentException newer = assertThrows(DocumentException.class, () -> GraphFormat.read("{\"format\":2,\"graphs\":[]}"));
         assertTrue(newer.errors().get(0).contains("newer"));
     }
 
     @Test
     void rejectsNonJson() {
-        assertThrows(GraphException.class, () -> GraphFormat.read("not json"));
-        assertThrows(GraphException.class, () -> GraphFormat.read(""));
+        assertThrows(DocumentException.class, () -> GraphFormat.read("not json"));
+        assertThrows(DocumentException.class, () -> GraphFormat.read(""));
     }
 
     @Test
     void rejectsBadOrDuplicateGraphIds() {
-        assertThrows(GraphException.class, () -> GraphFormat.read(
+        assertThrows(DocumentException.class, () -> GraphFormat.read(
                 "{\"format\":1,\"graphs\":[{\"id\":\"First Greeting\",\"name\":\"x\",\"nodes\":[],\"links\":[]}]}"));
-        assertThrows(GraphException.class, () -> GraphFormat.read(
+        assertThrows(DocumentException.class, () -> GraphFormat.read(
                 "{\"format\":1,\"graphs\":["
                         + "{\"id\":\"a\",\"name\":\"x\",\"nodes\":[],\"links\":[]},"
                         + "{\"id\":\"a\",\"name\":\"y\",\"nodes\":[],\"links\":[]}]}"));
@@ -108,7 +109,7 @@ class GraphFormatTest {
 
     @Test
     void rejectsLinksToMissingNodesAndReportsEveryProblem() {
-        GraphException e = assertThrows(GraphException.class, () -> GraphFormat.read(
+        DocumentException e = assertThrows(DocumentException.class, () -> GraphFormat.read(
                 "{\"format\":1,\"graphs\":[{\"id\":\"a\",\"name\":\"x\","
                         + "\"nodes\":[{\"id\":\"n1\",\"type\":\"t\"},{\"id\":\"n1\",\"type\":\"t\"}],"
                         + "\"links\":[{\"from\":\"n1\",\"to\":\"n9\"}]}]}"));

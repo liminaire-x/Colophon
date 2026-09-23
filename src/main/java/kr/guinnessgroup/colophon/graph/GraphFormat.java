@@ -5,6 +5,7 @@
  */
 package kr.guinnessgroup.colophon.graph;
 
+import kr.guinnessgroup.colophon.DocumentException;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -45,20 +46,20 @@ public final class GraphFormat {
         try {
             root = JsonParser.parseString(json).getAsJsonObject();
         } catch (RuntimeException e) {
-            throw new GraphException(List.of("not a JSON object"));
+            throw new DocumentException(List.of("not a JSON object"));
         }
         List<String> errors = new ArrayList<>();
 
         JsonElement format = root.get("format");
         if (format == null || !format.isJsonPrimitive() || !format.getAsJsonPrimitive().isNumber()) {
-            throw new GraphException(List.of("missing 'format' number"));
+            throw new DocumentException(List.of("missing 'format' number"));
         }
         int version = format.getAsInt();
         if (version > VERSION) {
-            throw new GraphException(List.of("format " + version + " is newer than this Colophon supports (" + VERSION + ")"));
+            throw new DocumentException(List.of("format " + version + " is newer than this Colophon supports (" + VERSION + ")"));
         }
         if (version != VERSION) {
-            throw new GraphException(List.of("unknown format " + version));
+            throw new DocumentException(List.of("unknown format " + version));
         }
 
         JsonArray graphsJson = array(root, "graphs", "document", errors);
@@ -77,7 +78,7 @@ public final class GraphFormat {
             }
         }
         if (!errors.isEmpty()) {
-            throw new GraphException(errors);
+            throw new DocumentException(errors);
         }
         return new GraphDoc(List.copyOf(graphs));
     }

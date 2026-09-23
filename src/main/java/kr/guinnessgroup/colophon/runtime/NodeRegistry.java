@@ -51,6 +51,7 @@ public final class NodeRegistry {
                 fo.addProperty("id", f.id());
                 fo.addProperty("label", f.label());
                 fo.addProperty("default", f.defaultValue());
+                fo.addProperty("kind", f.kind());
                 fields.add(fo);
             }
             o.add("fields", fields);

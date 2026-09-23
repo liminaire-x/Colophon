@@ -45,6 +45,7 @@ public final class Runner {
             }
             switch (result) {
                 case NodeResult.Next n -> current = node.after(n.port());
+                case NodeResult.Stop s -> current = null;
                 case NodeResult.Fail f -> {
                     LOGGER.warn("[Colophon] Graph '{}' node '{}' failed: {}", graph.id(), node.id(), f.reason());
                     return;
