@@ -17,9 +17,11 @@ v2 설계가 사용자가 소화하는 속도보다 빨리 두꺼워져서, **�
 - `graph/` — 저장된 그래프 문서(`GraphDoc`)와 그 읽기·쓰기(`GraphFormat`, format 1). 모양만 검사.
 - `runtime/` — 노드 종류(`NodeType`·`Field`·`NodeRegistry`), 문서 → 실행 그래프(`GraphBuilder`), 실행(`Runner`, 즉시·동기), 발행·트리거(`ColophonRuntime`).
 - `record/` — 기록(`Owner`·`RecordStore` 캐시·`H2RecordBackend`, schema 1).
+- `npc/` — NPC 정의 문서(`NpcFormat`, format 1)·배치(`Placement`, 서버 기록)·엔티티(`NpcEntity`)·명령어·`Npcs`(게임 쪽 창구).
 - `nodes/` — 빌트인 노드. 노드당 파일 하나, `BuiltinNodes.registerAll`.
-- `web/` — 에디터 서버. `Colophon.java` — 부트스트랩·게임 이벤트 연결.
-- 저장 형식 결정: [docs/decisions/0001-storage-format.md](docs/decisions/0001-storage-format.md).
+- `client/` — 클라이언트 전용(렌더러). `FMLEnvironment.dist == CLIENT`일 때만 로드.
+- `web/` — 에디터 서버. `Colophon.java` — 부트스트랩·게임 이벤트 연결. `ColophonConfig` — `serverName`.
+- 결정 기록: [0001 저장 형식](docs/decisions/0001-storage-format.md), [0002 NPC](docs/decisions/0002-npc.md).
 
 ## 설계 약속 (꼭 지킬 것)
 - **"잠김" 대신 고치는 비용**(비쌈 = 저장 형식·id·공개 API / 중간 / 쌈 = 내부 코드)을 표시한다.
