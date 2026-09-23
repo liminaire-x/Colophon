@@ -11,12 +11,15 @@ import kr.guinnessgroup.colophon.nodes.OnPlayerJoin;
 import kr.guinnessgroup.colophon.npc.ColophonEntities;
 import kr.guinnessgroup.colophon.npc.NpcCommands;
 import kr.guinnessgroup.colophon.npc.Npcs;
+import kr.guinnessgroup.colophon.quest.QuestSyncPayload;
+import kr.guinnessgroup.colophon.quest.Quests;
 import kr.guinnessgroup.colophon.record.H2RecordBackend;
 import kr.guinnessgroup.colophon.record.Owner;
 import kr.guinnessgroup.colophon.record.RecordStore;
 import kr.guinnessgroup.colophon.runtime.ColophonRuntime;
 import kr.guinnessgroup.colophon.runtime.NodeRegistry;
 import kr.guinnessgroup.colophon.web.ColophonWebServer;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -45,14 +48,16 @@ public final class Colophon {
     private final Path dir = FMLPaths.CONFIGDIR.get().resolve(MODID);
     private final NodeRegistry nodes = new NodeRegistry();
     private final RecordStore records = new RecordStore();
-    private final ColophonRuntime runtime = new ColophonRuntime(nodes, records, dir);
+    private final ColophonRuntime runtime = new ColophonRuntime(nodes, records, dir, Quests::itemExists);
     private final Npcs npcs = new Npcs(runtime, records);
+    private final Quests quests = new Quests(runtime, records);
     private final ColophonWebServer web = new ColophonWebServer(runtime, nodes, npcs);
 
     public Colophon(IEventBus modEventBus, ModContainer modContainer) {
         modContainer.registerConfig(ModConfig.Type.COMMON, ColophonConfig.SPEC);
         ColophonEntities.TYPES.register(modEventBus);
         modEventBus.addListener(ColophonEntities::onAttributes);
+        modEventBus.addListener(QuestSyncPayload::register);
         if (FMLEnvironment.dist == Dist.CLIENT) {
             ColophonClient.init(modEventBus);
         }
@@ -66,12 +71,18 @@ public final class Colophon {
         records.open(new H2RecordBackend(dir.resolve("records")), server);
         runtime.load(server);
         npcs.start();
+        quests.start();
+        // Publish arrives on the web thread; quest content goes out on the server thread.
+        MinecraftServer mc = event.getServer();
+        runtime.onPublish(() -> mc.execute(() -> quests.syncAll(mc)));
         web.start();
     }
 
     @SubscribeEvent
     public void onServerStopping(ServerStoppingEvent event) {
         web.stop();
+        runtime.onPublish(null);
+        quests.stop();
         npcs.stop();
         runtime.clear();
         records.close();
@@ -87,6 +98,7 @@ public final class Colophon {
         if (event.getEntity() instanceof ServerPlayer player) {
             // Load the player's records before any graph can read them.
             records.load(Owner.player(player.getUUID()));
+            quests.sync(player);
             runtime.fire(OnPlayerJoin.ID, player.getServer(), player, Map.of());
         }
     }

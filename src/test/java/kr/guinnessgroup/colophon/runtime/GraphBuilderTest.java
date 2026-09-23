@@ -29,8 +29,8 @@ class GraphBuilderTest {
         return r;
     }
 
-    /** Content published alongside: one NPC, "npc_chief". */
-    private static final Catalog CATALOG = new Catalog(Set.of("npc_chief"));
+    /** Content published alongside: one NPC, "npc_chief", and one quest, "quest_wheat". */
+    private static final Catalog CATALOG = new Catalog(Set.of("npc_chief"), Set.of("quest_wheat"));
 
     private static List<Graph> build(String graphsJson) {
         return GraphBuilder.build(GraphFormat.read("{\"format\":1,\"graphs\":[" + graphsJson + "]}"), builtins(), CATALOG);
@@ -113,6 +113,29 @@ class GraphBuilderTest {
                 "{\"id\":\"node_a\",\"type\":\"colophon:play_npc_animation\",\"config\":{\"npc\":\"npc_chef\",\"animation\":\"happy\"}}", "")));
         assertThrows(DocumentException.class, () -> build(graph(
                 "{\"id\":\"node_a\",\"type\":\"colophon:play_npc_animation\",\"config\":{\"npc\":\"npc_chief\",\"animation\":\" \"}}", "")));
+    }
+
+    private static String questNode(String type, String quest) {
+        return "{\"id\":\"node_q\",\"type\":\"colophon:" + type + "\",\"config\":{\"quest\":\"" + quest + "\"}}";
+    }
+
+    @Test
+    void questNodesNeedAPublishedQuest() {
+        for (String type : new String[] {"quest_state", "reveal_quest"}) {
+            build(graph(questNode(type, "quest_wheat"), ""));
+            DocumentException e = assertThrows(DocumentException.class, () -> build(graph(questNode(type, "quest_wheet"), "")));
+            assertTrue(e.errors().get(0).contains("no quest with id 'quest_wheet'"));
+            assertThrows(DocumentException.class, () -> build(graph(questNode(type, ""), "")));
+        }
+    }
+
+    @Test
+    void questStateLeavesThroughItsFourStates() {
+        Graph g = build(graph(questNode("quest_state", "quest_wheat") + "," + SAY,
+                "{\"from\":\"node_q\",\"out\":\"ready\",\"to\":\"node_s\"}")).get(0);
+        assertEquals("node_s", g.node("node_q").after("ready"));
+        assertThrows(DocumentException.class, () -> build(graph(questNode("quest_state", "quest_wheat") + "," + SAY,
+                "{\"from\":\"node_q\",\"out\":\"next\",\"to\":\"node_s\"}")));
     }
 
     private static Context npcEvent(String npc) {

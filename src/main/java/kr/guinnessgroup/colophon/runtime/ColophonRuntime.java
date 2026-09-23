@@ -14,6 +14,8 @@ import kr.guinnessgroup.colophon.graph.GraphDoc;
 import kr.guinnessgroup.colophon.graph.GraphFormat;
 import kr.guinnessgroup.colophon.npc.NpcDoc;
 import kr.guinnessgroup.colophon.npc.NpcFormat;
+import kr.guinnessgroup.colophon.quest.QuestDoc;
+import kr.guinnessgroup.colophon.quest.QuestFormat;
 import kr.guinnessgroup.colophon.record.Owner;
 import kr.guinnessgroup.colophon.record.RecordStore;
 import net.minecraft.server.MinecraftServer;
@@ -29,12 +31,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
- * Holds the published content (graphs and NPC definitions) and starts graphs when
- * events happen. Publishing checks both documents together, replaces everything at
- * once with no server restart, and saves {@code graphs.json} and {@code npcs.json}.
+ * Holds the published content (graphs, NPC definitions, quests) and starts graphs
+ * when events happen. Publishing checks the documents together, replaces everything
+ * at once with no server restart, and saves {@code graphs.json}, {@code npcs.json}
+ * and {@code quests.json}.
  */
 public final class ColophonRuntime {
 
@@ -44,27 +48,39 @@ public final class ColophonRuntime {
     private final RecordStore records;
     private final Path graphsFile;
     private final Path npcsFile;
+    private final Path questsFile;
+    private final Predicate<String> itemExists;
     private volatile Owner serverOwner = Owner.server("main");
+    private volatile Runnable onPublish = () -> {};
 
     /** Everything that changes on publish, swapped in one step. */
-    private record Active(GraphDoc graphs, NpcDoc npcs, Map<String, List<Start>> startsByTrigger) {}
+    private record Active(GraphDoc graphs, NpcDoc npcs, QuestDoc quests, Map<String, List<Start>> startsByTrigger) {}
 
     private record Start(Graph graph, String nodeId) {}
 
-    private static final Active EMPTY = new Active(new GraphDoc(List.of()), new NpcDoc(List.of()), Map.of());
+    private static final Active EMPTY = new Active(new GraphDoc(List.of()), new NpcDoc(List.of()),
+            new QuestDoc(List.of()), Map.of());
 
     private volatile Active active = EMPTY;
 
-    public ColophonRuntime(NodeRegistry registry, RecordStore records, Path dir) {
+    /** @param itemExists whether an item id (e.g. {@code minecraft:wheat}) names a real item */
+    public ColophonRuntime(NodeRegistry registry, RecordStore records, Path dir, Predicate<String> itemExists) {
         this.registry = registry;
         this.records = records;
         this.graphsFile = dir.resolve("graphs.json");
         this.npcsFile = dir.resolve("npcs.json");
+        this.questsFile = dir.resolve("quests.json");
+        this.itemExists = itemExists;
+    }
+
+    /** Run after every accepted publish, on the publishing (web) thread. */
+    public void onPublish(Runnable action) {
+        this.onPublish = (action == null) ? () -> {} : action;
     }
 
     /**
      * Check, swap in, and save new content. The body is
-     * {@code {"graphs": <graph document>, "npcs": <NPC document>}}.
+     * {@code {"graphs": <graph document>, "npcs": <NPC document>, "quests": <quest document>}}.
      * Throws {@link DocumentException} if anything is rejected; then nothing changes.
      */
     public synchronized void publish(String json) {
@@ -76,14 +92,18 @@ public final class ColophonRuntime {
         }
         JsonElement graphs = body.get("graphs");
         JsonElement npcs = body.get("npcs");
-        if (graphs == null || npcs == null) {
-            throw new DocumentException(List.of("publish needs both 'graphs' and 'npcs'"));
+        JsonElement quests = body.get("quests");
+        if (graphs == null || npcs == null || quests == null) {
+            throw new DocumentException(List.of("publish needs 'graphs', 'npcs' and 'quests'"));
         }
         NpcDoc npcDoc = NpcFormat.read(npcs.toString());
+        QuestDoc questDoc = QuestFormat.read(quests.toString());
         GraphDoc graphDoc = GraphFormat.read(graphs.toString());
-        activate(graphDoc, npcDoc);
+        activate(graphDoc, npcDoc, questDoc);
         write(npcsFile, NpcFormat.write(npcDoc));
+        write(questsFile, QuestFormat.write(questDoc));
         write(graphsFile, GraphFormat.write(graphDoc));
+        onPublish.run();
     }
 
     /** Load saved content. If a file is broken it is left untouched and no graph runs. */
@@ -93,10 +113,13 @@ public final class ColophonRuntime {
             NpcDoc npcDoc = Files.exists(npcsFile)
                     ? NpcFormat.read(Files.readString(npcsFile, StandardCharsets.UTF_8))
                     : new NpcDoc(List.of());
+            QuestDoc questDoc = Files.exists(questsFile)
+                    ? QuestFormat.read(Files.readString(questsFile, StandardCharsets.UTF_8))
+                    : new QuestDoc(List.of());
             GraphDoc graphDoc = Files.exists(graphsFile)
                     ? GraphFormat.read(Files.readString(graphsFile, StandardCharsets.UTF_8))
                     : new GraphDoc(List.of());
-            activate(graphDoc, npcDoc);
+            activate(graphDoc, npcDoc, questDoc);
         } catch (DocumentException e) {
             LOGGER.error("[Colophon] Saved content was not loaded; nothing will run until it is fixed or republished: {}",
                     e.errors());
@@ -105,9 +128,11 @@ public final class ColophonRuntime {
         }
     }
 
-    private void activate(GraphDoc graphDoc, NpcDoc npcDoc) {
+    private void activate(GraphDoc graphDoc, NpcDoc npcDoc, QuestDoc questDoc) {
+        checkItems(questDoc);
         Set<String> npcIds = npcDoc.npcs().stream().map(NpcDoc.NpcDef::id).collect(Collectors.toUnmodifiableSet());
-        List<Graph> graphs = GraphBuilder.build(graphDoc, registry, new Catalog(npcIds));
+        Set<String> questIds = questDoc.quests().stream().map(QuestDoc.Quest::id).collect(Collectors.toUnmodifiableSet());
+        List<Graph> graphs = GraphBuilder.build(graphDoc, registry, new Catalog(npcIds, questIds));
         Map<String, List<Start>> starts = new HashMap<>();
         for (Graph g : graphs) {
             for (Graph.Placed n : g.nodes().values()) {
@@ -117,8 +142,30 @@ public final class ColophonRuntime {
             }
         }
         starts.replaceAll((k, v) -> List.copyOf(v));
-        this.active = new Active(graphDoc, npcDoc, Map.copyOf(starts));
-        LOGGER.info("[Colophon] {} graph(s), {} NPC(s) active", graphs.size(), npcDoc.npcs().size());
+        this.active = new Active(graphDoc, npcDoc, questDoc, Map.copyOf(starts));
+        LOGGER.info("[Colophon] {} graph(s), {} NPC(s), {} quest(s) active",
+                graphs.size(), npcDoc.npcs().size(), questDoc.quests().size());
+    }
+
+    /** Quest items must exist in this game (a typo or a missing mod is rejected). */
+    private void checkItems(QuestDoc questDoc) {
+        List<String> errors = new ArrayList<>();
+        for (QuestDoc.Quest q : questDoc.quests()) {
+            List<String> items = new ArrayList<>();
+            if (!q.icon().isEmpty()) {
+                items.add(q.icon());
+            }
+            q.goals().forEach(s -> items.add(s.item()));
+            q.rewards().forEach(s -> items.add(s.item()));
+            for (String item : items) {
+                if (!itemExists.test(item)) {
+                    errors.add("quest '" + q.title() + "' (" + q.id() + "): no item '" + item + "' in this game");
+                }
+            }
+        }
+        if (!errors.isEmpty()) {
+            throw new DocumentException(errors);
+        }
     }
 
     private static void write(Path file, String content) {
@@ -140,6 +187,11 @@ public final class ColophonRuntime {
         return NpcFormat.write(active.npcs());
     }
 
+    /** The current quest document, for the editor. */
+    public String questsJson() {
+        return QuestFormat.write(active.quests());
+    }
+
     /** An NPC definition, or {@code null} if none has that id. */
     public NpcDoc.NpcDef npc(String id) {
         return active.npcs().find(id);
@@ -147,6 +199,15 @@ public final class ColophonRuntime {
 
     public List<NpcDoc.NpcDef> npcs() {
         return active.npcs().npcs();
+    }
+
+    /** A quest, or {@code null} if none has that id. */
+    public QuestDoc.Quest quest(String id) {
+        return active.quests().find(id);
+    }
+
+    public List<QuestDoc.Quest> quests() {
+        return active.quests().quests();
     }
 
     public Owner serverOwner() {

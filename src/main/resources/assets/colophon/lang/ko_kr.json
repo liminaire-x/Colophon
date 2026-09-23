@@ -1,0 +1,10 @@
+{
+  "key.categories.colophon": "Colophon",
+  "key.colophon.quests": "퀘스트",
+  "colophon.quests.title": "퀘스트",
+  "colophon.quests.none": "아직 퀘스트가 없습니다.",
+  "colophon.quests.needs": "필요한 것",
+  "colophon.quests.rewards": "보상",
+  "colophon.quests.ready": "제출할 수 있습니다",
+  "colophon.quests.done": "완료"
+}

@@ -32,7 +32,8 @@ import java.util.concurrent.Executors;
  *   <li>{@code GET /api/graphs} — the current graph document</li>
  *   <li>{@code GET /api/npcs} — the current NPC document</li>
  *   <li>{@code GET /api/npc-placements} — where each NPC stands</li>
- *   <li>{@code POST /api/publish} — replace both documents: {@code {"graphs": ..., "npcs": ...}}</li>
+ *   <li>{@code GET /api/quests} — the current quest document</li>
+ *   <li>{@code POST /api/publish} — replace all documents: {@code {"graphs": ..., "npcs": ..., "quests": ...}}</li>
  * </ul>
  */
 public final class ColophonWebServer {
@@ -71,6 +72,7 @@ public final class ColophonWebServer {
             server.createContext("/api/graphs", ex -> getOnly(ex, runtime.graphsJson()));
             server.createContext("/api/npcs", ex -> getOnly(ex, runtime.npcsJson()));
             server.createContext("/api/npc-placements", ex -> getOnly(ex, npcs.placementsJson()));
+            server.createContext("/api/quests", ex -> getOnly(ex, runtime.questsJson()));
             server.createContext("/api/publish", this::handlePublish);
             server.start();
             LOGGER.info("[Colophon] Web editor at http://localhost:{}", PORT);

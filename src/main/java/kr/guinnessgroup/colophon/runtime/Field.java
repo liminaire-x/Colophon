@@ -14,7 +14,8 @@ import com.google.gson.JsonObject;
  * @param id           key in the node's saved config. Never rename.
  * @param label        shown in the editor
  * @param defaultValue used when the config has no value
- * @param kind         how the editor asks for it: {@code text}, or {@code npc} (pick a defined NPC)
+ * @param kind         how the editor asks for it: {@code text}, {@code npc} (pick a defined NPC),
+ *                     or {@code quest} (pick a defined quest)
  */
 public record Field(String id, String label, String defaultValue, String kind) {
 
@@ -24,6 +25,10 @@ public record Field(String id, String label, String defaultValue, String kind) {
 
     public static Field npc(String id, String label) {
         return new Field(id, label, "", "npc");
+    }
+
+    public static Field quest(String id, String label) {
+        return new Field(id, label, "", "quest");
     }
 
     /** This field's value in {@code config}, or the default. */

@@ -1,0 +1,10 @@
+{
+  "key.categories.colophon": "Colophon",
+  "key.colophon.quests": "Quests",
+  "colophon.quests.title": "Quests",
+  "colophon.quests.none": "No quests yet.",
+  "colophon.quests.needs": "Needs",
+  "colophon.quests.rewards": "Rewards",
+  "colophon.quests.ready": "Ready to hand in",
+  "colophon.quests.done": "Completed"
+}

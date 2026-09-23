@@ -19,6 +19,7 @@ public final class Ids {
     public static final String GRAPH = "graph";
     public static final String NODE = "node";
     public static final String NPC = "npc";
+    public static final String QUEST = "quest";
 
     private static final Pattern REST = Pattern.compile("[a-z0-9]+");
 

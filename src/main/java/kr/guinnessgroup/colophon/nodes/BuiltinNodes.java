@@ -17,7 +17,9 @@ public final class BuiltinNodes {
         registry.register(new OnNpcInteract());
         registry.register(new HasFlag());
         registry.register(new SetFlag());
+        registry.register(new QuestStateSwitch());
         registry.register(new SendMessage());
+        registry.register(new RevealQuest());
         registry.register(new PlayNpcAnimation());
     }
 }

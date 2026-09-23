@@ -11,9 +11,10 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 
-// Must match the server (GraphFormat.java, NpcFormat.java).
+// Must match the server (GraphFormat.java, NpcFormat.java, QuestFormat.java).
 const FORMAT = 1
 const NPC_FORMAT = 1
+const QUEST_FORMAT = 1
 const NEXT = 'next'
 
 // Ids are made up here, never typed or edited: <kind>_<8 random a-z0-9> (Ids.java).
@@ -122,6 +123,29 @@ function ColophonNode({ data, selected }) {
 
 const nodeTypes = { colophon: ColophonNode }
 
+const input = { width: '100%', padding: '4px 6px', boxSizing: 'border-box' }
+
+// A quest's goals or rewards: rows of item id + count.
+function StackList({ stacks, onChange }) {
+  const set = (i, key, value) => onChange(stacks.map((s, j) => (j === i ? { ...s, [key]: value } : s)))
+  return (
+    <div style={{ marginBottom: 10 }}>
+      {stacks.map((s, i) => (
+        <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 3 }}>
+          <input value={s.item} placeholder="minecraft:wheat" onChange={(e) => set(i, 'item', e.target.value)} style={{ ...input, flex: 1 }} />
+          <input
+            type="number" min={1} value={s.count}
+            onChange={(e) => set(i, 'count', e.target.value === '' ? '' : Number(e.target.value))}
+            style={{ ...input, width: 52 }}
+          />
+          <button onClick={() => onChange(stacks.filter((_, j) => j !== i))} style={{ cursor: 'pointer' }}>×</button>
+        </div>
+      ))}
+      <button onClick={() => onChange(stacks.concat({ item: '', count: 1 }))} style={{ cursor: 'pointer', color: '#2563eb' }}>+ add</button>
+    </div>
+  )
+}
+
 // --- app ---
 
 export default function App() {
@@ -132,6 +156,8 @@ export default function App() {
   const [npcs, setNpcs] = useState([]) // [{ id, name }]
   const [placements, setPlacements] = useState({}) // { npcId: [{ dim, x, y, z }] }
   const [selectedNpcId, setSelectedNpcId] = useState(null)
+  const [quests, setQuests] = useState([]) // server format: [{ id, title, icon?, text?, goals, rewards }]
+  const [selectedQuestId, setSelectedQuestId] = useState(null)
   const [status, setStatus] = useState('connecting...')
   const [message, setMessage] = useState(null) // { ok, text }
   const [publishing, setPublishing] = useState(false)
@@ -139,6 +165,7 @@ export default function App() {
   const byType = useMemo(() => Object.fromEntries(schema.map((d) => [d.type, d])), [schema])
   const current = graphs.find((g) => g.id === currentId) || null
   const selectedNpc = npcs.find((n) => n.id === selectedNpcId) || null
+  const selectedQuest = quests.find((q) => q.id === selectedQuestId) || null
 
   const loadPlacements = useCallback(async () => {
     try {
@@ -153,12 +180,14 @@ export default function App() {
         const s = await fetch('/api/schema').then((r) => r.json())
         const doc = await fetch('/api/graphs').then((r) => r.json())
         const npcDoc = await fetch('/api/npcs').then((r) => r.json())
+        const questDoc = await fetch('/api/quests').then((r) => r.json())
         if (cancelled) return
         setSchema(s.nodes || [])
         const loaded = (doc.graphs || []).map(toFlow)
         setGraphs(loaded)
         setCurrentId(loaded[0]?.id ?? null)
         setNpcs(npcDoc.npcs || [])
+        setQuests(questDoc.quests || [])
         setStatus('ok')
         loadPlacements()
       } catch (e) {
@@ -169,8 +198,10 @@ export default function App() {
     return () => { cancelled = true }
   }, [loadPlacements])
 
-  const selectNode = useCallback((id) => { setSelectedNodeId(id); setSelectedNpcId(null) }, [])
-  const selectNpc = useCallback((id) => { setSelectedNpcId(id); setSelectedNodeId(null) }, [])
+  // One thing is shown on the right at a time: a node, an NPC or a quest.
+  const selectNode = useCallback((id) => { setSelectedNodeId(id); setSelectedNpcId(null); setSelectedQuestId(null) }, [])
+  const selectNpc = useCallback((id) => { setSelectedNpcId(id); setSelectedNodeId(null); setSelectedQuestId(null) }, [])
+  const selectQuest = useCallback((id) => { setSelectedQuestId(id); setSelectedNodeId(null); setSelectedNpcId(null) }, [])
 
   const updateCurrent = useCallback(
     (fn) => setGraphs((gs) => gs.map((g) => (g.id === currentId ? fn(g) : g))),
@@ -282,6 +313,31 @@ export default function App() {
     setSelectedNpcId(null)
   }, [selectedNpc, placements])
 
+  const newQuest = useCallback(() => {
+    const title = window.prompt('Quest title:')
+    if (title == null || !title.trim()) return
+    const id = newId('quest', quests.map((q) => q.id))
+    setQuests((qs) => qs.concat({ id, title: title.trim(), goals: [], rewards: [] }))
+    selectQuest(id)
+  }, [quests, selectQuest])
+
+  // Edit one field of the selected quest; an emptied optional text field is dropped.
+  const setQuestField = useCallback((key, value) => {
+    setQuests((qs) => qs.map((q) => {
+      if (q.id !== selectedQuestId) return q
+      const next = { ...q, [key]: value }
+      if ((key === 'icon' || key === 'text') && value.trim() === '') delete next[key]
+      return next
+    }))
+  }, [selectedQuestId])
+
+  const deleteQuest = useCallback(() => {
+    if (!selectedQuest) return
+    if (!window.confirm(`Delete quest '${selectedQuest.title}'? Players keep their progress records.`)) return
+    setQuests((qs) => qs.filter((q) => q.id !== selectedQuest.id))
+    setSelectedQuestId(null)
+  }, [selectedQuest])
+
   const publish = useCallback(async () => {
     setPublishing(true)
     setMessage(null)
@@ -289,7 +345,11 @@ export default function App() {
       const res = await fetch('/api/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ graphs: toDoc(graphs), npcs: { format: NPC_FORMAT, npcs } }),
+        body: JSON.stringify({
+          graphs: toDoc(graphs),
+          npcs: { format: NPC_FORMAT, npcs },
+          quests: { format: QUEST_FORMAT, quests },
+        }),
       })
       const data = await res.json()
       setMessage(data.accepted
@@ -301,7 +361,7 @@ export default function App() {
     } finally {
       setPublishing(false)
     }
-  }, [graphs, npcs, loadPlacements])
+  }, [graphs, npcs, quests, loadPlacements])
 
   const palette = useMemo(() => {
     const g = {}
@@ -359,6 +419,18 @@ export default function App() {
             ))}
             <button onClick={newNpc} disabled={status !== 'ok'} style={{ ...button, color: '#2563eb' }}>+ New NPC</button>
 
+            <div style={{ ...sectionTitle, marginTop: 14 }}>Quests</div>
+            {quests.map((q) => (
+              <button
+                key={q.id}
+                onClick={() => selectQuest(q.id)}
+                style={{ ...button, background: q.id === selectedQuestId ? '#e0e7ff' : '#fafafa' }}
+              >
+                {q.title} <span style={{ color: '#888', fontSize: 10 }}>{q.id}</span>
+              </button>
+            ))}
+            <button onClick={newQuest} disabled={status !== 'ok'} style={{ ...button, color: '#2563eb' }}>+ New quest</button>
+
             {current && (
               <>
                 <div style={{ ...sectionTitle, marginTop: 14 }}>Nodes</div>
@@ -415,6 +487,15 @@ export default function App() {
                         <option value="">(choose an NPC)</option>
                         {npcs.map((n) => <option key={n.id} value={n.id}>{n.name} ({n.id})</option>)}
                       </select>
+                    ) : f.kind === 'quest' ? (
+                      <select
+                        value={selectedNode.data.config?.[f.id] ?? ''}
+                        onChange={(e) => setConfig(f.id, e.target.value)}
+                        style={input}
+                      >
+                        <option value="">(choose a quest)</option>
+                        {quests.map((q) => <option key={q.id} value={q.id}>{q.title} ({q.id})</option>)}
+                      </select>
                     ) : (
                       <input
                         value={selectedNode.data.config?.[f.id] ?? ''}
@@ -469,6 +550,38 @@ export default function App() {
                   </ul>
                 )}
                 <button onClick={deleteNpc} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete NPC</button>
+              </>
+            ) : selectedQuest ? (
+              <>
+                <div style={{ fontWeight: 600, marginBottom: 8 }}>Quest</div>
+                <label style={{ display: 'block', marginBottom: 10 }}>
+                  <div style={{ marginBottom: 3 }}>Title</div>
+                  <input value={selectedQuest.title} onChange={(e) => setQuestField('title', e.target.value)} style={input} />
+                </label>
+                <div style={{ color: '#888', marginBottom: 12 }}>id: {selectedQuest.id} (fixed)</div>
+                <label style={{ display: 'block', marginBottom: 10 }}>
+                  <div style={{ marginBottom: 3 }}>Icon <span style={{ color: '#888', fontSize: 10 }}>(item id; empty = first need)</span></div>
+                  <input
+                    value={selectedQuest.icon ?? ''}
+                    placeholder="e.g. minecraft:wheat"
+                    onChange={(e) => setQuestField('icon', e.target.value)}
+                    style={input}
+                  />
+                </label>
+                <label style={{ display: 'block', marginBottom: 10 }}>
+                  <div style={{ marginBottom: 3 }}>Text</div>
+                  <textarea
+                    value={selectedQuest.text ?? ''}
+                    rows={4}
+                    onChange={(e) => setQuestField('text', e.target.value)}
+                    style={{ ...input, resize: 'vertical', fontFamily: 'inherit' }}
+                  />
+                </label>
+                <div style={{ marginBottom: 3 }}>Needs <span style={{ color: '#888', fontSize: 10 }}>(handed in)</span></div>
+                <StackList stacks={selectedQuest.goals} onChange={(v) => setQuestField('goals', v)} />
+                <div style={{ marginBottom: 3 }}>Rewards</div>
+                <StackList stacks={selectedQuest.rewards} onChange={(v) => setQuestField('rewards', v)} />
+                <button onClick={deleteQuest} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete quest</button>
               </>
             ) : current ? (
               <>

@@ -11,11 +11,15 @@ import java.util.Set;
  * The content being published alongside the graphs, so a node can reject a
  * reference to something that does not exist (e.g. an NPC id with a typo).
  */
-public record Catalog(Set<String> npcIds) {
+public record Catalog(Set<String> npcIds, Set<String> questIds) {
 
-    public static final Catalog EMPTY = new Catalog(Set.of());
+    public static final Catalog EMPTY = new Catalog(Set.of(), Set.of());
 
     public boolean hasNpc(String id) {
         return npcIds.contains(id);
+    }
+
+    public boolean hasQuest(String id) {
+        return questIds.contains(id);
     }
 }
