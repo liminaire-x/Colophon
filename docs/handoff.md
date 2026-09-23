@@ -53,7 +53,8 @@ v2 설계가 사용자가 소화하는 속도보다 빨리 두꺼워져서, **�
   `gh run view <id> --json conclusion` + 테스트 리포트의 실행 개수까지 본다.
 - **커밋**: 사용자가 로컬에서 병행 편집한다. 커밋 전에 `git diff --cached --stat`를 보고,
   경로 지정 커밋(`git commit -- 파일`)을 쓴다. 커밋 끝에 공동 작성자 Claude 줄.
-- `build.gradle`에 **사용자의 미커밋 수정**이 있다. 건드리지 말 것.
+- GeckoLib은 사용자가 **4.9.3**으로 올렸다(`2f15aea`). decisions/0003의 "4.7"은 결정 당시 버전이다.
+  API를 쓸 때는 4.9.3 소스로 확인할 것.
 - `.claude/settings.local.json`은 개인 설정이라 커밋하지 않았다.
 - 게임 데이터(`run/`, git 밖): `run/config/colophon/`에 `graphs.json`, `npcs.json`, `records.mv.db`.
   옛 v2 데이터는 `run/config/colophon/legacy-v2/`.
