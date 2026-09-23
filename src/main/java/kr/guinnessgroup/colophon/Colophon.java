@@ -50,8 +50,7 @@ public final class Colophon {
     private final Path dir = FMLPaths.CONFIGDIR.get().resolve(MODID);
     private final NodeRegistry nodes = new NodeRegistry();
     private final RecordStore records = new RecordStore();
-    private final ColophonRuntime runtime = new ColophonRuntime(nodes, records, dir,
-            Quests::itemProblem, Quests::entityProblem);
+    private final ColophonRuntime runtime = new ColophonRuntime(nodes, records, dir, Quests.CHECKS);
     private final Npcs npcs = new Npcs(runtime, records);
     private final Quests quests = new Quests(runtime, records);
     private final ColophonWebServer web = new ColophonWebServer(runtime, nodes, npcs);

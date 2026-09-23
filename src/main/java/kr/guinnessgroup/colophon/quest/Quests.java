@@ -11,18 +11,26 @@ import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import kr.guinnessgroup.colophon.record.Owner;
 import kr.guinnessgroup.colophon.record.RecordStore;
 import kr.guinnessgroup.colophon.runtime.ColophonRuntime;
+import kr.guinnessgroup.colophon.runtime.ContentChecks;
+import net.minecraft.commands.CommandBuildContext;
+import net.minecraft.commands.arguments.item.ItemInput;
 import net.minecraft.commands.arguments.item.ItemParser;
+import net.minecraft.commands.arguments.item.ItemPredicateArgument;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.animal.horse.AbstractHorse;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.flag.FeatureFlagSet;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -31,13 +39,20 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Quests as the game sees them: definitions (from the published quest document)
  * and each player's state (their records). Nodes reach this through
  * {@link #current()} while the server runs. Call on the server thread.
+ * <p>
+ * Items are read with the game's own command parsers: rewards as {@code /give}
+ * writes them, hand-in goals as {@code /clear} reads them (listed components must
+ * match, others are ignored). See docs/decisions/0006-item-syntax.md.
  */
 public final class Quests {
 
@@ -45,6 +60,9 @@ public final class Quests {
 
     private final ColophonRuntime runtime;
     private final RecordStore records;
+
+    /** Goal conditions already read, by their text. Registries change only between server runs. */
+    private final Map<String, Predicate<ItemStack>> conditions = new HashMap<>();
 
     public Quests(ColophonRuntime runtime, RecordStore records) {
         this.runtime = runtime;
@@ -57,6 +75,7 @@ public final class Quests {
     }
 
     public void start() {
+        conditions.clear();
         current = this;
     }
 
@@ -71,7 +90,7 @@ public final class Quests {
         QuestState stored = QuestState.fromRecord(records.get(owner, questId));
         QuestDoc.Quest quest = runtime.quest(questId);
         if (stored == QuestState.ACTIVE && quest != null
-                && goalsMet(player.getInventory(), kills(owner, questId), quest)) {
+                && goalsMet(player.getInventory(), kills(owner, questId), quest, s -> condition(player, s))) {
             return QuestState.READY;
         }
         return stored;
@@ -79,6 +98,10 @@ public final class Quests {
 
     private Map<String, Integer> kills(Owner owner, String questId) {
         return QuestProgress.read(records.get(owner, QuestProgress.key(questId)));
+    }
+
+    private Predicate<ItemStack> condition(ServerPlayer player, String spec) {
+        return conditions.computeIfAbsent(spec, s -> conditionOrNothing(s, player));
     }
 
     /**
@@ -141,7 +164,7 @@ public final class Quests {
         Inventory inventory = player.getInventory();
         for (QuestDoc.Goal goal : quest.goals()) {
             if (goal.kind() == QuestDoc.Goal.Kind.ITEM) {
-                take(inventory, item(goal.target()), goal.count());
+                take(inventory, condition(player, goal.target()), goal.count());
             }
         }
         for (QuestDoc.Stack reward : quest.rewards()) {
@@ -154,18 +177,30 @@ public final class Quests {
         return true;
     }
 
-    /** Remove {@code count} of an item from the same slots {@link Inventory#countItem} counts. */
-    private static void take(Inventory inventory, Item item, int count) {
+    /** Remove {@code count} matching items from the same slots {@link #count} counts. */
+    private static void take(Inventory inventory, Predicate<ItemStack> matches, int count) {
         int left = count;
         for (int slot = 0; slot < inventory.getContainerSize() && left > 0; slot++) {
             ItemStack stack = inventory.getItem(slot);
-            if (stack.is(item)) {
+            if (!stack.isEmpty() && matches.test(stack)) {
                 int n = Math.min(left, stack.getCount());
                 stack.shrink(n);
                 left -= n;
             }
         }
         inventory.setChanged();
+    }
+
+    /** How many items in the inventory (main, armor, offhand) match. */
+    public static int count(Inventory inventory, Predicate<ItemStack> matches) {
+        int n = 0;
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (!stack.isEmpty() && matches.test(stack)) {
+                n += stack.getCount();
+            }
+        }
+        return n;
     }
 
     /** Give copies of {@code item} in stacks no larger than it allows; what does not fit drops. */
@@ -204,11 +239,14 @@ public final class Quests {
     /**
      * Whether every goal is met: items in the inventory, kills in {@code kills}.
      * Both sides use this, so the screen agrees with the server.
+     *
+     * @param condition a hand-in goal's item condition, from its text
      */
-    public static boolean goalsMet(Inventory inventory, Map<String, Integer> kills, QuestDoc.Quest quest) {
+    public static boolean goalsMet(Inventory inventory, Map<String, Integer> kills, QuestDoc.Quest quest,
+                                   Function<String, Predicate<ItemStack>> condition) {
         for (QuestDoc.Goal goal : quest.goals()) {
             int have = (goal.kind() == QuestDoc.Goal.Kind.ITEM)
-                    ? inventory.countItem(item(goal.target()))
+                    ? count(inventory, condition.apply(goal.target()))
                     : kills.getOrDefault(goal.target(), 0);
             if (have < goal.count()) {
                 return false;
@@ -217,18 +255,9 @@ public final class Quests {
         return true;
     }
 
-    /** The entity type with this id, or {@code null} if there is none. */
-    public static EntityType<?> entityType(String id) {
-        ResourceLocation rl = ResourceLocation.tryParse(id);
-        return rl == null ? null : BuiltInRegistries.ENTITY_TYPE.getOptional(rl).orElse(null);
-    }
+    // --- items and entities, read the way the game's commands read them ---
 
-    /** For publish: why an entity id cannot be used, or {@code null} if it can. */
-    public static String entityProblem(String id) {
-        return entityType(id) == null ? "no entity '" + id + "' in this game" : null;
-    }
-
-    /** The item with this id; air if there is none (publish rejects unknown items). */
+    /** The item with this plain id; air if there is none (publish rejects unknown items). */
     public static Item item(String id) {
         ResourceLocation rl = ResourceLocation.tryParse(id);
         return rl == null ? Items.AIR : BuiltInRegistries.ITEM.get(rl);
@@ -243,7 +272,7 @@ public final class Quests {
      */
     public static ItemStack stack(String spec, HolderLookup.Provider registries) {
         try {
-            ItemParser.ItemResult r = parse(spec, registries);
+            ItemParser.ItemResult r = parseItem(spec, registries);
             return new ItemStack(r.item(), 1, r.components());
         } catch (CommandSyntaxException e) {
             return ItemStack.EMPTY;
@@ -251,29 +280,112 @@ public final class Quests {
     }
 
     /**
-     * For publish: why an item cannot be used, or {@code null} if it can. Reads it the
-     * way {@link #stack} will, with the running server's registries.
+     * An item condition as {@code /clear} reads it: {@code minecraft:wheat},
+     * {@code minecraft:iron_sword[custom_data={...}]}, {@code #minecraft:logs} ...
+     * Listed components must match; unlisted ones are ignored.
      */
-    public static String itemProblem(String spec) {
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
-        if (server == null) {
-            return "the server is not running";
-        }
+    public static Predicate<ItemStack> condition(String spec, HolderLookup.Provider registries, FeatureFlagSet features)
+            throws CommandSyntaxException {
+        StringReader reader = new StringReader(spec);
+        Predicate<ItemStack> p = new ItemPredicateArgument(CommandBuildContext.simple(registries, features)).parse(reader);
+        requireEnd(reader);
+        return p;
+    }
+
+    /** A condition for a player's side of the game; matches nothing if it cannot be read. */
+    public static Predicate<ItemStack> conditionOrNothing(String spec, Player player) {
         try {
-            parse(spec, server.registryAccess());
-            return null;
+            return condition(spec, player.registryAccess(), player.level().enabledFeatures());
         } catch (CommandSyntaxException e) {
-            return e.getMessage();
+            return stack -> false;
         }
     }
 
-    private static ItemParser.ItemResult parse(String spec, HolderLookup.Provider registries) throws CommandSyntaxException {
+    /**
+     * What to show for a hand-in goal: the item it names, with any components that
+     * read as {@code /give} would; for a tag ({@code #minecraft:logs}), its first item.
+     */
+    public static ItemStack display(String spec, HolderLookup.Provider registries) {
+        if (spec.startsWith("#")) {
+            ResourceLocation rl = ResourceLocation.tryParse(spec.substring(1));
+            return rl == null ? ItemStack.EMPTY : BuiltInRegistries.ITEM.getTag(TagKey.create(Registries.ITEM, rl))
+                    .filter(tag -> tag.size() > 0)
+                    .map(tag -> new ItemStack(tag.get(0)))
+                    .orElse(ItemStack.EMPTY);
+        }
+        ItemStack exact = stack(spec, registries);
+        if (!exact.isEmpty()) {
+            return exact;
+        }
+        int bracket = spec.indexOf('[');
+        return new ItemStack(item(bracket < 0 ? spec : spec.substring(0, bracket)));
+    }
+
+    /**
+     * What a player holds in their main hand, as {@code /give} writes it, with every
+     * component (name, enchantments, damage, other mods' data). Empty if nothing.
+     */
+    public static String held(ServerPlayer player) {
+        ItemStack stack = player.getMainHandItem();
+        if (stack.isEmpty()) {
+            return "";
+        }
+        return new ItemInput(stack.getItemHolder(), stack.getComponentsPatch()).serialize(player.registryAccess());
+    }
+
+    /** The entity type with this id, or {@code null} if there is none. */
+    public static EntityType<?> entityType(String id) {
+        ResourceLocation rl = ResourceLocation.tryParse(id);
+        return rl == null ? null : BuiltInRegistries.ENTITY_TYPE.getOptional(rl).orElse(null);
+    }
+
+    /** For publish: reads content with the running server's registries. */
+    public static final ContentChecks CHECKS = new ContentChecks() {
+        @Override
+        public String item(String spec) {
+            MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+            if (server == null) {
+                return "the server is not running";
+            }
+            try {
+                parseItem(spec, server.registryAccess());
+                return null;
+            } catch (CommandSyntaxException e) {
+                return e.getMessage();
+            }
+        }
+
+        @Override
+        public String itemCondition(String spec) {
+            MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+            if (server == null) {
+                return "the server is not running";
+            }
+            try {
+                condition(spec, server.registryAccess(), server.getWorldData().enabledFeatures());
+                return null;
+            } catch (CommandSyntaxException e) {
+                return e.getMessage();
+            }
+        }
+
+        @Override
+        public String entity(String id) {
+            return entityType(id) == null ? "no entity '" + id + "' in this game" : null;
+        }
+    };
+
+    private static ItemParser.ItemResult parseItem(String spec, HolderLookup.Provider registries) throws CommandSyntaxException {
         StringReader reader = new StringReader(spec);
         ItemParser.ItemResult r = new ItemParser(registries).parse(reader);
+        requireEnd(reader);
+        return r;
+    }
+
+    private static void requireEnd(StringReader reader) throws CommandSyntaxException {
         if (reader.canRead()) {
             throw new SimpleCommandExceptionType(Component.literal(
                     "unexpected text after the item: '" + reader.getRemaining() + "'")).createWithContext(reader);
         }
-        return r;
     }
 }

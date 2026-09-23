@@ -115,8 +115,8 @@ public final class QuestFormat {
     }
 
     /**
-     * Goals: each names exactly one of {@code item} (hand in; a plain id, since goals
-     * count by item type) or {@code kill} (an entity type id). Kill goals must name
+     * Goals: each names exactly one of {@code item} (hand in; an item condition as
+     * {@code /clear} reads it) or {@code kill} (an entity type id). Kill goals must name
      * different entities, because progress is saved per entity.
      */
     private static List<QuestDoc.Goal> goals(JsonObject o, String where, List<String> errors) {
@@ -140,11 +140,11 @@ public final class QuestFormat {
                 continue;
             }
             String target = item.isEmpty() ? kill : item;
-            if (!ITEM.matcher(target).matches()) {
-                errors.add(where + ": goal " + (item.isEmpty()
-                        ? "kill '" + kill + "' is not an entity id like minecraft:wolf"
-                        : "item '" + item + "' is not an item id like minecraft:wheat"
-                                + (ITEM_WITH_COMPONENTS.matcher(item).matches() ? " (goals cannot have [components] yet)" : "")));
+            // An item goal is a condition as /clear reads it (minecraft:wheat,
+            // minecraft:iron_sword[custom_data={...}], #minecraft:logs ...); the
+            // game's parser checks it on publish.
+            if (!kill.isEmpty() && !ITEM.matcher(kill).matches()) {
+                errors.add(where + ": goal kill '" + kill + "' is not an entity id like minecraft:wolf");
                 continue;
             }
             int count = count(go.get("count"));

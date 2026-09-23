@@ -128,7 +128,7 @@ const input = { width: '100%', padding: '4px 6px', boxSizing: 'border-box' }
 // A quest's goals or rewards: rows of target + count. Goals pick hand in / kill.
 // Rewards (`wide`) take a whole /give line such as minecraft:iron_sword[custom_name=...],
 // so the item gets its own line.
-function StackList({ stacks, onChange, wide = false, goals = false }) {
+function StackList({ stacks, onChange, fetchHeld, wide = false, goals = false }) {
   const set = (i, key, value) => onChange(stacks.map((s, j) => (j === i ? { ...s, [key]: value } : s)))
   return (
     <div style={{ marginBottom: 10 }}>
@@ -141,6 +141,14 @@ function StackList({ stacks, onChange, wide = false, goals = false }) {
           />
         )
         const remove = <button onClick={() => onChange(stacks.filter((_, j) => j !== i))} style={{ cursor: 'pointer' }}>×</button>
+        // Fill this row's item with what the chosen player holds in game.
+        const held = (key) => (
+          <button
+            title="Use the item the chosen player is holding"
+            onClick={async () => { const spec = await fetchHeld(); if (spec) set(i, key, spec) }}
+            style={{ cursor: 'pointer' }}
+          >✋</button>
+        )
         if (goals) {
           // A goal is { item, count } (hand in) or { kill, count } (kill while active).
           const kind = s.kill !== undefined ? 'kill' : 'item'
@@ -155,7 +163,7 @@ function StackList({ stacks, onChange, wide = false, goals = false }) {
                 value={s[kind]} placeholder={kind === 'kill' ? 'minecraft:wolf' : 'minecraft:wheat'}
                 onChange={(e) => set(i, kind, e.target.value)} style={{ ...input, flex: 1 }}
               />
-              {count}{remove}
+              {kind === 'item' && held('item')}{count}{remove}
             </div>
           )
         }
@@ -166,7 +174,7 @@ function StackList({ stacks, onChange, wide = false, goals = false }) {
               onChange={(e) => set(i, 'item', e.target.value)}
               style={{ ...input, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
             />
-            <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>{count}{remove}</div>
+            <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>{held('item')}{count}{remove}</div>
           </div>
         ) : (
           <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 3 }}>
@@ -192,6 +200,10 @@ export default function App() {
   const [selectedNpcId, setSelectedNpcId] = useState(null)
   const [quests, setQuests] = useState([]) // server format: [{ id, title, icon?, text?, goals, rewards }]
   const [selectedQuestId, setSelectedQuestId] = useState(null)
+  const [players, setPlayers] = useState([]) // online, for "use held item"
+  const [heldPlayer, setHeldPlayer] = useState(() => {
+    try { return localStorage.getItem('colophon.heldPlayer') || '' } catch (e) { return '' }
+  })
   const [status, setStatus] = useState('connecting...')
   const [message, setMessage] = useState(null) // { ok, text }
   const [publishing, setPublishing] = useState(false)
@@ -346,6 +358,31 @@ export default function App() {
     setNpcs((ns) => ns.filter((n) => n.id !== selectedNpc.id))
     setSelectedNpcId(null)
   }, [selectedNpc, placements])
+
+  const loadPlayers = useCallback(async () => {
+    try {
+      setPlayers((await fetch('/api/players').then((r) => r.json())).players || [])
+    } catch (e) { /* shown as offline elsewhere */ }
+  }, [])
+  useEffect(() => { if (selectedQuestId) loadPlayers() }, [selectedQuestId, loadPlayers])
+
+  const pickHeldPlayer = useCallback((name) => {
+    setHeldPlayer(name)
+    try { localStorage.setItem('colophon.heldPlayer', name) } catch (e) { /* not remembered */ }
+  }, [])
+
+  // What the chosen player holds, as /give writes it; null (with a message) if none.
+  const fetchHeld = useCallback(async () => {
+    if (!heldPlayer) { setMessage({ ok: false, text: 'Choose whose held item to use (above Needs).' }); return null }
+    try {
+      const r = await fetch('/api/held-item?player=' + encodeURIComponent(heldPlayer)).then((res) => res.json())
+      if (r.error) { setMessage({ ok: false, text: r.error }); return null }
+      return r.item
+    } catch (e) {
+      setMessage({ ok: false, text: 'Reading the held item failed: ' + e })
+      return null
+    }
+  }, [heldPlayer])
 
   const newQuest = useCallback(() => {
     const title = window.prompt('Quest title:')
@@ -611,10 +648,23 @@ export default function App() {
                     style={{ ...input, resize: 'vertical', fontFamily: 'inherit' }}
                   />
                 </label>
+                <label style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 4 }}>
+                  <span>✋ held item of</span>
+                  <select value={heldPlayer} onChange={(e) => pickHeldPlayer(e.target.value)} style={{ flex: 1, padding: '3px 2px' }}>
+                    <option value="">(player)</option>
+                    {(players.includes(heldPlayer) || !heldPlayer ? players : [heldPlayer, ...players]).map((p) => (
+                      <option key={p} value={p}>{p}{players.includes(p) ? '' : ' (offline)'}</option>
+                    ))}
+                  </select>
+                  <button onClick={loadPlayers} title="Refresh online players" style={{ cursor: 'pointer' }}>↻</button>
+                </label>
+                <div style={{ color: '#888', fontSize: 10, marginBottom: 8 }}>
+                  In a need, only the listed parts must match. Delete damage=… to accept any wear.
+                </div>
                 <div style={{ marginBottom: 3 }}>Needs <span style={{ color: '#888', fontSize: 10 }}>(all of them, in this order)</span></div>
-                <StackList goals stacks={selectedQuest.goals} onChange={(v) => setQuestField('goals', v)} />
+                <StackList goals fetchHeld={fetchHeld} stacks={selectedQuest.goals} onChange={(v) => setQuestField('goals', v)} />
                 <div style={{ marginBottom: 3 }}>Rewards <span style={{ color: '#888', fontSize: 10 }}>(item as /give writes it; [components] allowed)</span></div>
-                <StackList wide stacks={selectedQuest.rewards} onChange={(v) => setQuestField('rewards', v)} />
+                <StackList wide fetchHeld={fetchHeld} stacks={selectedQuest.rewards} onChange={(v) => setQuestField('rewards', v)} />
                 <button onClick={deleteQuest} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete quest</button>
               </>
             ) : current ? (

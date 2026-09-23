@@ -31,7 +31,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -49,8 +48,7 @@ public final class ColophonRuntime {
     private final Path graphsFile;
     private final Path npcsFile;
     private final Path questsFile;
-    private final Function<String, String> itemProblem;
-    private final Function<String, String> entityProblem;
+    private final ContentChecks checks;
     private volatile Owner serverOwner = Owner.server("main");
     private volatile Runnable onPublish = () -> {};
 
@@ -64,20 +62,14 @@ public final class ColophonRuntime {
 
     private volatile Active active = EMPTY;
 
-    /**
-     * @param itemProblem why an item (e.g. {@code minecraft:wheat}, or with components as
-     *                    {@code /give} writes it) cannot be used in this game, or {@code null}
-     * @param entityProblem the same for an entity type id (e.g. {@code minecraft:wolf})
-     */
-    public ColophonRuntime(NodeRegistry registry, RecordStore records, Path dir,
-                           Function<String, String> itemProblem, Function<String, String> entityProblem) {
+    /** @param checks how publish asks the running game whether quest items and mobs exist */
+    public ColophonRuntime(NodeRegistry registry, RecordStore records, Path dir, ContentChecks checks) {
         this.registry = registry;
         this.records = records;
         this.graphsFile = dir.resolve("graphs.json");
         this.npcsFile = dir.resolve("npcs.json");
         this.questsFile = dir.resolve("quests.json");
-        this.itemProblem = itemProblem;
-        this.entityProblem = entityProblem;
+        this.checks = checks;
     }
 
     /** Run after every accepted publish, on the publishing (web) thread. */
@@ -162,30 +154,28 @@ public final class ColophonRuntime {
         List<String> errors = new ArrayList<>();
         for (QuestDoc.Quest q : questDoc.quests()) {
             String where = "quest '" + q.title() + "' (" + q.id() + "): ";
-            List<String> items = new ArrayList<>();
             if (!q.icon().isEmpty()) {
-                items.add(q.icon());
+                check(errors, where + "icon '" + q.icon() + "': ", checks.item(q.icon()));
             }
             for (QuestDoc.Goal g : q.goals()) {
                 if (g.kind() == QuestDoc.Goal.Kind.ITEM) {
-                    items.add(g.target());
+                    check(errors, where + "goal '" + g.target() + "': ", checks.itemCondition(g.target()));
                 } else {
-                    String problem = entityProblem.apply(g.target());
-                    if (problem != null) {
-                        errors.add(where + "kill '" + g.target() + "': " + problem);
-                    }
+                    check(errors, where + "kill '" + g.target() + "': ", checks.entity(g.target()));
                 }
             }
-            q.rewards().forEach(s -> items.add(s.item()));
-            for (String item : items) {
-                String problem = itemProblem.apply(item);
-                if (problem != null) {
-                    errors.add(where + "item '" + item + "': " + problem);
-                }
+            for (QuestDoc.Stack s : q.rewards()) {
+                check(errors, where + "reward '" + s.item() + "': ", checks.item(s.item()));
             }
         }
         if (!errors.isEmpty()) {
             throw new DocumentException(errors);
+        }
+    }
+
+    private static void check(List<String> errors, String where, String problem) {
+        if (problem != null) {
+            errors.add(where + problem);
         }
     }
 

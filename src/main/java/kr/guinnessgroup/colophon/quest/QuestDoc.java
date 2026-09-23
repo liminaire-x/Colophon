@@ -33,7 +33,8 @@ public record QuestDoc(List<Quest> quests) {
 
     /**
      * One thing a quest asks for. Saved as {@code {"item": "minecraft:wheat", "count": 10}}
-     * (hand in, counted by item type) or {@code {"kill": "minecraft:wolf", "count": 3}}
+     * (hand in: an item condition as {@code /clear} reads it; listed components must
+     * match, others are ignored) or {@code {"kill": "minecraft:wolf", "count": 3}}
      * (kill while the quest is active; the count is the player's progress record).
      *
      * @param target an item id or an entity type id, depending on {@code kind}

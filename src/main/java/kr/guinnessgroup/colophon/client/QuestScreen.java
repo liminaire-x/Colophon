@@ -21,6 +21,7 @@ import net.minecraft.world.item.SpawnEggItem;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * The quest screen: revealed quests on the left, the chosen one's story, needs
@@ -42,6 +43,8 @@ public final class QuestScreen extends Screen {
     private static final int GREEN = 0xFF55FF55;
 
     private final Map<String, ItemStack> rewards = new HashMap<>();
+    private final Map<String, ItemStack> displays = new HashMap<>();
+    private final Map<String, Predicate<ItemStack>> conditions = new HashMap<>();
     private String selectedId;
     private int left;
     private int top;
@@ -139,7 +142,7 @@ public final class QuestScreen extends Screen {
         int dw = left + panelW - PAD - dx;
         int bottom = top + panelH - PAD;
         boolean ready = !selected.done() && player != null
-                && Quests.goalsMet(player.getInventory(), selected.kills(), q);
+                && Quests.goalsMet(player.getInventory(), selected.kills(), q, this::condition);
         y = listTop();
         g.enableScissor(dx, y, dx + dw, bottom);
         g.drawString(font, q.title(), dx, y, GOLD);
@@ -165,7 +168,9 @@ public final class QuestScreen extends Screen {
             for (QuestDoc.Goal goal : q.goals()) {
                 boolean kill = goal.kind() == QuestDoc.Goal.Kind.KILL;
                 ItemStack icon = goalIcon(goal);
-                Component name = kill ? entityName(goal.target()) : icon.getHoverName();
+                Component name = kill ? entityName(goal.target())
+                        : goal.target().startsWith("#") ? Component.literal(goal.target()) // a tag: any item in it
+                        : icon.getHoverName();
                 String amount;
                 int color;
                 if (selected.done() || player == null) {
@@ -174,7 +179,7 @@ public final class QuestScreen extends Screen {
                 } else {
                     int have = kill
                             ? selected.kills().getOrDefault(goal.target(), 0)
-                            : player.getInventory().countItem(icon.getItem());
+                            : Quests.count(player.getInventory(), condition(goal.target()));
                     amount = " " + Math.min(have, goal.count()) + "/" + goal.count();
                     color = have >= goal.count() ? GREEN : WHITE;
                 }
@@ -211,13 +216,25 @@ public final class QuestScreen extends Screen {
         return (over && tooltip) ? icon : hovered;
     }
 
-    /** An item goal shows its item; a kill goal shows the mob's spawn egg, if it has one. */
-    private static ItemStack goalIcon(QuestDoc.Goal goal) {
+    /**
+     * An item goal shows the item its condition names (with a name or enchantments if
+     * it lists them); a kill goal shows the mob's spawn egg, if it has one.
+     */
+    private ItemStack goalIcon(QuestDoc.Goal goal) {
         if (goal.kind() == QuestDoc.Goal.Kind.ITEM) {
-            return new ItemStack(Quests.item(goal.target()));
+            return displays.computeIfAbsent(goal.target(), s -> minecraft.player == null
+                    ? ItemStack.EMPTY
+                    : Quests.display(s, minecraft.player.registryAccess()));
         }
         SpawnEggItem egg = SpawnEggItem.byId(Quests.entityType(goal.target()));
         return egg == null ? ItemStack.EMPTY : new ItemStack(egg);
+    }
+
+    /** A hand-in goal's condition, read once per screen. */
+    private Predicate<ItemStack> condition(String spec) {
+        return conditions.computeIfAbsent(spec, s -> minecraft.player == null
+                ? stack -> false
+                : Quests.conditionOrNothing(s, minecraft.player));
     }
 
     private static Component entityName(String id) {
@@ -233,7 +250,7 @@ public final class QuestScreen extends Screen {
     }
 
     /** The list icon: the quest's icon, else its first goal's icon, else a book. */
-    private static ItemStack icon(QuestDoc.Quest q) {
+    private ItemStack icon(QuestDoc.Quest q) {
         if (!q.icon().isEmpty()) {
             return new ItemStack(Quests.item(q.icon()));
         }

@@ -67,12 +67,15 @@ class QuestFormatTest {
     }
 
     @Test
-    void goalsAndIconsAreItemIdsOnly() {
-        DocumentException e = assertThrows(DocumentException.class, () -> QuestFormat.read("""
+    void handInGoalsAreConditionsAsClearReadsThemIconsAreIds() {
+        QuestDoc doc = QuestFormat.read("""
                 { "format": 1, "quests": [ { "id": "quest_a", "title": "A",
-                  "goals": [ { "item": "minecraft:wheat[custom_name='x']", "count": 1 } ], "rewards": [] } ] }
-                """));
-        assertTrue(e.errors().get(0).contains("goals cannot have [components]"), e.errors().toString());
+                  "goals": [ { "item": "minecraft:iron_sword[custom_data={colophon:'smith_sword'}]", "count": 1 },
+                             { "item": "#minecraft:logs", "count": 8 } ], "rewards": [] } ] }
+                """);
+        assertEquals(List.of(QuestDoc.Goal.item("minecraft:iron_sword[custom_data={colophon:'smith_sword'}]", 1),
+                QuestDoc.Goal.item("#minecraft:logs", 8)), doc.find("quest_a").goals());
+        assertEquals(doc, QuestFormat.read(QuestFormat.write(doc)));
         assertThrows(DocumentException.class, () -> QuestFormat.read("""
                 { "format": 1, "quests": [ { "id": "quest_a", "title": "A", "icon": "minecraft:wheat[x=1]",
                   "goals": [], "rewards": [] } ] }

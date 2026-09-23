@@ -12,17 +12,26 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import kr.guinnessgroup.colophon.DocumentException;
 import kr.guinnessgroup.colophon.npc.Npcs;
+import kr.guinnessgroup.colophon.quest.Quests;
 import kr.guinnessgroup.colophon.runtime.ColophonRuntime;
 import kr.guinnessgroup.colophon.runtime.NodeRegistry;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 
 /**
  * Serves the web editor and its API on port 8080:
@@ -34,6 +43,8 @@ import java.util.concurrent.Executors;
  *   <li>{@code GET /api/npc-placements} — where each NPC stands</li>
  *   <li>{@code GET /api/quests} — the current quest document</li>
  *   <li>{@code POST /api/publish} — replace all documents: {@code {"graphs": ..., "npcs": ..., "quests": ...}}</li>
+ *   <li>{@code GET /api/players} — who is online</li>
+ *   <li>{@code GET /api/held-item?player=Name} — what they hold, as {@code /give} writes it</li>
  * </ul>
  */
 public final class ColophonWebServer {
@@ -74,6 +85,11 @@ public final class ColophonWebServer {
             server.createContext("/api/npc-placements", ex -> getOnly(ex, npcs.placementsJson()));
             server.createContext("/api/quests", ex -> getOnly(ex, runtime.questsJson()));
             server.createContext("/api/publish", this::handlePublish);
+            server.createContext("/api/players", ex -> fromGame(ex, ColophonWebServer::players));
+            server.createContext("/api/held-item", ex -> {
+                String player = query(ex, "player");
+                fromGame(ex, mc -> heldItem(mc, player));
+            });
             server.start();
             LOGGER.info("[Colophon] Web editor at http://localhost:{}", PORT);
         } catch (IOException e) {
@@ -127,6 +143,73 @@ public final class ColophonWebServer {
             LOGGER.error("[Colophon] Publish failed", e);
             send(ex, 500, JSON, rejected(List.of("server error: " + e.getMessage())));
         }
+    }
+
+    /** Answer a GET with something read from the game, on the server thread. */
+    private static void fromGame(HttpExchange ex, Function<MinecraftServer, String> read) throws IOException {
+        if (!"GET".equals(ex.getRequestMethod())) {
+            send(ex, 405, "text/plain; charset=utf-8", "Method Not Allowed");
+            return;
+        }
+        MinecraftServer mc = ServerLifecycleHooks.getCurrentServer();
+        if (mc == null) {
+            send(ex, 503, JSON, error("the server is not running"));
+            return;
+        }
+        try {
+            send(ex, 200, JSON, mc.submit(() -> read.apply(mc)).get(5, TimeUnit.SECONDS));
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            LOGGER.warn("[Colophon] Reading from the game failed", e);
+            send(ex, 500, JSON, error("reading from the game failed"));
+        }
+    }
+
+    /** {@code {"players": ["Dev1", "Dev2"]}}: who is online, for picking whose hand to read. */
+    private static String players(MinecraftServer mc) {
+        JsonArray names = new JsonArray();
+        mc.getPlayerList().getPlayers().forEach(p -> names.add(p.getGameProfile().getName()));
+        JsonObject o = new JsonObject();
+        o.add("players", names);
+        return o.toString();
+    }
+
+    /**
+     * {@code {"item": "minecraft:iron_sword[...]"}}: what that player holds in their main
+     * hand, as {@code /give} writes it, with every component. Or {@code {"error": ...}}.
+     */
+    private static String heldItem(MinecraftServer mc, String name) {
+        ServerPlayer player = (name == null) ? null : mc.getPlayerList().getPlayerByName(name);
+        if (player == null) {
+            return error("'" + name + "' is not online");
+        }
+        String item = Quests.held(player);
+        if (item.isEmpty()) {
+            return error(name + " is holding nothing");
+        }
+        JsonObject o = new JsonObject();
+        o.addProperty("item", item);
+        return o.toString();
+    }
+
+    private static String error(String message) {
+        JsonObject o = new JsonObject();
+        o.addProperty("error", message);
+        return o.toString();
+    }
+
+    /** One query parameter, decoded; {@code null} if absent. */
+    private static String query(HttpExchange ex, String key) {
+        String raw = ex.getRequestURI().getRawQuery();
+        if (raw == null) {
+            return null;
+        }
+        for (String pair : raw.split("&")) {
+            int eq = pair.indexOf('=');
+            if (eq > 0 && pair.substring(0, eq).equals(key)) {
+                return URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
+            }
+        }
+        return null;
     }
 
     private static String rejected(List<String> errors) {
