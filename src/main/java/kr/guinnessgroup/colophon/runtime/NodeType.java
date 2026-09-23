@@ -3,76 +3,47 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-
 package kr.guinnessgroup.colophon.runtime;
 
 import com.google.gson.JsonObject;
+import kr.guinnessgroup.colophon.graph.GraphFormat;
 
 import java.util.List;
 
 /**
- * The shared descriptor of a registered node type: its identity, editor-facing
- * inputs, and data outputs. A node type is one of two kinds, and the compiler
- * enforces the split (contract a/c): {@link ExecNodeType} (flow + side effects,
- * builds an {@link ExecNode}) or {@link PureNodeType} (side-effect-free value
- * producer, builds a {@link PureNode}). This base carries only what both share;
- * the runnable factory and flow ports live on the two sub-interfaces.
- * <p>
- * Inputs ({@link InputSpec}) unify config knobs and typed data inputs (contract d):
- * a connectable input is a data port that may only connect to a data output of the
- * same {@code typeId} (never a flow port), an inline-only input is a config knob.
- * Data outputs ({@link DataPort}) are declared via {@link #dataOutPorts()}.
+ * A kind of node the editor can place, e.g. "Send Message". One class per kind,
+ * registered in {@link NodeRegistry}.
  */
 public interface NodeType {
 
+    /** Stored in saved graphs, e.g. {@code colophon:send_message}. Never rename. */
     String id();
 
+    /** Shown in the editor. Free to change. */
     String label();
 
-    /** Editor palette group, e.g. "trigger", "action", "flow", "state", "economy". */
+    /** Editor palette group: trigger / condition / action. */
     String category();
 
-    /** Unified inputs (contract d): config knobs (inline-only) and data inputs (connectable). */
-    default List<InputSpec> inputs() {
+    /** Whether this node starts a graph (fired by an event, has no way in). */
+    default boolean trigger() {
+        return false;
+    }
+
+    /** The ways out. Straight: [next]; a check: [yes, no]; an end: []. */
+    default List<String> outs() {
+        return List.of(GraphFormat.DEFAULT_OUT);
+    }
+
+    /** Settings the editor shows as inputs; saved in the node's config. */
+    default List<Field> fields() {
         return List.of();
     }
 
     /**
-     * The inputs of one placed instance, given its saved config (contract e). Almost
-     * every node's ports are fixed, so this defaults to {@link #inputs()}; a node with
-     * instance-dependent ports (e.g. {@code format_text}, whose data inputs come from
-     * its template) overrides this to derive them from {@code config}. The parser and
-     * value resolver consult this — not {@link #inputs()} — so dynamic ports validate
-     * and resolve; the schema still exposes only the static {@link #inputs()}, and the
-     * editor derives the rest per instance.
+     * Build a runnable node from its saved config. Throw
+     * {@link IllegalArgumentException} with a readable message if the config is
+     * unusable; publish then rejects the graph with that message.
      */
-    default List<InputSpec> instanceInputs(JsonObject config) {
-        return inputs();
-    }
-
-    /**
-     * Typed data outputs this node can produce, in order. For a node with selectable
-     * outputs (e.g. {@code player_info}) this is the full catalog; {@link #instanceOutputs}
-     * narrows it per instance. Default: none. (Contract b.)
-     */
-    default List<DataPort> dataOutPorts() {
-        return List.of();
-    }
-
-    /**
-     * The data outputs of one placed instance, given its config (contract e) — the
-     * output counterpart to {@link #instanceInputs}. Defaults to the full
-     * {@link #dataOutPorts()} catalog; a node with selectable outputs overrides this
-     * to return only the chosen ports. The parser validates source handles against
-     * this, so only selected outputs can be wired; the schema still exposes the whole
-     * catalog and the editor shows only the selected ones.
-     */
-    default List<DataPort> instanceOutputs(JsonObject config) {
-        return dataOutPorts();
-    }
-
-    /** This node's kind. {@link ExecNodeType} is EXEC; {@link PureNodeType} overrides to PURE. */
-    default NodeKind kind() {
-        return NodeKind.EXEC;
-    }
+    Node create(JsonObject config);
 }

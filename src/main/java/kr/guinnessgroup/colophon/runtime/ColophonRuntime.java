@@ -3,130 +3,110 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-
 package kr.guinnessgroup.colophon.runtime;
 
 import com.mojang.logging.LogUtils;
+import kr.guinnessgroup.colophon.graph.GraphDoc;
+import kr.guinnessgroup.colophon.graph.GraphException;
+import kr.guinnessgroup.colophon.graph.GraphFormat;
+import kr.guinnessgroup.colophon.record.RecordStore;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.fml.loading.FMLPaths;
 import org.slf4j.Logger;
-
-import kr.guinnessgroup.colophon.runtime.state.StorageService;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Holds the currently published graph and starts executions when triggers fire.
- * <p>
- * v0/v1: a single active graph, kept in memory (plus its raw JSON for the editor
- * to reload) and persisted under the config directory so it survives a restart.
- * Publishing hot-swaps it with no server restart.
+ * Holds the published graphs and starts them when events happen. Publishing
+ * replaces every graph at once, with no server restart, and saves the document to
+ * {@code graphs.json} so it survives a restart.
  */
 public final class ColophonRuntime {
 
     private static final Logger LOGGER = LogUtils.getLogger();
-    private static final String EMPTY_GRAPH = "{\"nodes\":[],\"edges\":[]}";
 
-    private final TickScheduler scheduler;
-    private final StorageService storage;
-    private volatile Graph activeGraph;
-    private volatile Map<String, List<String>> triggersByType = Map.of();
-    private volatile String lastPublishedJson;
+    private final NodeRegistry registry;
+    private final RecordStore records;
+    private final Path file;
 
-    public ColophonRuntime(TickScheduler scheduler, StorageService storage) {
-        this.scheduler = scheduler;
-        this.storage = storage;
+    /** Everything that changes on publish, swapped in one step. */
+    private record Active(GraphDoc doc, Map<String, List<Start>> startsByTrigger) {}
+
+    private record Start(Graph graph, String nodeId) {}
+
+    private static final Active EMPTY = new Active(new GraphDoc(List.of()), Map.of());
+
+    private volatile Active active = EMPTY;
+
+    public ColophonRuntime(NodeRegistry registry, RecordStore records, Path file) {
+        this.registry = registry;
+        this.records = records;
+        this.file = file;
     }
 
-    private Path saveFile() {
-        return FMLPaths.CONFIGDIR.get().resolve("colophon").resolve("graph.json");
-    }
-
-    /** Parse+validate, hot-swap the active graph, then persist. Throws on invalid input. */
+    /** Check, swap in, and save a new document. Throws {@link GraphException} if rejected. */
     public synchronized void publish(String json) {
-        GraphParser.Parsed parsed = GraphParser.parse(json);
-        this.activeGraph = parsed.graph();
-        this.triggersByType = parsed.triggersByType();
-        this.lastPublishedJson = json;
-        int triggers = triggersByType.values().stream().mapToInt(List::size).sum();
-        LOGGER.info("[Colophon] Published graph: {} nodes, {} triggers",
-                parsed.graph().nodes().size(), triggers);
-        save(json);
+        GraphDoc doc = GraphFormat.read(json);
+        activate(doc);
+        try {
+            Files.createDirectories(file.toAbsolutePath().getParent());
+            Files.writeString(file, GraphFormat.write(doc), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            LOGGER.error("[Colophon] Published, but saving {} failed", file, e);
+        }
     }
 
-    /** Load a previously published graph from disk, if present. */
+    /** Load the saved document. A broken file is left untouched and nothing runs. */
     public synchronized void load() {
-        Path file = saveFile();
         if (!Files.exists(file)) {
             return;
         }
         try {
-            String json = Files.readString(file, StandardCharsets.UTF_8);
-            GraphParser.Parsed parsed = GraphParser.parse(json);
-            this.activeGraph = parsed.graph();
-            this.triggersByType = parsed.triggersByType();
-            this.lastPublishedJson = json;
-            LOGGER.info("[Colophon] Loaded graph from {}", file);
-        } catch (Exception e) {
-            LOGGER.error("[Colophon] Failed to load graph from {}", file, e);
-        }
-    }
-
-    private void save(String json) {
-        Path file = saveFile();
-        try {
-            Files.createDirectories(file.getParent());
-            Files.writeString(file, json, StandardCharsets.UTF_8);
+            activate(GraphFormat.read(Files.readString(file, StandardCharsets.UTF_8)));
+        } catch (GraphException e) {
+            LOGGER.error("[Colophon] {} was not loaded; no graph will run until it is fixed or republished: {}",
+                    file, e.errors());
         } catch (IOException e) {
-            LOGGER.error("[Colophon] Failed to save graph to {}", file, e);
+            LOGGER.error("[Colophon] Reading {} failed; no graph will run", file, e);
         }
     }
 
-    /** Raw JSON of the active graph for the editor to load; empty graph if none. */
-    public String graphJson() {
-        String json = lastPublishedJson;
-        return json != null ? json : EMPTY_GRAPH;
-    }
-
-    /** Start every trigger node of the given type against the active graph. */
-    public void fireTrigger(String triggerType, MinecraftServer server, ServerPlayer player) {
-        fireTrigger(triggerType, server, player, Map.of());
-    }
-
-    /**
-     * Start every trigger node of the given type, seeding its explicit data outputs
-     * (contract d/e). A trigger is the only place that knows its event's subjects
-     * (e.g. victim/killer), so it pushes them into the value store before the flow
-     * runs; downstream nodes then read them as data. A {@code null} output value is
-     * left unset (absent), not stored as null.
-     */
-    public void fireTrigger(String triggerType, MinecraftServer server, ServerPlayer player,
-                            Map<String, Object> triggerOutputs) {
-        Graph graph = activeGraph;
-        if (graph == null) {
-            return;
-        }
-        List<String> ids = triggersByType.getOrDefault(triggerType, List.of());
-        for (String id : ids) {
-            ExecContext ctx = new ExecContext(server, player, storage);
-            triggerOutputs.forEach((port, value) -> {
-                if (value != null) {
-                    ctx.values().put(id, port, value);
+    private void activate(GraphDoc doc) {
+        List<Graph> graphs = GraphBuilder.build(doc, registry);
+        Map<String, List<Start>> starts = new HashMap<>();
+        for (Graph g : graphs) {
+            for (Graph.Placed n : g.nodes().values()) {
+                if (n.type().trigger()) {
+                    starts.computeIfAbsent(n.type().id(), k -> new ArrayList<>()).add(new Start(g, n.id()));
                 }
-            });
-            scheduler.start(graph, ctx, id);
+            }
+        }
+        starts.replaceAll((k, v) -> List.copyOf(v));
+        this.active = new Active(doc, Map.copyOf(starts));
+        LOGGER.info("[Colophon] {} graph(s) active", graphs.size());
+    }
+
+    /** The current document, for the editor. */
+    public String documentJson() {
+        return GraphFormat.write(active.doc());
+    }
+
+    /** Run every graph that starts with the given trigger type. Call on the server thread. */
+    public void fire(String triggerType, MinecraftServer server, ServerPlayer player) {
+        List<Start> starts = active.startsByTrigger().getOrDefault(triggerType, List.of());
+        for (Start s : starts) {
+            Runner.run(s.graph(), s.nodeId(), new Context(server, player, records));
         }
     }
 
-    public void clear() {
-        this.activeGraph = null;
-        this.triggersByType = Map.of();
-        this.lastPublishedJson = null;
+    public synchronized void clear() {
+        this.active = EMPTY;
     }
 }

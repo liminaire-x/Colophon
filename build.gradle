@@ -143,9 +143,7 @@ dependencies {
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
 
-    implementation "maven.modrinth:LdBYVaPS:VaF6hkni"
-
-    // Embedded state store (single-server H2).
+    // Records store (embedded H2).
     //   implementation             -> compile against H2
     //   additionalRuntimeClasspath -> H2 on the dev-run (runServer/runClient) module classpath
     //   jarJar                     -> embed H2 into the packaged release jar
@@ -154,12 +152,9 @@ dependencies {
     additionalRuntimeClasspath 'com.h2database:h2:2.4.240'
     jarJar 'com.h2database:h2:2.4.240'
 
-    // Test harness (ADR 0004). JUnit 5 runs tiers 1-2 on CI as a compile+behavior
-    // gate; Mockito stubs only the real MC boundary (ServerPlayer/MinecraftServer)
-    // in tier 2. Internal collaborators use real objects, never mocks.
+    // Tests guard what is costly to break: the saved graph format and the records DB.
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
-    testImplementation 'org.mockito:mockito-core:5.14.2'
 }
 
 test {

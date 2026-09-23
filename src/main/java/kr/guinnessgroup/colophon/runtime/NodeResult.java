@@ -3,42 +3,28 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
-
 package kr.guinnessgroup.colophon.runtime;
 
-/**
- * Outcome of executing a single {@link ExecNode}, telling the {@link TickScheduler}
- * what to do next. Sealed so the scheduler can switch over it exhaustively.
- */
+import kr.guinnessgroup.colophon.graph.GraphFormat;
+
+/** What a node tells the {@link Runner} after it runs. */
 public sealed interface NodeResult {
 
-    /** Continue along the default output port to the next node. */
-    record Continue() implements NodeResult {}
+    /** Leave through {@code port}. If nothing is linked there, the run ends. */
+    record Next(String port) implements NodeResult {}
 
-    /** Continue along a specific named output port (conditional branch). */
-    record Branch(String port) implements NodeResult {}
-
-    /**
-     * Pause until {@code until} reports ready (polled each tick); on resume the
-     * scheduler advances along {@code thenPort} to the next node (it does not
-     * re-execute the suspending node). {@code onResume} (may be null) runs at resume
-     * time, bound to the suspending node, so an async node can push its result value
-     * into its data outputs before the flow steps on.
-     */
-    record Suspend(ResumeCondition until, String thenPort, ResumeAction onResume) implements NodeResult {}
-
-    /** This flow finished successfully. */
-    record Done() implements NodeResult {}
-
-    /** This flow failed; {@code reason} is logged. */
+    /** Stop this run and log {@code reason} as a warning. */
     record Fail(String reason) implements NodeResult {}
 
-    // Convenience factories for node authors.
-    static NodeResult cont() { return new Continue(); }
-    static NodeResult branch(String port) { return new Branch(port); }
-    static NodeResult suspend(ResumeCondition until) { return new Suspend(until, GraphNode.DEFAULT_PORT, null); }
-    static NodeResult suspend(ResumeCondition until, String thenPort) { return new Suspend(until, thenPort, null); }
-    static NodeResult suspend(ResumeCondition until, String thenPort, ResumeAction onResume) { return new Suspend(until, thenPort, onResume); }
-    static NodeResult done() { return new Done(); }
-    static NodeResult fail(String reason) { return new Fail(reason); }
+    static NodeResult next() {
+        return new Next(GraphFormat.DEFAULT_OUT);
+    }
+
+    static NodeResult next(String port) {
+        return new Next(port);
+    }
+
+    static NodeResult fail(String reason) {
+        return new Fail(reason);
+    }
 }
