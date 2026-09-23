@@ -38,9 +38,13 @@ v2 설계가 사용자가 소화하는 속도보다 빨리 두꺼워져서, **�
 - **에이전트 환경에서 Java 컴파일 금지**(NeoForge 빌드가 무겁고 Windows Gradle 캐시와 꼬임). 컴파일/실행 확인은 **GitHub Actions CI**(push 시 클린 리눅스 빌드) 또는 **사용자 IntelliJ**(`runClient`/`runServer`).
 
 ## 개발 워크플로우
+자세한 내용(조각 흐름·완료 정의·게임 확인 형식·에셋 작업)은 [docs/workflow.md](docs/workflow.md). 요약:
 1. **조각 단위로 진행**한다([docs/roadmap.md](docs/roadmap.md)). 각 조각은 게임 안에서 확인된다.
-2. 검증:
-   - **CI = 컴파일 게이트**. 커밋 → master push → 사후 CI 확인, 실패 시 fix-forward. 성공 판정은 **`gh run view <id> --json conclusion`으로 명시 확인**(`gh run watch` exit 코드만 믿지 말 것).
-   - **IntelliJ = 동작 게이트**. 트리거 발화·NPC·애니메이션·화면 같은 MC 통합은 사용자 확인까지 받고 다음 조각으로.
+2. **외부 동작은 소스·문서로 확인**하고 추측하지 않는다. 결정은 선택지 + 추천 + 고치는 비용 → 사용자.
+3. 검증:
+   - **CI = 컴파일 게이트**. 커밋 → master push → 사후 CI 확인, 실패 시 fix-forward. 성공 판정은 **`gh run view <id> --json conclusion`으로 명시 확인**(`gh run watch` exit 코드만 믿지 말 것) + 테스트 리포트에서 **실행 개수** 확인.
+   - **IntelliJ = 동작 게이트**. 번호 매긴 게임 확인 체크리스트를 드리고, 사용자 확인까지 받고 다음 조각으로.
    - **테스트는 비싼 것에 붙인다**: 저장 형식·id처럼 깨지면 데이터가 손상되는 곳은 처음부터 테스트 동반.
-3. 광범위 변경 전에는 graphify로 호출부를 먼저 파악할 수 있다(국소 변경은 grep/read).
+4. 게임 쪽 문제는 **`run/logs/latest.log`부터** 본다. 추측보다 증거.
+5. 에셋(NPC 모델)은 Blockbench MCP + `.claude/skills/`의 Blockbench 스킬(`blockbench-use` 먼저). 에셋 파일은 저장소에 넣지 않는다.
+6. 광범위 변경 전에는 graphify로 호출부를 먼저 파악할 수 있다(국소 변경은 grep/read).

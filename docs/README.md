@@ -4,6 +4,7 @@
 |---|---|
 | [map.md](map.md) | **한 장짜리 지도**: 개념, 고치는 비용, 첫 이야기 |
 | [roadmap.md](roadmap.md) | 진행 상태 (상태는 여기에만) |
+| [workflow.md](workflow.md) | 작업 방식: 조각 흐름, 완료 정의, 게임 확인 형식, 에셋 작업(Blockbench → GeckoLib) |
 | `decisions/` | 비싼 결정만 짧게 기록. 한 번 쓰면 고치지 않고, 바꿀 땐 새 기록으로 대체 |
 
 ## 문서 규칙
