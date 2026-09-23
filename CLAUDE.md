@@ -10,8 +10,16 @@
 ## 재시작 (2026-09-23)
 v2 설계가 사용자가 소화하는 속도보다 빨리 두꺼워져서, **이야기(구체 시나리오) 중심으로 다시
 시작**했다. 옛 코드·문서는 git 태그 `legacy-v2`, 형제 폴더 `../Colophon-legacy`(worktree)에
-보관. `src/`의 옛 코드는 조각 1에서 새 뼈대를 세울 때 정리하고, 필요한 파일만 사용자가 이해·동의한
-뒤 다시 가져온다. 옛 문서는 반면교사로 읽되 기준으로 삼지 않는다.
+보관. 옛 코드는 필요해질 때 사용자가 이해·동의한 파일만 다시 가져온다. 옛 문서는 반면교사로 읽되
+기준으로 삼지 않는다.
+
+## 코드 구조 (`kr.guinnessgroup.colophon`)
+- `graph/` — 저장된 그래프 문서(`GraphDoc`)와 그 읽기·쓰기(`GraphFormat`, format 1). 모양만 검사.
+- `runtime/` — 노드 종류(`NodeType`·`Field`·`NodeRegistry`), 문서 → 실행 그래프(`GraphBuilder`), 실행(`Runner`, 즉시·동기), 발행·트리거(`ColophonRuntime`).
+- `record/` — 기록(`Owner`·`RecordStore` 캐시·`H2RecordBackend`, schema 1).
+- `nodes/` — 빌트인 노드. 노드당 파일 하나, `BuiltinNodes.registerAll`.
+- `web/` — 에디터 서버. `Colophon.java` — 부트스트랩·게임 이벤트 연결.
+- 저장 형식 결정: [docs/decisions/0001-storage-format.md](docs/decisions/0001-storage-format.md).
 
 ## 설계 약속 (꼭 지킬 것)
 - **"잠김" 대신 고치는 비용**(비쌈 = 저장 형식·id·공개 API / 중간 / 쌈 = 내부 코드)을 표시한다.
@@ -33,5 +41,4 @@ v2 설계가 사용자가 소화하는 속도보다 빨리 두꺼워져서, **�
    - **CI = 컴파일 게이트**. 커밋 → master push → 사후 CI 확인, 실패 시 fix-forward. 성공 판정은 **`gh run view <id> --json conclusion`으로 명시 확인**(`gh run watch` exit 코드만 믿지 말 것).
    - **IntelliJ = 동작 게이트**. 트리거 발화·NPC·애니메이션·화면 같은 MC 통합은 사용자 확인까지 받고 다음 조각으로.
    - **테스트는 비싼 것에 붙인다**: 저장 형식·id처럼 깨지면 데이터가 손상되는 곳은 처음부터 테스트 동반.
-3. **커밋 위생**: 커밋 전 `git status` 확인, **관련 파일만 명시 `add`**(`git add -A` 금지 — 사용자가 로컬 병행 편집함).
-4. 광범위 변경 전에는 graphify로 호출부를 먼저 파악할 수 있다(국소 변경은 grep/read).
+3. 광범위 변경 전에는 graphify로 호출부를 먼저 파악할 수 있다(국소 변경은 grep/read).
