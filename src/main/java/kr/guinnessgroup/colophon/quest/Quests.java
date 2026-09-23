@@ -14,7 +14,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.ArrayList;
@@ -69,6 +71,54 @@ public final class Quests {
         }
         records.set(owner, questId, QuestState.ACTIVE_VALUE);
         sync(player);
+    }
+
+    /**
+     * Hand in a ready quest: take the goal items, give the rewards, and record it
+     * done, all at once on the server thread. Rewards that do not fit drop at the
+     * player's feet (like {@code /give}).
+     *
+     * @return false (and nothing changes) if the quest is not ready for this player
+     */
+    public boolean complete(ServerPlayer player, String questId) {
+        QuestDoc.Quest quest = runtime.quest(questId);
+        if (quest == null || state(player, questId) != QuestState.READY) {
+            return false;
+        }
+        Inventory inventory = player.getInventory();
+        for (QuestDoc.Stack goal : quest.goals()) {
+            take(inventory, item(goal.item()), goal.count());
+        }
+        for (QuestDoc.Stack reward : quest.rewards()) {
+            give(player, item(reward.item()), reward.count());
+        }
+        records.set(Owner.player(player.getUUID()), questId, QuestState.DONE_VALUE);
+        sync(player);
+        return true;
+    }
+
+    /** Remove {@code count} of an item from the same slots {@link Inventory#countItem} counts. */
+    private static void take(Inventory inventory, Item item, int count) {
+        int left = count;
+        for (int slot = 0; slot < inventory.getContainerSize() && left > 0; slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            if (stack.is(item)) {
+                int n = Math.min(left, stack.getCount());
+                stack.shrink(n);
+                left -= n;
+            }
+        }
+        inventory.setChanged();
+    }
+
+    /** Give in stacks no larger than the item allows; what does not fit drops. */
+    private static void give(ServerPlayer player, Item item, int count) {
+        int max = new ItemStack(item).getMaxStackSize();
+        for (int left = count; left > 0; ) {
+            int n = Math.min(left, max);
+            ItemHandlerHelper.giveItemToPlayer(player, new ItemStack(item, n));
+            left -= n;
+        }
     }
 
     /** Send the player every quest revealed to them, and nothing else. */

@@ -121,7 +121,7 @@ class GraphBuilderTest {
 
     @Test
     void questNodesNeedAPublishedQuest() {
-        for (String type : new String[] {"quest_state", "reveal_quest"}) {
+        for (String type : new String[] {"quest_state", "reveal_quest", "complete_quest"}) {
             build(graph(questNode(type, "quest_wheat"), ""));
             DocumentException e = assertThrows(DocumentException.class, () -> build(graph(questNode(type, "quest_wheet"), "")));
             assertTrue(e.errors().get(0).contains("no quest with id 'quest_wheet'"));

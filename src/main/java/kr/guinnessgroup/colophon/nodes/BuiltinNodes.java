@@ -20,6 +20,7 @@ public final class BuiltinNodes {
         registry.register(new QuestStateSwitch());
         registry.register(new SendMessage());
         registry.register(new RevealQuest());
+        registry.register(new CompleteQuest());
         registry.register(new PlayNpcAnimation());
     }
 }

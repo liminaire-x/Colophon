@@ -17,8 +17,8 @@ import java.util.Set;
 
 /**
  * Records as graphs see them. Reads and writes hit memory only; changes reach the
- * backend when {@link #flush()} runs on the world save, so records and the world
- * are saved at the same moment.
+ * backend when {@link #flush()} runs: on the world save, so records and the world
+ * are saved at the same moment, and when a player leaves, as their inventory is saved.
  * <p>
  * Lifecycle (called by the mod's event handlers): {@link #open} on server start
  * (loads this server's records, which stay loaded), {@link #load} when a player joins, {@link #release}

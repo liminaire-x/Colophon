@@ -107,6 +107,10 @@ public final class Colophon {
     public void onPlayerLeave(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             records.release(Owner.player(player.getUUID()));
+            // The game saves the player's inventory as they leave; save their records
+            // now too, so a crash before the next world save cannot split the two
+            // (e.g. keep a quest reward but lose the "done" record).
+            records.flush();
         }
     }
 
