@@ -1,6 +1,5 @@
 plugins {
     id 'java-library'
-    id 'maven-publish'
     id 'idea'
     id 'net.neoforged.moddev' version '2.0.146'
 }
@@ -56,9 +55,22 @@ neoForge {
     // Default run configurations.
     // These can be tweaked, removed, or duplicated as needed.
     runs {
-        client {
+        // Two players (Dev1, Dev2) to check per-player behavior against runServer.
+        // Game data lives under run/ (git-ignored) next to the server's; both clients
+        // share the server's resource pack folder (run/resourcepacks).
+        client1 {
             client()
-
+            programArgument '--username=Dev1'
+            gameDirectory = file('run/client1')
+            programArguments.addAll '--resourcePackDir', file('run/resourcepacks').absolutePath
+            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+        client2 {
+            client()
+            programArgument '--username=Dev2'
+            gameDirectory = file('run/client2')
+            programArguments.addAll '--resourcePackDir', file('run/resourcepacks').absolutePath
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
@@ -100,11 +112,6 @@ neoForge {
             // You can set various levels here.
             // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
             logLevel = org.slf4j.event.Level.DEBUG
-        }
-
-        named("client") {
-            // Enable random username generation for each runtime
-            programArgument("--username=Dev${System.currentTimeMillis() % 1000}")
         }
     }
 
@@ -251,20 +258,6 @@ var packEditor = tasks.register('packEditor', Copy) {
 
 // Register the built editor as a generated resource root (mirrors generateModMetadata).
 sourceSets.main.resources.srcDir packEditor
-
-// Example configuration to allow publishing using the maven-publish plugin
-publishing {
-    publications {
-        register('mavenJava', MavenPublication) {
-            from components.java
-        }
-    }
-    repositories {
-        maven {
-            url "file://${project.projectDir}/repo"
-        }
-    }
-}
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
 idea {
