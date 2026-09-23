@@ -9,15 +9,15 @@
   "format": 1,
   "graphs": [
     {
-      "id": "first_greeting",
+      "id": "graph_p4x81czt",
       "name": "첫 인사",
       "nodes": [
-        { "id": "n1", "type": "colophon:on_player_join", "config": {}, "pos": [100, 80] },
-        { "id": "n2", "type": "colophon:has_flag", "config": { "flag": "greeted" }, "pos": [300, 80] }
+        { "id": "node_k3f9x2ma", "type": "colophon:on_player_join", "config": {}, "pos": [100, 80] },
+        { "id": "node_w81bq0zd", "type": "colophon:has_flag", "config": { "flag": "greeted" }, "pos": [300, 80] }
       ],
       "links": [
-        { "from": "n1", "to": "n2" },
-        { "from": "n2", "out": "no", "to": "n3" }
+        { "from": "node_k3f9x2ma", "to": "node_w81bq0zd" },
+        { "from": "node_w81bq0zd", "out": "no", "to": "node_…" }
       ]
     }
   ]
@@ -25,7 +25,7 @@
 ```
 
 - **`format`**: 형식 번호. 더 높은 번호는 읽지 않고 거부한다. 형식을 바꿀 땐 번호를 올리고 옛 번호를 변환하는 코드를 같이 쓴다.
-- **그래프는 여러 개.** `id`는 불변(a-z, 0-9, _), `name`은 사람이 보는 이름이라 언제든 바꿔도 된다.
+- **그래프는 여러 개.** `id`는 불변(규칙은 [0004](0004-ids-and-record-keys.md)), `name`은 사람이 보는 이름이라 언제든 바꿔도 된다.
 - **노드 종류 id에 `colophon:` 접두사.** 애드온 노드와 충돌하지 않게.
 - **`links`는 실행 순서만.** `out`을 생략하면 `next`. 한 갈래는 한 노드로만 이어진다.
 - **`pos`도 서버가 저장**한다. 다른 PC의 에디터에서도 배치가 같게 보인다.
@@ -39,7 +39,7 @@ meta(k, v)                            schema_version = 1
 ```
 
 - **주인(owner)** = `player`(UUID) / `server`(빈 id). 파티 같은 새 주인은 종류만 추가하고 테이블은 그대로.
-- **키에 종류 접두사**: 표식은 `flag:greeted`. 나중의 퀘스트 상태 등과 이름이 겹치지 않게.
+- **키에 종류 접두사**: 표식은 `flag_greeted`. 다른 기록과 이름이 겹치지 않게. (처음엔 `flag:`였다가 [0004](0004-ids-and-record-keys.md)에서 바뀜)
 - 메모리에서 읽고 쓰고, **월드 저장 때 함께** DB에 쓴다.
 
 ## 함께 정한 것
