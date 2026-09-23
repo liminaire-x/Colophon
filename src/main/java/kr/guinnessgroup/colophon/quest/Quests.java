@@ -18,6 +18,10 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.TamableAnimal;
+import net.minecraft.world.entity.animal.horse.AbstractHorse;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -28,6 +32,7 @@ import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Quests as the game sees them: definitions (from the published quest document)
@@ -62,12 +67,53 @@ public final class Quests {
     }
 
     public QuestState state(ServerPlayer player, String questId) {
-        QuestState stored = QuestState.fromRecord(records.get(Owner.player(player.getUUID()), questId));
+        Owner owner = Owner.player(player.getUUID());
+        QuestState stored = QuestState.fromRecord(records.get(owner, questId));
         QuestDoc.Quest quest = runtime.quest(questId);
-        if (stored == QuestState.ACTIVE && quest != null && hasGoals(player.getInventory(), quest)) {
+        if (stored == QuestState.ACTIVE && quest != null
+                && goalsMet(player.getInventory(), kills(owner, questId), quest)) {
             return QuestState.READY;
         }
         return stored;
+    }
+
+    private Map<String, Integer> kills(Owner owner, String questId) {
+        return QuestProgress.read(records.get(owner, QuestProgress.key(questId)));
+    }
+
+    /**
+     * A player killed something: count it toward every active quest of theirs with a
+     * kill goal for that entity, up to the goal's count. Tamed animals (someone's pet
+     * wolf, cat, parrot, horse ...) never count.
+     */
+    public void onKill(ServerPlayer player, LivingEntity victim) {
+        if ((victim instanceof TamableAnimal pet && pet.isTame())
+                || (victim instanceof AbstractHorse horse && horse.isTamed())) {
+            return;
+        }
+        String entity = BuiltInRegistries.ENTITY_TYPE.getKey(victim.getType()).toString();
+        Owner owner = Owner.player(player.getUUID());
+        boolean changed = false;
+        for (QuestDoc.Quest q : runtime.quests()) {
+            if (QuestState.fromRecord(records.get(owner, q.id())) != QuestState.ACTIVE) {
+                continue;
+            }
+            for (QuestDoc.Goal goal : q.goals()) {
+                if (goal.kind() != QuestDoc.Goal.Kind.KILL || !goal.target().equals(entity)) {
+                    continue;
+                }
+                Map<String, Integer> kills = kills(owner, q.id());
+                int have = kills.getOrDefault(entity, 0);
+                if (have < goal.count()) {
+                    kills.put(entity, have + 1);
+                    records.set(owner, QuestProgress.key(q.id()), QuestProgress.write(kills));
+                    changed = true;
+                }
+            }
+        }
+        if (changed) {
+            sync(player);
+        }
     }
 
     /** Show a hidden quest to the player (it becomes active). Does nothing if already revealed. */
@@ -82,8 +128,8 @@ public final class Quests {
 
     /**
      * Hand in a ready quest: take the goal items, give the rewards, and record it
-     * done, all at once on the server thread. Rewards that do not fit drop at the
-     * player's feet (like {@code /give}).
+     * done (dropping its kill progress), all at once on the server thread. Rewards
+     * that do not fit drop at the player's feet (like {@code /give}).
      *
      * @return false (and nothing changes) if the quest is not ready for this player
      */
@@ -93,13 +139,17 @@ public final class Quests {
             return false;
         }
         Inventory inventory = player.getInventory();
-        for (QuestDoc.Stack goal : quest.goals()) {
-            take(inventory, item(goal.item()), goal.count());
+        for (QuestDoc.Goal goal : quest.goals()) {
+            if (goal.kind() == QuestDoc.Goal.Kind.ITEM) {
+                take(inventory, item(goal.target()), goal.count());
+            }
         }
         for (QuestDoc.Stack reward : quest.rewards()) {
             give(player, stack(reward.item(), player.registryAccess()), reward.count());
         }
-        records.set(Owner.player(player.getUUID()), questId, QuestState.DONE_VALUE);
+        Owner owner = Owner.player(player.getUUID());
+        records.set(owner, questId, QuestState.DONE_VALUE);
+        records.set(owner, QuestProgress.key(questId), null);
         sync(player);
         return true;
     }
@@ -138,7 +188,7 @@ public final class Quests {
         for (QuestDoc.Quest q : runtime.quests()) {
             QuestState s = QuestState.fromRecord(records.get(owner, q.id()));
             if (s != QuestState.HIDDEN) {
-                revealed.add(new QuestSyncPayload.Entry(q, s == QuestState.DONE));
+                revealed.add(new QuestSyncPayload.Entry(q, s == QuestState.DONE, kills(owner, q.id())));
             }
         }
         PacketDistributor.sendToPlayer(player, new QuestSyncPayload(List.copyOf(revealed)));
@@ -151,14 +201,31 @@ public final class Quests {
         }
     }
 
-    /** Whether the inventory holds every goal (both sides use this, so the screen agrees with the server). */
-    public static boolean hasGoals(Inventory inventory, QuestDoc.Quest quest) {
-        for (QuestDoc.Stack goal : quest.goals()) {
-            if (inventory.countItem(item(goal.item())) < goal.count()) {
+    /**
+     * Whether every goal is met: items in the inventory, kills in {@code kills}.
+     * Both sides use this, so the screen agrees with the server.
+     */
+    public static boolean goalsMet(Inventory inventory, Map<String, Integer> kills, QuestDoc.Quest quest) {
+        for (QuestDoc.Goal goal : quest.goals()) {
+            int have = (goal.kind() == QuestDoc.Goal.Kind.ITEM)
+                    ? inventory.countItem(item(goal.target()))
+                    : kills.getOrDefault(goal.target(), 0);
+            if (have < goal.count()) {
                 return false;
             }
         }
         return true;
+    }
+
+    /** The entity type with this id, or {@code null} if there is none. */
+    public static EntityType<?> entityType(String id) {
+        ResourceLocation rl = ResourceLocation.tryParse(id);
+        return rl == null ? null : BuiltInRegistries.ENTITY_TYPE.getOptional(rl).orElse(null);
+    }
+
+    /** For publish: why an entity id cannot be used, or {@code null} if it can. */
+    public static String entityProblem(String id) {
+        return entityType(id) == null ? "no entity '" + id + "' in this game" : null;
     }
 
     /** The item with this id; air if there is none (publish rejects unknown items). */

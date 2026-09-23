@@ -50,6 +50,7 @@ public final class ColophonRuntime {
     private final Path npcsFile;
     private final Path questsFile;
     private final Function<String, String> itemProblem;
+    private final Function<String, String> entityProblem;
     private volatile Owner serverOwner = Owner.server("main");
     private volatile Runnable onPublish = () -> {};
 
@@ -66,14 +67,17 @@ public final class ColophonRuntime {
     /**
      * @param itemProblem why an item (e.g. {@code minecraft:wheat}, or with components as
      *                    {@code /give} writes it) cannot be used in this game, or {@code null}
+     * @param entityProblem the same for an entity type id (e.g. {@code minecraft:wolf})
      */
-    public ColophonRuntime(NodeRegistry registry, RecordStore records, Path dir, Function<String, String> itemProblem) {
+    public ColophonRuntime(NodeRegistry registry, RecordStore records, Path dir,
+                           Function<String, String> itemProblem, Function<String, String> entityProblem) {
         this.registry = registry;
         this.records = records;
         this.graphsFile = dir.resolve("graphs.json");
         this.npcsFile = dir.resolve("npcs.json");
         this.questsFile = dir.resolve("quests.json");
         this.itemProblem = itemProblem;
+        this.entityProblem = entityProblem;
     }
 
     /** Run after every accepted publish, on the publishing (web) thread. */
@@ -150,20 +154,33 @@ public final class ColophonRuntime {
                 graphs.size(), npcDoc.npcs().size(), questDoc.quests().size());
     }
 
-    /** Quest items must be readable in this game (a typo, a missing mod or bad components is rejected). */
+    /**
+     * Quest items and kill targets must exist in this game (a typo, a missing mod or
+     * bad components is rejected).
+     */
     private void checkItems(QuestDoc questDoc) {
         List<String> errors = new ArrayList<>();
         for (QuestDoc.Quest q : questDoc.quests()) {
+            String where = "quest '" + q.title() + "' (" + q.id() + "): ";
             List<String> items = new ArrayList<>();
             if (!q.icon().isEmpty()) {
                 items.add(q.icon());
             }
-            q.goals().forEach(s -> items.add(s.item()));
+            for (QuestDoc.Goal g : q.goals()) {
+                if (g.kind() == QuestDoc.Goal.Kind.ITEM) {
+                    items.add(g.target());
+                } else {
+                    String problem = entityProblem.apply(g.target());
+                    if (problem != null) {
+                        errors.add(where + "kill '" + g.target() + "': " + problem);
+                    }
+                }
+            }
             q.rewards().forEach(s -> items.add(s.item()));
             for (String item : items) {
                 String problem = itemProblem.apply(item);
                 if (problem != null) {
-                    errors.add("quest '" + q.title() + "' (" + q.id() + "): item '" + item + "': " + problem);
+                    errors.add(where + "item '" + item + "': " + problem);
                 }
             }
         }

@@ -125,9 +125,10 @@ const nodeTypes = { colophon: ColophonNode }
 
 const input = { width: '100%', padding: '4px 6px', boxSizing: 'border-box' }
 
-// A quest's goals or rewards: rows of item + count. Rewards (`wide`) take a whole
-// /give line such as minecraft:iron_sword[custom_name=...], so the item gets its own line.
-function StackList({ stacks, onChange, wide = false }) {
+// A quest's goals or rewards: rows of target + count. Goals pick hand in / kill.
+// Rewards (`wide`) take a whole /give line such as minecraft:iron_sword[custom_name=...],
+// so the item gets its own line.
+function StackList({ stacks, onChange, wide = false, goals = false }) {
   const set = (i, key, value) => onChange(stacks.map((s, j) => (j === i ? { ...s, [key]: value } : s)))
   return (
     <div style={{ marginBottom: 10 }}>
@@ -140,6 +141,24 @@ function StackList({ stacks, onChange, wide = false }) {
           />
         )
         const remove = <button onClick={() => onChange(stacks.filter((_, j) => j !== i))} style={{ cursor: 'pointer' }}>×</button>
+        if (goals) {
+          // A goal is { item, count } (hand in) or { kill, count } (kill while active).
+          const kind = s.kill !== undefined ? 'kill' : 'item'
+          const setKind = (k) => onChange(stacks.map((x, j) => (j === i ? { [k]: x[kind], count: x.count } : x)))
+          return (
+            <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 3 }}>
+              <select value={kind} onChange={(e) => setKind(e.target.value)} style={{ padding: '4px 2px' }}>
+                <option value="item">hand in</option>
+                <option value="kill">kill</option>
+              </select>
+              <input
+                value={s[kind]} placeholder={kind === 'kill' ? 'minecraft:wolf' : 'minecraft:wheat'}
+                onChange={(e) => set(i, kind, e.target.value)} style={{ ...input, flex: 1 }}
+              />
+              {count}{remove}
+            </div>
+          )
+        }
         return wide ? (
           <div key={i} style={{ marginBottom: 6 }}>
             <textarea
@@ -592,8 +611,8 @@ export default function App() {
                     style={{ ...input, resize: 'vertical', fontFamily: 'inherit' }}
                   />
                 </label>
-                <div style={{ marginBottom: 3 }}>Needs <span style={{ color: '#888', fontSize: 10 }}>(handed in)</span></div>
-                <StackList stacks={selectedQuest.goals} onChange={(v) => setQuestField('goals', v)} />
+                <div style={{ marginBottom: 3 }}>Needs <span style={{ color: '#888', fontSize: 10 }}>(all of them, in this order)</span></div>
+                <StackList goals stacks={selectedQuest.goals} onChange={(v) => setQuestField('goals', v)} />
                 <div style={{ marginBottom: 3 }}>Rewards <span style={{ color: '#888', fontSize: 10 }}>(item as /give writes it; [components] allowed)</span></div>
                 <StackList wide stacks={selectedQuest.rewards} onChange={(v) => setQuestField('rewards', v)} />
                 <button onClick={deleteQuest} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete quest</button>

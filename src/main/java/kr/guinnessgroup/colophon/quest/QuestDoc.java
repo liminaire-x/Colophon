@@ -19,17 +19,47 @@ public record QuestDoc(List<Quest> quests) {
      * @param title   shown in the quest screen
      * @param icon    item id shown in the quest list, or "" for the first goal's item
      * @param text    the quest's story text, may be ""
-     * @param goals   items to hand in (all of them)
+     * @param goals   all must be met, shown in this order
      * @param rewards items given on completion
      */
-    public record Quest(String id, String title, String icon, String text, List<Stack> goals, List<Stack> rewards) {}
+    public record Quest(String id, String title, String icon, String text, List<Goal> goals, List<Stack> rewards) {}
 
     /**
-     * Some number of one item, e.g. {@code minecraft:wheat} × 10. A reward item may be
+     * Some number of one item, e.g. {@code minecraft:emerald} × 5. A reward item may be
      * written as {@code /give} writes it, with components (name, enchantments, data
-     * from other mods): {@code minecraft:iron_sword[custom_name=...]}. Goals are plain ids.
+     * from other mods): {@code minecraft:iron_sword[custom_name=...]}.
      */
     public record Stack(String item, int count) {}
+
+    /**
+     * One thing a quest asks for. Saved as {@code {"item": "minecraft:wheat", "count": 10}}
+     * (hand in, counted by item type) or {@code {"kill": "minecraft:wolf", "count": 3}}
+     * (kill while the quest is active; the count is the player's progress record).
+     *
+     * @param target an item id or an entity type id, depending on {@code kind}
+     */
+    public record Goal(Kind kind, String target, int count) {
+
+        public enum Kind {
+            ITEM("item"),
+            KILL("kill");
+
+            /** The key that names the target in the saved goal. Never rename. */
+            public final String key;
+
+            Kind(String key) {
+                this.key = key;
+            }
+        }
+
+        public static Goal item(String item, int count) {
+            return new Goal(Kind.ITEM, item, count);
+        }
+
+        public static Goal kill(String entity, int count) {
+            return new Goal(Kind.KILL, entity, count);
+        }
+    }
 
     public Quest find(String id) {
         for (Quest q : quests) {

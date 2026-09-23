@@ -31,7 +31,7 @@ class QuestFormatTest {
         QuestDoc doc = QuestFormat.read(WHEAT);
         QuestDoc.Quest q = doc.find("quest_k3f9x2ma");
         assertEquals(new QuestDoc.Quest("quest_k3f9x2ma", "밀 배달", "minecraft:wheat", "촌장에게 밀 10개를 가져다주자.\n빨리!",
-                List.of(new QuestDoc.Stack("minecraft:wheat", 10)),
+                List.of(QuestDoc.Goal.item("minecraft:wheat", 10)),
                 List.of(new QuestDoc.Stack("minecraft:emerald", 5))), q);
         assertNull(doc.find("quest_other"));
     }
@@ -77,6 +77,33 @@ class QuestFormatTest {
                 { "format": 1, "quests": [ { "id": "quest_a", "title": "A", "icon": "minecraft:wheat[x=1]",
                   "goals": [], "rewards": [] } ] }
                 """));
+    }
+
+    @Test
+    void killGoalsMixWithItemGoalsInTheAuthorsOrder() {
+        QuestDoc doc = QuestFormat.read("""
+                { "format": 1, "quests": [ { "id": "quest_a", "title": "A",
+                  "goals": [ { "kill": "minecraft:wolf", "count": 3 }, { "item": "minecraft:leather", "count": 5 } ],
+                  "rewards": [] } ] }
+                """);
+        assertEquals(List.of(QuestDoc.Goal.kill("minecraft:wolf", 3), QuestDoc.Goal.item("minecraft:leather", 5)),
+                doc.find("quest_a").goals());
+        String written = QuestFormat.write(doc);
+        assertTrue(written.contains("\"kill\": \"minecraft:wolf\""), written);
+        assertEquals(doc, QuestFormat.read(written));
+    }
+
+    @Test
+    void aGoalNamesExactlyOneKnownKindAndEachMobOnce() {
+        for (String goals : new String[] {
+                "{ \"count\": 1 }",                                                             // neither
+                "{ \"item\": \"minecraft:wheat\", \"kill\": \"minecraft:wolf\", \"count\": 1 }", // both
+                "{ \"kill\": \"Wolf\", \"count\": 1 }",                                          // not an id
+                "{ \"kill\": \"minecraft:wolf\", \"count\": 1 }, { \"kill\": \"minecraft:wolf\", \"count\": 2 }"}) {
+            assertThrows(DocumentException.class, () -> QuestFormat.read(
+                    "{\"format\":1,\"quests\":[{\"id\":\"quest_a\",\"title\":\"A\",\"goals\":[" + goals + "],\"rewards\":[]}]}"),
+                    goals);
+        }
     }
 
     @Test

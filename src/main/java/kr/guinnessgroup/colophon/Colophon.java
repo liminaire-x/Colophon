@@ -22,6 +22,7 @@ import kr.guinnessgroup.colophon.web.ColophonWebServer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
@@ -31,6 +32,7 @@ import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
@@ -48,7 +50,8 @@ public final class Colophon {
     private final Path dir = FMLPaths.CONFIGDIR.get().resolve(MODID);
     private final NodeRegistry nodes = new NodeRegistry();
     private final RecordStore records = new RecordStore();
-    private final ColophonRuntime runtime = new ColophonRuntime(nodes, records, dir, Quests::itemProblem);
+    private final ColophonRuntime runtime = new ColophonRuntime(nodes, records, dir,
+            Quests::itemProblem, Quests::entityProblem);
     private final Npcs npcs = new Npcs(runtime, records);
     private final Quests quests = new Quests(runtime, records);
     private final ColophonWebServer web = new ColophonWebServer(runtime, nodes, npcs);
@@ -111,6 +114,17 @@ public final class Colophon {
             // now too, so a crash before the next world save cannot split the two
             // (e.g. keep a quest reward but lose the "done" record).
             records.flush();
+        }
+    }
+
+    /**
+     * Last in line, and only if no other mod cancelled the death, so only real kills
+     * count. The killer is whoever the damage came from (the shooter, for arrows).
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onDeath(LivingDeathEvent event) {
+        if (event.getSource().getEntity() instanceof ServerPlayer player) {
+            quests.onKill(player, event.getEntity());
         }
     }
 

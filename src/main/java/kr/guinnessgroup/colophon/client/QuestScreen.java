@@ -13,7 +13,10 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.SpawnEggItem;
 
 import java.util.HashMap;
 import java.util.List;
@@ -121,7 +124,7 @@ public final class QuestScreen extends Screen {
             if (e == selected) {
                 g.fill(x0, y, x0 + LIST_W, y + ROW_H, SELECTED);
             }
-            g.renderItem(new ItemStack(Quests.item(icon(e.quest()))), x0 + 2, y + 2);
+            g.renderItem(icon(e.quest()), x0 + 2, y + 2);
             String name = font.plainSubstrByWidth(e.quest().title(), LIST_W - 24);
             g.drawString(font, name, x0 + 22, y + (ROW_H - font.lineHeight) / 2 + 1, e.done() ? GRAY : WHITE);
             y += ROW_H;
@@ -135,7 +138,8 @@ public final class QuestScreen extends Screen {
         int dx = divider + PAD + 1;
         int dw = left + panelW - PAD - dx;
         int bottom = top + panelH - PAD;
-        boolean ready = !selected.done() && player != null && Quests.hasGoals(player.getInventory(), q);
+        boolean ready = !selected.done() && player != null
+                && Quests.goalsMet(player.getInventory(), selected.kills(), q);
         y = listTop();
         g.enableScissor(dx, y, dx + dw, bottom);
         g.drawString(font, q.title(), dx, y, GOLD);
@@ -158,19 +162,24 @@ public final class QuestScreen extends Screen {
             y += 6;
             g.drawString(font, Component.translatable("colophon.quests.needs"), dx, y, GRAY);
             y += font.lineHeight + 2;
-            for (QuestDoc.Stack goal : q.goals()) {
-                ItemStack stack = new ItemStack(Quests.item(goal.item()));
+            for (QuestDoc.Goal goal : q.goals()) {
+                boolean kill = goal.kind() == QuestDoc.Goal.Kind.KILL;
+                ItemStack icon = goalIcon(goal);
+                Component name = kill ? entityName(goal.target()) : icon.getHoverName();
                 String amount;
                 int color;
                 if (selected.done() || player == null) {
                     amount = " × " + goal.count();
                     color = WHITE;
                 } else {
-                    int have = player.getInventory().countItem(stack.getItem());
+                    int have = kill
+                            ? selected.kills().getOrDefault(goal.target(), 0)
+                            : player.getInventory().countItem(icon.getItem());
                     amount = " " + Math.min(have, goal.count()) + "/" + goal.count();
                     color = have >= goal.count() ? GREEN : WHITE;
                 }
-                hovered = itemRow(g, stack, amount, color, dx, y, mouseX, mouseY, hovered);
+                // A kill goal's icon is a spawn egg: its tooltip would say "Spawn Egg", so none.
+                hovered = row(g, icon, name, amount, color, !kill, dx, y, mouseX, mouseY, hovered);
                 y += 18;
             }
         }
@@ -180,7 +189,7 @@ public final class QuestScreen extends Screen {
             y += font.lineHeight + 2;
             for (QuestDoc.Stack reward : q.rewards()) {
                 ItemStack stack = rewardStack(reward.item());
-                hovered = itemRow(g, stack, " × " + reward.count(), WHITE, dx, y, mouseX, mouseY, hovered);
+                hovered = row(g, stack, stack.getHoverName(), " × " + reward.count(), WHITE, true, dx, y, mouseX, mouseY, hovered);
                 y += 18;
             }
         }
@@ -190,14 +199,30 @@ public final class QuestScreen extends Screen {
         }
     }
 
-    /** An item icon, its name and an amount. Returns the stack if the mouse is over the icon. */
-    private ItemStack itemRow(GuiGraphics g, ItemStack stack, String amount, int color,
-                              int x, int y, int mouseX, int mouseY, ItemStack hovered) {
-        g.renderItem(stack, x, y);
-        Component line = stack.getHoverName().copy().append(amount);
-        g.drawString(font, line, x + 20, y + 5, color);
+    /**
+     * An icon, a name and an amount. Returns the icon's stack if the mouse is over it
+     * and {@code tooltip} is on (so the caller shows its tooltip), else {@code hovered}.
+     */
+    private ItemStack row(GuiGraphics g, ItemStack icon, Component name, String amount, int color, boolean tooltip,
+                          int x, int y, int mouseX, int mouseY, ItemStack hovered) {
+        g.renderItem(icon, x, y);
+        g.drawString(font, name.copy().append(amount), x + 20, y + 5, color);
         boolean over = mouseX >= x && mouseX < x + 16 && mouseY >= y && mouseY < y + 16;
-        return over ? stack : hovered;
+        return (over && tooltip) ? icon : hovered;
+    }
+
+    /** An item goal shows its item; a kill goal shows the mob's spawn egg, if it has one. */
+    private static ItemStack goalIcon(QuestDoc.Goal goal) {
+        if (goal.kind() == QuestDoc.Goal.Kind.ITEM) {
+            return new ItemStack(Quests.item(goal.target()));
+        }
+        SpawnEggItem egg = SpawnEggItem.byId(Quests.entityType(goal.target()));
+        return egg == null ? ItemStack.EMPTY : new ItemStack(egg);
+    }
+
+    private static Component entityName(String id) {
+        EntityType<?> type = Quests.entityType(id);
+        return type == null ? Component.literal(id) : type.getDescription();
     }
 
     /** A reward with its components (name, enchantments, ...), read once per screen. */
@@ -207,11 +232,12 @@ public final class QuestScreen extends Screen {
                 : Quests.stack(s, minecraft.player.registryAccess()));
     }
 
-    /** The list icon: the quest's icon, else its first goal's item, else a book. */
-    private static String icon(QuestDoc.Quest q) {
+    /** The list icon: the quest's icon, else its first goal's icon, else a book. */
+    private static ItemStack icon(QuestDoc.Quest q) {
         if (!q.icon().isEmpty()) {
-            return q.icon();
+            return new ItemStack(Quests.item(q.icon()));
         }
-        return q.goals().isEmpty() ? "minecraft:book" : q.goals().get(0).item();
+        ItemStack first = q.goals().isEmpty() ? ItemStack.EMPTY : goalIcon(q.goals().get(0));
+        return first.isEmpty() ? new ItemStack(Items.BOOK) : first;
     }
 }

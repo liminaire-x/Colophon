@@ -25,10 +25,10 @@ import java.util.regex.Pattern;
  * Reads and writes the quest document (format 1):
  * <pre>{ "format": 1, "quests": [ {
  *   "id": "quest_k3f9x2ma", "title": "밀 배달", "icon": "minecraft:wheat", "text": "...",
- *   "goals":   [ { "item": "minecraft:wheat",   "count": 10 } ],
+ *   "goals":   [ { "item": "minecraft:wheat",   "count": 10 }, { "kill": "minecraft:wolf", "count": 3 } ],
  *   "rewards": [ { "item": "minecraft:emerald", "count": 5 } ] } ] }</pre>
  * {@code icon} and {@code text} are optional. This checks only the shape; whether
- * the items exist is checked on publish, where the game's item list is available.
+ * the items and entities exist is checked on publish, where the game's lists are available.
  */
 public final class QuestFormat {
 
@@ -102,8 +102,7 @@ public final class QuestFormat {
                 errors.add(where + ": icon '" + icon + "' is not an item id like minecraft:wheat");
             }
             String text = string(o, "text");
-            // Goals count by item type only, so they cannot carry components (yet).
-            List<QuestDoc.Stack> goals = stacks(o, "goals", ITEM, where, errors);
+            List<QuestDoc.Goal> goals = goals(o, where, errors);
             List<QuestDoc.Stack> rewards = stacks(o, "rewards", ITEM_WITH_COMPONENTS, where, errors);
             if (errors.size() == before) {
                 quests.add(new QuestDoc.Quest(id, title.trim(), icon, text == null ? "" : text, goals, rewards));
@@ -113,6 +112,62 @@ public final class QuestFormat {
             throw new DocumentException(errors);
         }
         return new QuestDoc(List.copyOf(quests));
+    }
+
+    /**
+     * Goals: each names exactly one of {@code item} (hand in; a plain id, since goals
+     * count by item type) or {@code kill} (an entity type id). Kill goals must name
+     * different entities, because progress is saved per entity.
+     */
+    private static List<QuestDoc.Goal> goals(JsonObject o, String where, List<String> errors) {
+        JsonElement e = o.get("goals");
+        if (e == null || !e.isJsonArray()) {
+            errors.add(where + ": missing 'goals' list");
+            return List.of();
+        }
+        List<QuestDoc.Goal> out = new ArrayList<>();
+        Set<String> killed = new HashSet<>();
+        for (JsonElement g : e.getAsJsonArray()) {
+            if (!g.isJsonObject()) {
+                errors.add(where + ": a goal is not an object");
+                continue;
+            }
+            JsonObject go = g.getAsJsonObject();
+            String item = optional(go, QuestDoc.Goal.Kind.ITEM.key);
+            String kill = optional(go, QuestDoc.Goal.Kind.KILL.key);
+            if (item.isEmpty() == kill.isEmpty()) {
+                errors.add(where + ": a goal needs exactly one of 'item' or 'kill'");
+                continue;
+            }
+            String target = item.isEmpty() ? kill : item;
+            if (!ITEM.matcher(target).matches()) {
+                errors.add(where + ": goal " + (item.isEmpty()
+                        ? "kill '" + kill + "' is not an entity id like minecraft:wolf"
+                        : "item '" + item + "' is not an item id like minecraft:wheat"
+                                + (ITEM_WITH_COMPONENTS.matcher(item).matches() ? " (goals cannot have [components] yet)" : "")));
+                continue;
+            }
+            int count = count(go.get("count"));
+            if (count == 0) {
+                errors.add(where + ": goal count of '" + target + "' must be a whole number from 1 to " + MAX_COUNT);
+                continue;
+            }
+            if (!kill.isEmpty() && !killed.add(kill)) {
+                errors.add(where + ": two kill goals for '" + kill + "'; use one with the total count");
+                continue;
+            }
+            out.add(item.isEmpty() ? QuestDoc.Goal.kill(kill, count) : QuestDoc.Goal.item(item, count));
+        }
+        return List.copyOf(out);
+    }
+
+    /** A whole number from 1 to {@link #MAX_COUNT}, or 0 if it is not one. */
+    private static int count(JsonElement c) {
+        if (c != null && c.isJsonPrimitive() && c.getAsJsonPrimitive().isNumber()) {
+            double d = c.getAsDouble();
+            return (d == Math.rint(d) && d >= 1 && d <= MAX_COUNT) ? (int) d : 0;
+        }
+        return 0;
     }
 
     private static List<QuestDoc.Stack> stacks(JsonObject o, String key, Pattern shape, String where, List<String> errors) {
@@ -127,24 +182,13 @@ public final class QuestFormat {
                 errors.add(where + ": an entry of '" + key + "' is not an object");
                 continue;
             }
-            String item = string(s.getAsJsonObject(), "item");
-            if (item != null) {
-                item = item.trim();
-            }
-            if (item == null || !shape.matcher(item).matches()) {
-                String hint = (shape == ITEM)
-                        ? "is not an item id like minecraft:wheat" + (ITEM_WITH_COMPONENTS.matcher(item == null ? "" : item).matches()
-                                ? " (goals cannot have [components] yet)" : "")
-                        : "is not an item like minecraft:iron_sword or minecraft:iron_sword[...]";
-                errors.add(where + ": " + key + " item " + (item == null ? "is missing" : "'" + item + "' " + hint));
+            String item = optional(s.getAsJsonObject(), "item");
+            if (!shape.matcher(item).matches()) {
+                errors.add(where + ": " + key + " item " + (item.isEmpty() ? "is missing"
+                        : "'" + item + "' is not an item like minecraft:iron_sword or minecraft:iron_sword[...]"));
                 continue;
             }
-            JsonElement c = s.getAsJsonObject().get("count");
-            int count = 0;
-            if (c != null && c.isJsonPrimitive() && c.getAsJsonPrimitive().isNumber()) {
-                double d = c.getAsDouble();
-                count = (d == Math.rint(d) && d >= 1 && d <= MAX_COUNT) ? (int) d : 0;
-            }
+            int count = count(s.getAsJsonObject().get("count"));
             if (count == 0) {
                 errors.add(where + ": " + key + " count of '" + item + "' must be a whole number from 1 to " + MAX_COUNT);
                 continue;
@@ -166,7 +210,14 @@ public final class QuestFormat {
             if (!q.text().isEmpty()) {
                 o.addProperty("text", q.text());
             }
-            o.add("goals", writeStacks(q.goals()));
+            JsonArray goals = new JsonArray();
+            for (QuestDoc.Goal g : q.goals()) {
+                JsonObject go = new JsonObject();
+                go.addProperty(g.kind().key, g.target());
+                go.add("count", new JsonPrimitive(g.count()));
+                goals.add(go);
+            }
+            o.add("goals", goals);
             o.add("rewards", writeStacks(q.rewards()));
             arr.add(o);
         }
