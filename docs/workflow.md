@@ -24,6 +24,12 @@
 - 로드맵에 완료·확인 내역 기록
 - 비싼 결정이 있었다면 `decisions/`에 기록
 
+## 게임 실행 환경
+
+- IntelliJ에서 `runServer` + `runClient1`(Dev1) / `runClient2`(Dev2), 클라이언트는 `localhost`로 접속한다. 플레이어별 동작(공개 등)은 두 명으로 확인한다.
+- 모두 `run/` 아래(git 밖): 서버 = `run/`(Colophon 데이터 `run/config/colophon/`), 클라이언트 = `run/client1/`, `run/client2/`.
+- 리소스팩은 `run/resourcepacks/` 하나를 두 클라이언트가 함께 쓴다(`--resourcePackDir`).
+
 ## 게임 확인 체크리스트 형식
 
 - 번호 매긴 절차. 각 항목에 **무엇을 하면 → 무엇이 보여야 하는지**.
@@ -32,7 +38,7 @@
 
 ## 문제가 생기면
 
-- **추측보다 증거가 먼저.** 게임 쪽 문제는 `run/logs/latest.log`부터 본다.
+- **추측보다 증거가 먼저.** 게임 쪽 문제는 `run/logs/latest.log`(서버)부터 본다. 클라이언트 쪽(화면·렌더링)은 `run/client1/logs/`, `run/client2/logs/`.
   (예: "NPC 둘 다 사라짐"은 거리 문제가 아니라 로그상 `remove chief`(전부 삭제) 실행이었다)
 
 ## 설계할 때 확인할 것

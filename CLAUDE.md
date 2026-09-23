@@ -36,7 +36,7 @@ v2 설계가 사용자가 소화하는 속도보다 빨리 두꺼워져서, **�
 - 응답/문서 언어: **한국어**. git commit 언어: **영어**.
 - 프런트: React + React Flow(@xyflow/react), Vite 단일 index.html. `editor/` 소스 → Gradle buildEditor/packEditor로 패키징.
 - 웹 서버: JDK `HttpServer` 8080 (`web/ColophonWebServer.java`).
-- **에이전트 환경에서 Java 컴파일 금지**(NeoForge 빌드가 무겁고 Windows Gradle 캐시와 꼬임). 컴파일/실행 확인은 **GitHub Actions CI**(push 시 클린 리눅스 빌드) 또는 **사용자 IntelliJ**(`runClient`/`runServer`).
+- **에이전트 환경에서 Java 컴파일 금지**(NeoForge 빌드가 무겁고 Windows Gradle 캐시와 꼬임). 컴파일/실행 확인은 **GitHub Actions CI**(push 시 클린 리눅스 빌드) 또는 **사용자 IntelliJ**(`runServer` + `runClient1`/`runClient2`, 두 플레이어 Dev1·Dev2).
 
 ## 개발 워크플로우
 자세한 내용(조각 흐름·완료 정의·게임 확인 형식·에셋 작업)은 [docs/workflow.md](docs/workflow.md). 요약:
