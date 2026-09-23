@@ -10,6 +10,7 @@ Colophon 개발의 **근거·로드맵·설계 결정**을 담는다. 진행 상
 |---|---|
 | [roadmap.md](roadmap.md) | 버전별 로드맵, v2 데이터 포트 구현 체크리스트(a~f), 백로그 |
 | [architecture.md](architecture.md) | 스택·코드 구조·런타임 실행 모델·영속화·핵심 설계 선택(이름/애드온/라이선스) |
+| [domain.md](domain.md) | 도메인 모델: 개념(명사)별 계약·상태(🔒잠김/🔴열림)·교차 위험. 어휘집 |
 | [decisions/0001-data-port-contract.md](decisions/0001-data-port-contract.md) | v2 데이터 포트 계약 a~e + 기각한 대안 |
 | [decisions/0002-type-system.md](decisions/0002-type-system.md) | 타입 시스템 설계(표기·TypeId·number·연결 판정·실행 계층) |
 | [decisions/0003-value-flow.md](decisions/0003-value-flow.md) | 값 흐름(계약 e): 데이터 배선 + resolver + typed I/O + 데이터 노드 + 동적 포트 + async 값 push |
