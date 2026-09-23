@@ -12,6 +12,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import kr.guinnessgroup.colophon.DocumentException;
+import kr.guinnessgroup.colophon.Ids;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -21,7 +22,7 @@ import java.util.regex.Pattern;
 
 /**
  * Reads and writes the NPC document (format 1):
- * <pre>{ "format": 1, "npcs": [ { "id": "chief", "name": "촌장", "model": "chief", "idle": "wave" } ] }</pre>
+ * <pre>{ "format": 1, "npcs": [ { "id": "npc_7ha2m0qe", "name": "촌장", "model": "chief", "idle": "wave" } ] }</pre>
  * {@code model} and {@code idle} are optional (a plain NPC has neither).
  * This file has its own format number so NPCs can grow (looks, animations,
  * cinematics) without touching the graph document.
@@ -30,8 +31,8 @@ public final class NpcFormat {
 
     public static final int VERSION = 1;
 
-    /** NPC ids are stable references: lowercase letters, digits, underscore. */
-    public static final Pattern ID = Pattern.compile("[a-z0-9_]+");
+    /** Model names are resource pack file names: lowercase letters, digits, underscore. */
+    private static final Pattern MODEL = Pattern.compile("[a-z0-9_]+");
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
@@ -72,8 +73,8 @@ public final class NpcFormat {
             JsonObject o = el.getAsJsonObject();
             String id = string(o, "id");
             String name = string(o, "name");
-            if (id == null || !ID.matcher(id).matches()) {
-                errors.add("NPC id " + (id == null ? "is missing" : "'" + id + "' must use a-z, 0-9, _"));
+            if (!Ids.valid(Ids.NPC, id)) {
+                errors.add("NPC id " + (id == null ? "is missing" : "'" + id + "' " + Ids.rule(Ids.NPC)));
                 continue;
             }
             if (name == null || name.isBlank()) {
@@ -86,7 +87,7 @@ public final class NpcFormat {
             }
             String model = optional(o, "model");
             String idle = optional(o, "idle");
-            if (!model.isEmpty() && !ID.matcher(model).matches()) {
+            if (!model.isEmpty() && !MODEL.matcher(model).matches()) {
                 errors.add("NPC '" + id + "': model '" + model + "' must use a-z, 0-9, _");
                 continue;
             }

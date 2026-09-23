@@ -32,13 +32,13 @@ class H2RecordBackendTest {
         Path base = dir.resolve("records");
         H2RecordBackend db = new H2RecordBackend(base);
         db.write(List.of(
-                new RecordBackend.Write(alex, "flag:greeted", "true"),
-                new RecordBackend.Write(sam, "flag:greeted", "true"),
+                new RecordBackend.Write(alex, "flag_greeted", "true"),
+                new RecordBackend.Write(sam, "flag_greeted", "true"),
                 new RecordBackend.Write(SERVER, "k", "v")));
         db.close();
 
         H2RecordBackend reopened = new H2RecordBackend(base);
-        assertEquals(Map.of("flag:greeted", "true"), reopened.load(alex));
+        assertEquals(Map.of("flag_greeted", "true"), reopened.load(alex));
         assertEquals(Map.of("k", "v"), reopened.load(SERVER));
         reopened.close();
     }
@@ -46,7 +46,7 @@ class H2RecordBackendTest {
     @Test
     void ownersDoNotSeeEachOthersRecords(@TempDir Path dir) {
         H2RecordBackend db = new H2RecordBackend(dir.resolve("records"));
-        db.write(List.of(new RecordBackend.Write(alex, "flag:greeted", "true")));
+        db.write(List.of(new RecordBackend.Write(alex, "flag_greeted", "true")));
         assertTrue(db.load(sam).isEmpty());
         assertTrue(db.load(SERVER).isEmpty());
         db.close();
@@ -55,7 +55,7 @@ class H2RecordBackendTest {
     @Test
     void serversSharingOneDbKeepTheirOwnRecords(@TempDir Path dir) {
         H2RecordBackend db = new H2RecordBackend(dir.resolve("records"));
-        db.write(List.of(new RecordBackend.Write(SERVER, "npc:x", "main's")));
+        db.write(List.of(new RecordBackend.Write(SERVER, "placement_x", "main's")));
         assertTrue(db.load(Owner.server("lobby")).isEmpty());
         db.close();
     }

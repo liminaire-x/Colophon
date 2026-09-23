@@ -13,13 +13,13 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -53,9 +53,18 @@ public final class NpcCommands {
                                 .executes(c -> list(c.getSource())))));
     }
 
+    /** Ids are random (npc_7ha2m0qe), so each suggestion shows the NPC's name as its tooltip. */
     private static CompletableFuture<Suggestions> suggestIds(CommandContext<CommandSourceStack> c, SuggestionsBuilder b) {
         Npcs npcs = Npcs.current();
-        return SharedSuggestionProvider.suggest(npcs == null ? List.of() : npcs.ids(), b);
+        if (npcs != null) {
+            String typed = b.getRemaining().toLowerCase(Locale.ROOT);
+            for (NpcDoc.NpcDef def : npcs.definitions()) {
+                if (def.id().startsWith(typed)) {
+                    b.suggest(def.id(), Component.literal(def.name()));
+                }
+            }
+        }
+        return b.buildFuture();
     }
 
     private static int spawn(CommandSourceStack src, String id) throws CommandSyntaxException {

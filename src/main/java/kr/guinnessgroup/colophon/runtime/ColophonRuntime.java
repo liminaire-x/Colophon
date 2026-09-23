@@ -156,7 +156,7 @@ public final class ColophonRuntime {
     /**
      * Run every graph that starts with the given trigger type. Call on the server thread.
      *
-     * @param event facts about the event for trigger nodes, e.g. {@code npc -> chief}
+     * @param event facts about the event for trigger nodes, e.g. {@code npc -> npc_7ha2m0qe}
      */
     public void fire(String triggerType, MinecraftServer server, ServerPlayer player, Map<String, String> event) {
         List<Start> starts = active.startsByTrigger().getOrDefault(triggerType, List.of());

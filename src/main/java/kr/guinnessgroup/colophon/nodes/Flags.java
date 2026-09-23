@@ -9,8 +9,9 @@ import java.util.regex.Pattern;
 
 /**
  * A flag is a named mark left on a player, e.g. {@code greeted}. It is stored as the
- * record {@code flag:<name>} so it never collides with other records (quest state
- * later). Flag names end up in saved records: lowercase letters, digits, underscore.
+ * record {@code flag_<name>}; every record key starts with its kind, so it never
+ * collides with other records. Flag names end up in saved records: lowercase
+ * letters, digits, underscore. See docs/decisions/0004-ids-and-record-keys.md.
  */
 final class Flags {
 
@@ -21,7 +22,7 @@ final class Flags {
     private Flags() {}
 
     static String key(String name) {
-        return "flag:" + name;
+        return "flag_" + name;
     }
 
     /** Checks a flag name from a node's config, for a readable publish error. */

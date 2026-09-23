@@ -60,10 +60,6 @@ public final class Npcs {
         return runtime.npc(id);
     }
 
-    public List<String> ids() {
-        return runtime.npcs().stream().map(NpcDoc.NpcDef::id).toList();
-    }
-
     public List<NpcDoc.NpcDef> definitions() {
         return runtime.npcs();
     }
@@ -149,7 +145,7 @@ public final class Npcs {
         return null;
     }
 
-    /** For the editor: {@code {"chief": [{"dim": ..., "x": ..., "y": ..., "z": ...}]}}. */
+    /** For the editor: {@code {"npc_7ha2m0qe": [{"dim": ..., "x": ..., "y": ..., "z": ...}]}}. */
     public String placementsJson() {
         JsonObject root = new JsonObject();
         for (Placement p : placements()) {

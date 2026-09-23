@@ -65,49 +65,49 @@ class RecordStoreTest {
     @Test
     void writesStayInMemoryUntilFlush() {
         store.load(alex);
-        store.set(alex, "flag:greeted", "true");
-        assertEquals("true", store.get(alex, "flag:greeted"));
+        store.set(alex, "flag_greeted", "true");
+        assertEquals("true", store.get(alex, "flag_greeted"));
         assertTrue(backend.batches.isEmpty());
 
         store.flush();
-        assertEquals("true", backend.data.get(alex).get("flag:greeted"));
+        assertEquals("true", backend.data.get(alex).get("flag_greeted"));
     }
 
     @Test
     void loadsSavedRecordsOnJoin() {
-        backend.data.put(alex, new HashMap<>(Map.of("flag:greeted", "true")));
+        backend.data.put(alex, new HashMap<>(Map.of("flag_greeted", "true")));
         store.load(alex);
-        assertEquals("true", store.get(alex, "flag:greeted"));
+        assertEquals("true", store.get(alex, "flag_greeted"));
     }
 
     @Test
     void nullDeletes() {
-        backend.data.put(alex, new HashMap<>(Map.of("flag:greeted", "true")));
+        backend.data.put(alex, new HashMap<>(Map.of("flag_greeted", "true")));
         store.load(alex);
-        store.set(alex, "flag:greeted", null);
+        store.set(alex, "flag_greeted", null);
         store.flush();
-        assertNull(backend.data.get(alex).get("flag:greeted"));
+        assertNull(backend.data.get(alex).get("flag_greeted"));
     }
 
     @Test
     void leftPlayerIsSavedThenDropped() {
         store.load(alex);
-        store.set(alex, "flag:greeted", "true");
+        store.set(alex, "flag_greeted", "true");
         store.release(alex);
         store.flush();
-        assertEquals("true", backend.data.get(alex).get("flag:greeted"));
-        assertNull(store.get(alex, "flag:greeted")); // no longer in memory
+        assertEquals("true", backend.data.get(alex).get("flag_greeted"));
+        assertNull(store.get(alex, "flag_greeted")); // no longer in memory
     }
 
     @Test
     void quickRejoinKeepsUnsavedChanges() {
         store.load(alex);
-        store.set(alex, "flag:greeted", "true");
+        store.set(alex, "flag_greeted", "true");
         store.release(alex);
         int loadsBefore = backend.loads;
         store.load(alex); // rejoin before any flush
         assertEquals(loadsBefore, backend.loads);
-        assertEquals("true", store.get(alex, "flag:greeted"));
+        assertEquals("true", store.get(alex, "flag_greeted"));
     }
 
     @Test
@@ -120,8 +120,8 @@ class RecordStoreTest {
 
     @Test
     void unloadedOwnerReadsNullAndIgnoresWrites() {
-        store.set(alex, "flag:greeted", "true");
-        assertNull(store.get(alex, "flag:greeted"));
+        store.set(alex, "flag_greeted", "true");
+        assertNull(store.get(alex, "flag_greeted"));
         store.flush();
         assertTrue(backend.batches.isEmpty());
     }

@@ -15,7 +15,16 @@ import '@xyflow/react/dist/style.css'
 const FORMAT = 1
 const NPC_FORMAT = 1
 const NEXT = 'next'
-const GRAPH_ID = /^[a-z0-9_]+$/
+
+// Ids are made up here, never typed or edited: <kind>_<8 random a-z0-9> (Ids.java).
+const ID_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789'
+function newId(kind, taken) {
+  for (;;) {
+    const bytes = crypto.getRandomValues(new Uint8Array(8))
+    const id = `${kind}_${Array.from(bytes, (b) => ID_CHARS[b % ID_CHARS.length]).join('')}`
+    if (!taken.includes(id)) return id
+  }
+}
 
 const CATEGORY_COLORS = { trigger: '#2a7d4f', condition: '#7c3aed', action: '#2563eb' }
 const catColor = (c) => CATEGORY_COLORS[c] || '#555'
@@ -196,11 +205,7 @@ export default function App() {
 
   const addNode = useCallback((def) => {
     if (!current) return
-    const max = current.nodes.reduce((m, n) => {
-      const k = /^n(\d+)$/.exec(n.id)
-      return k ? Math.max(m, Number(k[1])) : m
-    }, 0)
-    const id = `n${max + 1}`
+    const id = newId('node', current.nodes.map((n) => n.id))
     const config = Object.fromEntries((def.fields || []).map((f) => [f.id, f.default ?? '']))
     const node = {
       id,
@@ -234,13 +239,10 @@ export default function App() {
   }, [selectedNodeId, updateCurrent])
 
   const newGraph = useCallback(() => {
-    const id = window.prompt('Graph id (a-z, 0-9, _). This never changes:')
-    if (id == null) return
-    if (!GRAPH_ID.test(id)) { alert('Use only a-z, 0-9 and _'); return }
-    if (graphs.some((g) => g.id === id)) { alert(`'${id}' already exists`); return }
-    const name = window.prompt('Name (shown in the editor):', id)
-    if (name == null) return
-    setGraphs((gs) => gs.concat({ id, name: name.trim() || id, nodes: [], edges: [] }))
+    const name = window.prompt('Graph name:')
+    if (name == null || !name.trim()) return
+    const id = newId('graph', graphs.map((g) => g.id))
+    setGraphs((gs) => gs.concat({ id, name: name.trim(), nodes: [], edges: [] }))
     setCurrentId(id)
     setSelectedNodeId(null)
   }, [graphs])
@@ -254,13 +256,10 @@ export default function App() {
   }, [current, graphs])
 
   const newNpc = useCallback(() => {
-    const id = window.prompt('NPC id (a-z, 0-9, _). Graphs refer to it; it never changes:')
-    if (id == null) return
-    if (!GRAPH_ID.test(id)) { alert('Use only a-z, 0-9 and _'); return }
-    if (npcs.some((n) => n.id === id)) { alert(`'${id}' already exists`); return }
-    const name = window.prompt('Name (shown above the NPC in game):', id)
-    if (name == null) return
-    setNpcs((ns) => ns.concat({ id, name: name.trim() || id }))
+    const name = window.prompt('NPC name (shown above the NPC in game):')
+    if (name == null || !name.trim()) return
+    const id = newId('npc', npcs.map((n) => n.id))
+    setNpcs((ns) => ns.concat({ id, name: name.trim() }))
     selectNpc(id)
   }, [npcs, selectNpc])
 

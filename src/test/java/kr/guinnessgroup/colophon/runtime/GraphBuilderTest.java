@@ -29,90 +29,90 @@ class GraphBuilderTest {
         return r;
     }
 
-    /** Content published alongside: one NPC, "chief". */
-    private static final Catalog CATALOG = new Catalog(Set.of("chief"));
+    /** Content published alongside: one NPC, "npc_chief". */
+    private static final Catalog CATALOG = new Catalog(Set.of("npc_chief"));
 
     private static List<Graph> build(String graphsJson) {
         return GraphBuilder.build(GraphFormat.read("{\"format\":1,\"graphs\":[" + graphsJson + "]}"), builtins(), CATALOG);
     }
 
     private static String graph(String nodes, String links) {
-        return "{\"id\":\"g\",\"name\":\"G\",\"nodes\":[" + nodes + "],\"links\":[" + links + "]}";
+        return "{\"id\":\"graph_g\",\"name\":\"G\",\"nodes\":[" + nodes + "],\"links\":[" + links + "]}";
     }
 
-    private static final String JOIN = "{\"id\":\"j\",\"type\":\"colophon:on_player_join\"}";
-    private static final String CHECK = "{\"id\":\"c\",\"type\":\"colophon:has_flag\",\"config\":{\"flag\":\"greeted\"}}";
-    private static final String SAY = "{\"id\":\"s\",\"type\":\"colophon:send_message\",\"config\":{\"message\":\"hi\"}}";
+    private static final String JOIN = "{\"id\":\"node_j\",\"type\":\"colophon:on_player_join\"}";
+    private static final String CHECK = "{\"id\":\"node_c\",\"type\":\"colophon:has_flag\",\"config\":{\"flag\":\"greeted\"}}";
+    private static final String SAY = "{\"id\":\"node_s\",\"type\":\"colophon:send_message\",\"config\":{\"message\":\"hi\"}}";
 
     @Test
     void buildsFirstGreeting() {
         Graph g = build(graph(JOIN + "," + CHECK + "," + SAY,
-                "{\"from\":\"j\",\"to\":\"c\"},{\"from\":\"c\",\"out\":\"no\",\"to\":\"s\"}")).get(0);
-        assertEquals("c", g.node("j").after("next"));
-        assertEquals("s", g.node("c").after("no"));
-        assertNull(g.node("c").after("yes"));
+                "{\"from\":\"node_j\",\"to\":\"node_c\"},{\"from\":\"node_c\",\"out\":\"no\",\"to\":\"node_s\"}")).get(0);
+        assertEquals("node_c", g.node("node_j").after("next"));
+        assertEquals("node_s", g.node("node_c").after("no"));
+        assertNull(g.node("node_c").after("yes"));
     }
 
     @Test
     void rejectsUnknownNodeType() {
         DocumentException e = assertThrows(DocumentException.class,
-                () -> build(graph("{\"id\":\"x\",\"type\":\"colophon:nope\"}", "")));
+                () -> build(graph("{\"id\":\"node_x\",\"type\":\"colophon:nope\"}", "")));
         assertTrue(e.errors().get(0).contains("unknown type"));
     }
 
     @Test
     void rejectsUnusableSettings() {
         assertThrows(DocumentException.class, () -> build(graph(
-                "{\"id\":\"f\",\"type\":\"colophon:has_flag\",\"config\":{\"flag\":\"Greeted!\"}}", "")));
+                "{\"id\":\"node_f\",\"type\":\"colophon:has_flag\",\"config\":{\"flag\":\"Greeted!\"}}", "")));
         assertThrows(DocumentException.class, () -> build(graph(
-                "{\"id\":\"m\",\"type\":\"colophon:send_message\",\"config\":{\"message\":\" \"}}", "")));
+                "{\"id\":\"node_m\",\"type\":\"colophon:send_message\",\"config\":{\"message\":\" \"}}", "")));
     }
 
     @Test
     void rejectsWayOutTheNodeDoesNotHave() {
         assertThrows(DocumentException.class, () -> build(graph(JOIN + "," + SAY,
-                "{\"from\":\"j\",\"out\":\"yes\",\"to\":\"s\"}")));
+                "{\"from\":\"node_j\",\"out\":\"yes\",\"to\":\"node_s\"}")));
     }
 
     @Test
     void rejectsLinkIntoTrigger() {
         assertThrows(DocumentException.class, () -> build(graph(JOIN + "," + SAY,
-                "{\"from\":\"s\",\"to\":\"j\"}")));
+                "{\"from\":\"node_s\",\"to\":\"node_j\"}")));
     }
 
     @Test
     void rejectsTwoLinksFromOneWayOut() {
         assertThrows(DocumentException.class, () -> build(graph(JOIN + "," + CHECK + "," + SAY,
-                "{\"from\":\"j\",\"to\":\"c\"},{\"from\":\"j\",\"to\":\"s\"}")));
+                "{\"from\":\"node_j\",\"to\":\"node_c\"},{\"from\":\"node_j\",\"to\":\"node_s\"}")));
     }
 
     private static String npcTrigger(String npc) {
-        return "{\"id\":\"t\",\"type\":\"colophon:on_npc_interact\",\"config\":{\"npc\":\"" + npc + "\"}}";
+        return "{\"id\":\"node_t\",\"type\":\"colophon:on_npc_interact\",\"config\":{\"npc\":\"" + npc + "\"}}";
     }
 
     @Test
     void npcTriggerMustNameAPublishedNpc() {
-        build(graph(npcTrigger("chief"), ""));
-        DocumentException e = assertThrows(DocumentException.class, () -> build(graph(npcTrigger("chef"), "")));
-        assertTrue(e.errors().get(0).contains("no NPC with id 'chef'"));
+        build(graph(npcTrigger("npc_chief"), ""));
+        DocumentException e = assertThrows(DocumentException.class, () -> build(graph(npcTrigger("npc_chef"), "")));
+        assertTrue(e.errors().get(0).contains("no NPC with id 'npc_chef'"));
         assertThrows(DocumentException.class, () -> build(graph(npcTrigger(""), "")));
     }
 
     @Test
     void npcTriggerRunsOnlyForItsNpc() {
-        Node trigger = build(graph(npcTrigger("chief"), "")).get(0).node("t").node();
-        assertEquals(NodeResult.next(), trigger.run(npcEvent("chief")));
-        assertEquals(NodeResult.stop(), trigger.run(npcEvent("smith")));
+        Node trigger = build(graph(npcTrigger("npc_chief"), "")).get(0).node("node_t").node();
+        assertEquals(NodeResult.next(), trigger.run(npcEvent("npc_chief")));
+        assertEquals(NodeResult.stop(), trigger.run(npcEvent("npc_smith")));
     }
 
     @Test
     void playAnimationNeedsAPublishedNpcAndAnAnimationName() {
-        String ok = "{\"id\":\"a\",\"type\":\"colophon:play_npc_animation\",\"config\":{\"npc\":\"chief\",\"animation\":\"happy\"}}";
+        String ok = "{\"id\":\"node_a\",\"type\":\"colophon:play_npc_animation\",\"config\":{\"npc\":\"npc_chief\",\"animation\":\"happy\"}}";
         build(graph(ok, ""));
         assertThrows(DocumentException.class, () -> build(graph(
-                "{\"id\":\"a\",\"type\":\"colophon:play_npc_animation\",\"config\":{\"npc\":\"chef\",\"animation\":\"happy\"}}", "")));
+                "{\"id\":\"node_a\",\"type\":\"colophon:play_npc_animation\",\"config\":{\"npc\":\"npc_chef\",\"animation\":\"happy\"}}", "")));
         assertThrows(DocumentException.class, () -> build(graph(
-                "{\"id\":\"a\",\"type\":\"colophon:play_npc_animation\",\"config\":{\"npc\":\"chief\",\"animation\":\" \"}}", "")));
+                "{\"id\":\"node_a\",\"type\":\"colophon:play_npc_animation\",\"config\":{\"npc\":\"npc_chief\",\"animation\":\" \"}}", "")));
     }
 
     private static Context npcEvent(String npc) {

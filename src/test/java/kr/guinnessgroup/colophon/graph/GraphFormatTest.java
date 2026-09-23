@@ -20,18 +20,18 @@ class GraphFormatTest {
               "format": 1,
               "graphs": [
                 {
-                  "id": "first_greeting",
+                  "id": "graph_greeting",
                   "name": "첫 인사",
                   "nodes": [
-                    { "id": "n1", "type": "colophon:on_player_join", "config": {}, "pos": [100, 80] },
-                    { "id": "n2", "type": "colophon:has_flag", "config": { "flag": "greeted" }, "pos": [300, 80] },
-                    { "id": "n3", "type": "colophon:send_message", "config": { "message": "환영합니다" }, "pos": [500, 140] },
-                    { "id": "n4", "type": "colophon:set_flag", "config": { "flag": "greeted" }, "pos": [700, 140] }
+                    { "id": "node_1", "type": "colophon:on_player_join", "config": {}, "pos": [100, 80] },
+                    { "id": "node_2", "type": "colophon:has_flag", "config": { "flag": "greeted" }, "pos": [300, 80] },
+                    { "id": "node_3", "type": "colophon:send_message", "config": { "message": "환영합니다" }, "pos": [500, 140] },
+                    { "id": "node_4", "type": "colophon:set_flag", "config": { "flag": "greeted" }, "pos": [700, 140] }
                   ],
                   "links": [
-                    { "from": "n1", "to": "n2" },
-                    { "from": "n2", "out": "no", "to": "n3" },
-                    { "from": "n3", "to": "n4" }
+                    { "from": "node_1", "to": "node_2" },
+                    { "from": "node_2", "out": "no", "to": "node_3" },
+                    { "from": "node_3", "to": "node_4" }
                   ]
                 }
               ]
@@ -42,13 +42,13 @@ class GraphFormatTest {
     void readsTheDocumentedExample() {
         GraphDoc doc = GraphFormat.read(FIRST_GREETING);
         GraphDoc.DocGraph g = doc.graphs().get(0);
-        assertEquals("first_greeting", g.id());
+        assertEquals("graph_greeting", g.id());
         assertEquals("첫 인사", g.name());
         assertEquals(4, g.nodes().size());
         assertEquals("greeted", g.nodes().get(1).config().get("flag").getAsString());
         assertEquals(300, g.nodes().get(1).x());
-        assertEquals(new GraphDoc.DocLink("n1", GraphFormat.DEFAULT_OUT, "n2"), g.links().get(0));
-        assertEquals(new GraphDoc.DocLink("n2", "no", "n3"), g.links().get(1));
+        assertEquals(new GraphDoc.DocLink("node_1", GraphFormat.DEFAULT_OUT, "node_2"), g.links().get(0));
+        assertEquals(new GraphDoc.DocLink("node_2", "no", "node_3"), g.links().get(1));
     }
 
     @Test
@@ -72,8 +72,8 @@ class GraphFormatTest {
 
     @Test
     void fractionalPositionsFromOlderSavesAreRounded() {
-        GraphDoc doc = GraphFormat.read("{\"format\":1,\"graphs\":[{\"id\":\"a\",\"name\":\"x\","
-                + "\"nodes\":[{\"id\":\"n1\",\"type\":\"t\",\"pos\":[-22.0,148.6]}],\"links\":[]}]}");
+        GraphDoc doc = GraphFormat.read("{\"format\":1,\"graphs\":[{\"id\":\"graph_a\",\"name\":\"x\","
+                + "\"nodes\":[{\"id\":\"node_1\",\"type\":\"t\",\"pos\":[-22.0,148.6]}],\"links\":[]}]}");
         GraphDoc.DocNode n = doc.graphs().get(0).nodes().get(0);
         assertEquals(-22, n.x());
         assertEquals(149, n.y());
@@ -103,16 +103,31 @@ class GraphFormatTest {
                 "{\"format\":1,\"graphs\":[{\"id\":\"First Greeting\",\"name\":\"x\",\"nodes\":[],\"links\":[]}]}"));
         assertThrows(DocumentException.class, () -> GraphFormat.read(
                 "{\"format\":1,\"graphs\":["
-                        + "{\"id\":\"a\",\"name\":\"x\",\"nodes\":[],\"links\":[]},"
-                        + "{\"id\":\"a\",\"name\":\"y\",\"nodes\":[],\"links\":[]}]}"));
+                        + "{\"id\":\"graph_a\",\"name\":\"x\",\"nodes\":[],\"links\":[]},"
+                        + "{\"id\":\"graph_a\",\"name\":\"y\",\"nodes\":[],\"links\":[]}]}"));
+    }
+
+    @Test
+    void idsMustCarryTheirKind() {
+        for (String graphId : new String[] {"greeting", "node_1", "graph_", "graph_Greeting", "graph_first_greeting"}) {
+            assertThrows(DocumentException.class, () -> GraphFormat.read(
+                    "{\"format\":1,\"graphs\":[{\"id\":\"" + graphId + "\",\"name\":\"x\",\"nodes\":[],\"links\":[]}]}"),
+                    graphId);
+        }
+        for (String nodeId : new String[] {"n1", "graph_1", "node_"}) {
+            assertThrows(DocumentException.class, () -> GraphFormat.read(
+                    "{\"format\":1,\"graphs\":[{\"id\":\"graph_a\",\"name\":\"x\","
+                            + "\"nodes\":[{\"id\":\"" + nodeId + "\",\"type\":\"t\"}],\"links\":[]}]}"),
+                    nodeId);
+        }
     }
 
     @Test
     void rejectsLinksToMissingNodesAndReportsEveryProblem() {
         DocumentException e = assertThrows(DocumentException.class, () -> GraphFormat.read(
-                "{\"format\":1,\"graphs\":[{\"id\":\"a\",\"name\":\"x\","
-                        + "\"nodes\":[{\"id\":\"n1\",\"type\":\"t\"},{\"id\":\"n1\",\"type\":\"t\"}],"
-                        + "\"links\":[{\"from\":\"n1\",\"to\":\"n9\"}]}]}"));
+                "{\"format\":1,\"graphs\":[{\"id\":\"graph_a\",\"name\":\"x\","
+                        + "\"nodes\":[{\"id\":\"node_1\",\"type\":\"t\"},{\"id\":\"node_1\",\"type\":\"t\"}],"
+                        + "\"links\":[{\"from\":\"node_1\",\"to\":\"node_9\"}]}]}"));
         assertEquals(2, e.errors().size()); // duplicate node id + unknown link target
     }
 }

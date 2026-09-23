@@ -20,7 +20,7 @@ import java.util.Map;
  *                    event has none. Actions apply to this player.
  * @param records     saved records (flags now, quest state later)
  * @param serverOwner this server's record owner
- * @param event       facts about the event, e.g. {@code npc -> chief} for an NPC interaction
+ * @param event       facts about the event, e.g. {@code npc -> npc_7ha2m0qe} for an NPC interaction
  */
 public record Context(MinecraftServer server, ServerPlayer player, RecordStore records,
                       Owner serverOwner, Map<String, String> event) {

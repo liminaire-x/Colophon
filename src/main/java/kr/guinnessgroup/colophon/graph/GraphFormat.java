@@ -6,6 +6,7 @@
 package kr.guinnessgroup.colophon.graph;
 
 import kr.guinnessgroup.colophon.DocumentException;
+import kr.guinnessgroup.colophon.Ids;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -33,9 +34,6 @@ public final class GraphFormat {
 
     /** The out port a link uses when it names none. */
     public static final String DEFAULT_OUT = "next";
-
-    /** Graph ids are stable references: lowercase letters, digits, underscore. */
-    public static final Pattern GRAPH_ID = Pattern.compile("[a-z0-9_]+");
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
@@ -90,8 +88,8 @@ public final class GraphFormat {
         }
         JsonObject o = el.getAsJsonObject();
         String id = string(o, "id");
-        if (id == null || !GRAPH_ID.matcher(id).matches()) {
-            errors.add("graph id " + (id == null ? "is missing" : "'" + id + "' must use a-z, 0-9, _"));
+        if (!Ids.valid(Ids.GRAPH, id)) {
+            errors.add("graph id " + (id == null ? "is missing" : "'" + id + "' " + Ids.rule(Ids.GRAPH)));
             return null;
         }
         String where = "graph '" + id + "'";
@@ -144,8 +142,8 @@ public final class GraphFormat {
         JsonObject o = el.getAsJsonObject();
         String id = string(o, "id");
         String type = string(o, "type");
-        if (id == null || id.isBlank()) {
-            errors.add(where + ": a node is missing 'id'");
+        if (!Ids.valid(Ids.NODE, id)) {
+            errors.add(where + ": node id " + (id == null ? "is missing" : "'" + id + "' " + Ids.rule(Ids.NODE)));
             return null;
         }
         if (type == null || type.isBlank()) {

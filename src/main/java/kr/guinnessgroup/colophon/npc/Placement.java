@@ -12,13 +12,13 @@ import java.util.UUID;
 
 /**
  * One NPC standing in a world. Stored as a server record:
- * key {@code npc:<entity uuid>}, value
- * {@code {"npc":"chief","dim":"minecraft:overworld","x":1.5,"y":64.0,"z":-3.5}}.
+ * key {@code placement_<entity uuid>}, value
+ * {@code {"npc":"npc_7ha2m0qe","dim":"minecraft:overworld","x":1.5,"y":64.0,"z":-3.5}}.
  * The record is the source of truth; the entity follows it.
  */
 public record Placement(UUID entity, String npc, String dimension, double x, double y, double z) {
 
-    public static final String KEY_PREFIX = "npc:";
+    public static final String KEY_PREFIX = "placement_";
 
     public String key() {
         return KEY_PREFIX + entity;
