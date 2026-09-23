@@ -105,6 +105,16 @@ class GraphBuilderTest {
         assertEquals(NodeResult.stop(), trigger.run(npcEvent("smith")));
     }
 
+    @Test
+    void playAnimationNeedsAPublishedNpcAndAnAnimationName() {
+        String ok = "{\"id\":\"a\",\"type\":\"colophon:play_npc_animation\",\"config\":{\"npc\":\"chief\",\"animation\":\"happy\"}}";
+        build(graph(ok, ""));
+        assertThrows(DocumentException.class, () -> build(graph(
+                "{\"id\":\"a\",\"type\":\"colophon:play_npc_animation\",\"config\":{\"npc\":\"chef\",\"animation\":\"happy\"}}", "")));
+        assertThrows(DocumentException.class, () -> build(graph(
+                "{\"id\":\"a\",\"type\":\"colophon:play_npc_animation\",\"config\":{\"npc\":\"chief\",\"animation\":\" \"}}", "")));
+    }
+
     private static Context npcEvent(String npc) {
         return new Context(null, null, null, Owner.server("main"), Map.of("npc", npc));
     }

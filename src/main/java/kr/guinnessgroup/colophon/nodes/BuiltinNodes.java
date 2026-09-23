@@ -18,5 +18,6 @@ public final class BuiltinNodes {
         registry.register(new HasFlag());
         registry.register(new SetFlag());
         registry.register(new SendMessage());
+        registry.register(new PlayNpcAnimation());
     }
 }

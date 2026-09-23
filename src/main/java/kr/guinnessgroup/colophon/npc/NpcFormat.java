@@ -21,7 +21,8 @@ import java.util.regex.Pattern;
 
 /**
  * Reads and writes the NPC document (format 1):
- * <pre>{ "format": 1, "npcs": [ { "id": "chief", "name": "촌장" } ] }</pre>
+ * <pre>{ "format": 1, "npcs": [ { "id": "chief", "name": "촌장", "model": "chief", "idle": "wave" } ] }</pre>
+ * {@code model} and {@code idle} are optional (a plain NPC has neither).
  * This file has its own format number so NPCs can grow (looks, animations,
  * cinematics) without touching the graph document.
  */
@@ -83,7 +84,13 @@ public final class NpcFormat {
                 errors.add("duplicate NPC id '" + id + "'");
                 continue;
             }
-            npcs.add(new NpcDoc.NpcDef(id, name));
+            String model = optional(o, "model");
+            String idle = optional(o, "idle");
+            if (!model.isEmpty() && !ID.matcher(model).matches()) {
+                errors.add("NPC '" + id + "': model '" + model + "' must use a-z, 0-9, _");
+                continue;
+            }
+            npcs.add(new NpcDoc.NpcDef(id, name, model, idle));
         }
         if (!errors.isEmpty()) {
             throw new DocumentException(errors);
@@ -97,12 +104,24 @@ public final class NpcFormat {
             JsonObject o = new JsonObject();
             o.addProperty("id", n.id());
             o.addProperty("name", n.name());
+            if (!n.model().isEmpty()) {
+                o.addProperty("model", n.model());
+            }
+            if (!n.idle().isEmpty()) {
+                o.addProperty("idle", n.idle());
+            }
             arr.add(o);
         }
         JsonObject root = new JsonObject();
         root.addProperty("format", VERSION);
         root.add("npcs", arr);
         return GSON.toJson(root);
+    }
+
+    /** An optional text field: trimmed, "" when absent. */
+    private static String optional(JsonObject o, String key) {
+        String s = string(o, key);
+        return s == null ? "" : s.trim();
     }
 
     private static String string(JsonObject o, String key) {

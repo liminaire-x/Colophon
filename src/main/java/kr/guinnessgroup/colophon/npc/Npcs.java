@@ -11,6 +11,8 @@ import kr.guinnessgroup.colophon.nodes.OnNpcInteract;
 import kr.guinnessgroup.colophon.record.Owner;
 import kr.guinnessgroup.colophon.record.RecordStore;
 import kr.guinnessgroup.colophon.runtime.ColophonRuntime;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
 import java.util.ArrayList;
@@ -104,8 +106,47 @@ public final class Npcs {
     }
 
     /** A player right-clicked one of this NPC's placements. */
-    public void interact(String npcId, ServerPlayer player) {
-        runtime.fire(OnNpcInteract.ID, player.getServer(), player, Map.of(OnNpcInteract.EVENT_NPC, npcId));
+    public void interact(NpcEntity npc, ServerPlayer player) {
+        runtime.fire(OnNpcInteract.ID, player.getServer(), player, Map.of(
+                OnNpcInteract.EVENT_NPC, npc.npcId(),
+                OnNpcInteract.EVENT_NPC_ENTITY, npc.getUUID().toString()));
+    }
+
+    /**
+     * Play an animation once on an NPC. If {@code onlyEntity} is one of its loaded
+     * placements, only that one plays (e.g. the NPC that was clicked); otherwise every
+     * loaded placement of the NPC plays.
+     *
+     * @return how many placements played it
+     */
+    public int playAnimation(MinecraftServer server, String npcId, UUID onlyEntity, String animation) {
+        if (onlyEntity != null) {
+            NpcEntity npc = find(server, onlyEntity);
+            if (npc != null && npc.npcId().equals(npcId)) {
+                npc.playAnimation(animation);
+                return 1;
+            }
+        }
+        int n = 0;
+        for (Placement p : placements()) {
+            if (p.npc().equals(npcId)) {
+                NpcEntity npc = find(server, p.entity());
+                if (npc != null) {
+                    npc.playAnimation(animation);
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
+    private static NpcEntity find(MinecraftServer server, UUID entity) {
+        for (ServerLevel level : server.getAllLevels()) {
+            if (level.getEntity(entity) instanceof NpcEntity npc) {
+                return npc;
+            }
+        }
+        return null;
     }
 
     /** For the editor: {@code {"chief": [{"dim": ..., "x": ..., "y": ..., "z": ...}]}}. */

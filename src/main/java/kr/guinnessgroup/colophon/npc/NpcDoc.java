@@ -14,8 +14,20 @@ import java.util.List;
  */
 public record NpcDoc(List<NpcDef> npcs) {
 
-    /** {@code id} is stable (graphs refer to it); {@code name} is shown above the NPC. */
-    public record NpcDef(String id, String name) {}
+    /**
+     * @param id    stable; graphs refer to it
+     * @param name  shown above the NPC
+     * @param model GeckoLib model name, or "" for the default look. Files come from
+     *              resource packs: {@code assets/colophon/geo/npc/<model>.geo.json},
+     *              {@code animations/npc/<model>.animation.json}, {@code textures/npc/<model>.png}
+     * @param idle  animation looped while nothing else plays, or ""
+     */
+    public record NpcDef(String id, String name, String model, String idle) {
+
+        public NpcDef(String id, String name) {
+            this(id, name, "", "");
+        }
+    }
 
     public NpcDef find(String id) {
         for (NpcDef n : npcs) {

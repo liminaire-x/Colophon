@@ -36,6 +36,26 @@ class NpcFormatTest {
     }
 
     @Test
+    void looksAreOptionalAndWrittenOnlyWhenSet() {
+        NpcDoc doc = NpcFormat.read("""
+                { "format": 1, "npcs": [
+                  { "id": "chief", "name": "촌장", "model": "chief", "idle": "animation.chief.wave" },
+                  { "id": "smith", "name": "대장장이" } ] }
+                """);
+        assertEquals(new NpcDoc.NpcDef("chief", "촌장", "chief", "animation.chief.wave"), doc.find("chief"));
+        assertEquals(new NpcDoc.NpcDef("smith", "대장장이", "", ""), doc.find("smith"));
+        String written = NpcFormat.write(doc);
+        assertEquals(1, written.split("\"model\"", -1).length - 1);
+        assertEquals(doc, NpcFormat.read(written));
+    }
+
+    @Test
+    void rejectsBadModelName() {
+        assertThrows(DocumentException.class, () -> NpcFormat.read(
+                "{\"format\":1,\"npcs\":[{\"id\":\"chief\",\"name\":\"a\",\"model\":\"Chief Model\"}]}"));
+    }
+
+    @Test
     void rejectsNewerFormat() {
         DocumentException e = assertThrows(DocumentException.class,
                 () -> NpcFormat.read("{\"format\":2,\"npcs\":[]}"));

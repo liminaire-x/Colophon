@@ -25,6 +25,9 @@ public final class OnNpcInteract implements NodeType {
     /** Event fact: which NPC was clicked. */
     public static final String EVENT_NPC = "npc";
 
+    /** Event fact: which placement (entity UUID) was clicked. */
+    public static final String EVENT_NPC_ENTITY = "npc_entity";
+
     private static final Field NPC = Field.npc("npc", "NPC");
 
     @Override public String id() { return ID; }

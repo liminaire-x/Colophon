@@ -264,8 +264,14 @@ export default function App() {
     selectNpc(id)
   }, [npcs, selectNpc])
 
-  const renameNpc = useCallback((name) => {
-    setNpcs((ns) => ns.map((n) => (n.id === selectedNpcId ? { ...n, name } : n)))
+  // Edit one field of the selected NPC; an emptied optional field is dropped.
+  const setNpcField = useCallback((key, value) => {
+    setNpcs((ns) => ns.map((n) => {
+      if (n.id !== selectedNpcId) return n
+      const next = { ...n, [key]: value }
+      if (key !== 'name' && value.trim() === '') delete next[key]
+      return next
+    }))
   }, [selectedNpcId])
 
   const deleteNpc = useCallback(() => {
@@ -428,11 +434,29 @@ export default function App() {
                   <div style={{ marginBottom: 3 }}>Name</div>
                   <input
                     value={selectedNpc.name}
-                    onChange={(e) => renameNpc(e.target.value)}
+                    onChange={(e) => setNpcField('name', e.target.value)}
                     style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
                   />
                 </label>
                 <div style={{ color: '#888', marginBottom: 12 }}>id: {selectedNpc.id} (fixed)</div>
+                <label style={{ display: 'block', marginBottom: 10 }}>
+                  <div style={{ marginBottom: 3 }}>Model <span style={{ color: '#888', fontSize: 10 }}>(empty = default look)</span></div>
+                  <input
+                    value={selectedNpc.model ?? ''}
+                    placeholder="e.g. chief"
+                    onChange={(e) => setNpcField('model', e.target.value)}
+                    style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
+                  />
+                </label>
+                <label style={{ display: 'block', marginBottom: 10 }}>
+                  <div style={{ marginBottom: 3 }}>Idle animation <span style={{ color: '#888', fontSize: 10 }}>(loops)</span></div>
+                  <input
+                    value={selectedNpc.idle ?? ''}
+                    placeholder="e.g. animation.chief.wave"
+                    onChange={(e) => setNpcField('idle', e.target.value)}
+                    style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
+                  />
+                </label>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>Placed in the world</div>
                 {(placements[selectedNpc.id] || []).length === 0 ? (
                   <div style={{ color: '#888', marginBottom: 12 }}>

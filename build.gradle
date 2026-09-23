@@ -22,6 +22,17 @@ repositories {
             includeGroup "maven.modrinth"
         }
     }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = "GeckoLib"
+                url = "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/"
+            }
+        }
+        filter {
+            includeGroup "software.bernie.geckolib"
+        }
+    }
 }
 
 base {
@@ -147,6 +158,9 @@ dependencies {
     // For more info:
     // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
     // http://www.gradle.org/docs/current/userguide/dependency_management.html
+
+    // NPC looks and animations. Players need GeckoLib too (declared in neoforge.mods.toml).
+    implementation 'software.bernie.geckolib:geckolib-neoforge-1.21.1:4.7.7'
 
     // Records store (embedded H2).
     //   implementation             -> compile against H2
