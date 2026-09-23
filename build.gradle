@@ -197,7 +197,7 @@ neoForge.ideSyncTask generateModMetadata
 // index.html into the mod jar under colophon/web/. Pass -PskipEditorBuild to
 // skip (e.g. when Node is unavailable); the web server then serves a fallback.
 def editorDir = file('editor')
-def isWindows = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('win')
+def isWindows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('win')
 def npmExe = isWindows ? 'npm.cmd' : 'npm'
 def skipEditorBuild = project.hasProperty('skipEditorBuild')
 def editorNodeModules = file('editor/node_modules')

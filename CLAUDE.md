@@ -31,7 +31,7 @@ v2 설계가 사용자가 소화하는 속도보다 빨리 두꺼워져서, **�
 
 ## 스택 / 사실
 - NeoForge **1.21.1** / Java **21**. mod_id `colophon`, group `kr.guinnessgroup`, **MPL-2.0**(파일 단위).
-- git author: **liminaire-x <gntodtndls156@gmail.com>**. 커밋 = **conventional commits** (`feat(...)`, `docs:` …). 커밋 메시지 끝에 **공동 작성자 Claude** 줄을 넣는다(`Co-Authored-By: Claude … <noreply@anthropic.com>`, 2026-09-23부터).
+- git author: **liminaire-x <gntodtndls156@gmail.com>**. 커밋 = **conventional commits** (`feat(...)`, `docs:` …). 커밋 메시지 끝에 **공동 작성자 Claude** 줄을 넣는다(`Co-Authored-By: Claude … <noreply@anthropic.com>`).
 - 응답/문서 언어: **한국어**. git commit 언어: **영어**.
 - 프런트: React + React Flow(@xyflow/react), Vite 단일 index.html. `editor/` 소스 → Gradle buildEditor/packEditor로 패키징.
 - 웹 서버: JDK `HttpServer` 8080 (`web/ColophonWebServer.java`).
