@@ -49,6 +49,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v5
         with:
-          name: colophon-jar
+          name: lorebench-jar
           path: build/libs/*.jar
           if-no-files-found: warn

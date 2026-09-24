@@ -1,0 +1,10 @@
+{
+  "key.categories.lorebench": "Lorebench",
+  "key.lorebench.quests": "Quests",
+  "lorebench.quests.title": "Quests",
+  "lorebench.quests.none": "No quests yet.",
+  "lorebench.quests.needs": "Needs",
+  "lorebench.quests.rewards": "Rewards",
+  "lorebench.quests.ready": "Ready to hand in",
+  "lorebench.quests.done": "Completed"
+}

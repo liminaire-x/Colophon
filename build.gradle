@@ -215,7 +215,7 @@ neoForge.ideSyncTask generateModMetadata
 
 // ---- Frontend (React editor) build integration ----
 // Builds the Vite/React editor in ./editor and packages the single-file
-// index.html into the mod jar under colophon/web/. Pass -PskipEditorBuild to
+// index.html into the mod jar under lorebench/web/. Pass -PskipEditorBuild to
 // skip (e.g. when Node is unavailable); the web server then serves a fallback.
 def editorDir = file('editor')
 def isWindows = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('win')
@@ -224,7 +224,7 @@ def skipEditorBuild = project.hasProperty('skipEditorBuild')
 def editorNodeModules = file('editor/node_modules')
 
 var npmInstall = tasks.register('npmInstall', Exec) {
-    group = 'colophon'
+    group = 'lorebench'
     description = 'Installs editor npm dependencies (only if node_modules is missing).'
     workingDir = editorDir
     commandLine npmExe, 'install'
@@ -232,7 +232,7 @@ var npmInstall = tasks.register('npmInstall', Exec) {
 }
 
 var buildEditor = tasks.register('buildEditor', Exec) {
-    group = 'colophon'
+    group = 'lorebench'
     description = 'Builds the React editor into editor/dist/index.html.'
     dependsOn npmInstall
     workingDir = editorDir
@@ -246,12 +246,12 @@ var buildEditor = tasks.register('buildEditor', Exec) {
 }
 
 var packEditor = tasks.register('packEditor', Copy) {
-    group = 'colophon'
-    description = 'Packages the built editor into the mod resources (colophon/web/).'
+    group = 'lorebench'
+    description = 'Packages the built editor into the mod resources (lorebench/web/).'
     dependsOn buildEditor
-    into layout.buildDirectory.dir('generated/sources/colophonWeb')
+    into layout.buildDirectory.dir('generated/sources/lorebenchWeb')
     from('editor/dist/index.html') {
-        into 'colophon/web'
+        into 'lorebench/web'
     }
     onlyIf { !skipEditorBuild }
 }
@@ -260,23 +260,23 @@ var packEditor = tasks.register('packEditor', Copy) {
 sourceSets.main.resources.srcDir packEditor
 
 // ---- Dev data reset ----
-// Starts the dev server's Colophon data over: published content (graphs, NPCs, quests)
+// Starts the dev server's Lorebench data over: published content (graphs, NPCs, quests)
 // and records (flags, NPC placements, quest state and progress). Nothing is deleted:
-// the files move to run/config/colophon/backups/<time>/. The world and inventories stay.
+// the files move to run/config/lorebench/backups/<time>/. The world and inventories stay.
 // Stop runServer first; while it runs, the record database is locked.
-def colophonDataDir = file('run/config/colophon')
+def lorebenchDataDir = file('run/config/lorebench')
 tasks.register('reset') {
-    group = 'colophon'
-    description = 'Moves the dev server\'s Colophon content and records into a backup folder (stop the server first).'
+    group = 'lorebench'
+    description = 'Moves the dev server\'s Lorebench content and records into a backup folder (stop the server first).'
     doLast {
         def names = ['graphs.json', 'npcs.json', 'quests.json', 'records.mv.db', 'records.trace.db']
-        def present = names.collect { new File(colophonDataDir, it) }.findAll { it.exists() }
+        def present = names.collect { new File(lorebenchDataDir, it) }.findAll { it.exists() }
         if (present.isEmpty()) {
-            logger.lifecycle("Nothing to reset in ${colophonDataDir}.")
+            logger.lifecycle("Nothing to reset in ${lorebenchDataDir}.")
             return
         }
         def stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern('yyyyMMdd-HHmmss'))
-        def backup = new File(colophonDataDir, "backups/${stamp}")
+        def backup = new File(lorebenchDataDir, "backups/${stamp}")
         backup.mkdirs()
         present.each { f ->
             try {

@@ -40,7 +40,7 @@ function toFlow(g) {
     name: g.name,
     nodes: g.nodes.map((n) => ({
       id: n.id,
-      type: 'colophon',
+      type: 'lorebench',
       position: { x: n.pos?.[0] ?? 0, y: n.pos?.[1] ?? 0 },
       data: { type: n.type, config: n.config || {} },
     })),
@@ -78,7 +78,7 @@ const SchemaContext = createContext({})
 
 const handleStyle = { width: 10, height: 10, background: '#e5e7eb', border: '1px solid #4b5563' }
 
-function ColophonNode({ data, selected }) {
+function LorebenchNode({ data, selected }) {
   const def = useContext(SchemaContext)[data.type]
   if (!def) {
     return (
@@ -121,7 +121,7 @@ function ColophonNode({ data, selected }) {
   )
 }
 
-const nodeTypes = { colophon: ColophonNode }
+const nodeTypes = { lorebench: LorebenchNode }
 
 const input = { width: '100%', padding: '4px 6px', boxSizing: 'border-box' }
 
@@ -202,7 +202,7 @@ export default function App() {
   const [selectedQuestId, setSelectedQuestId] = useState(null)
   const [players, setPlayers] = useState([]) // online, for "use held item"
   const [heldPlayer, setHeldPlayer] = useState(() => {
-    try { return localStorage.getItem('colophon.heldPlayer') || '' } catch (e) { return '' }
+    try { return localStorage.getItem('lorebench.heldPlayer') || '' } catch (e) { return '' }
   })
   const [status, setStatus] = useState('connecting...')
   const [message, setMessage] = useState(null) // { ok, text }
@@ -286,7 +286,7 @@ export default function App() {
     const config = Object.fromEntries((def.fields || []).map((f) => [f.id, f.default ?? '']))
     const node = {
       id,
-      type: 'colophon',
+      type: 'lorebench',
       position: { x: 150 + Math.random() * 150, y: 100 + Math.random() * 150 },
       data: { type: def.type, config },
     }
@@ -368,7 +368,7 @@ export default function App() {
 
   const pickHeldPlayer = useCallback((name) => {
     setHeldPlayer(name)
-    try { localStorage.setItem('colophon.heldPlayer', name) } catch (e) { /* not remembered */ }
+    try { localStorage.setItem('lorebench.heldPlayer', name) } catch (e) { /* not remembered */ }
   }, [])
 
   // What the chosen player holds, as /give writes it; null (with a message) if none.
@@ -447,7 +447,7 @@ export default function App() {
     <SchemaContext.Provider value={byType}>
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid #ddd' }}>
-          <strong style={{ fontSize: 18 }}>Colophon</strong>
+          <strong style={{ fontSize: 18 }}>Lorebench</strong>
           <span style={{ fontSize: 13, color: status === 'ok' ? '#2a7d4f' : '#c0392b' }}>server: {status}</span>
           <span style={{ flex: 1 }} />
           <button onClick={publish} disabled={publishing || status !== 'ok'} style={{ padding: '6px 14px', cursor: 'pointer' }}>
@@ -611,7 +611,7 @@ export default function App() {
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>Placed in the world</div>
                 {(placements[selectedNpc.id] || []).length === 0 ? (
                   <div style={{ color: '#888', marginBottom: 12 }}>
-                    Not placed yet. Publish, then in game: <code>/colophon npc spawn {selectedNpc.id}</code>
+                    Not placed yet. Publish, then in game: <code>/lorebench npc spawn {selectedNpc.id}</code>
                   </div>
                 ) : (
                   <ul style={{ margin: '0 0 12px', paddingLeft: 16, color: '#555' }}>
