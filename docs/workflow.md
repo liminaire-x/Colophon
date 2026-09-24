@@ -29,6 +29,7 @@
 - IntelliJ에서 `runServer` + `runClient1`(Dev1) / `runClient2`(Dev2), 클라이언트는 `localhost`로 접속한다. 플레이어별 동작(공개 등)은 두 명으로 확인한다.
 - 모두 `run/` 아래(git 밖): 서버 = `run/`(Colophon 데이터 `run/config/colophon/`), 클라이언트 = `run/client1/`, `run/client2/`.
 - 리소스팩은 `run/resourcepacks/` 하나를 두 클라이언트가 함께 쓴다(`--resourcePackDir`).
+- **처음부터 다시 시험하기**: 서버를 끄고 Gradle `colophon > resetColophonData`. Colophon 콘텐츠(그래프·NPC·퀘스트)와 기록(표식·NPC 배치·퀘스트 상태·진행)을 `run/config/colophon/backups/<시각>/`으로 옮긴다. 월드와 인벤토리는 그대로.
 
 ## 게임 확인 체크리스트 형식
 

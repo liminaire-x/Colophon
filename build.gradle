@@ -259,6 +259,37 @@ var packEditor = tasks.register('packEditor', Copy) {
 // Register the built editor as a generated resource root (mirrors generateModMetadata).
 sourceSets.main.resources.srcDir packEditor
 
+// ---- Dev data reset ----
+// Starts the dev server's Colophon data over: published content (graphs, NPCs, quests)
+// and records (flags, NPC placements, quest state and progress). Nothing is deleted:
+// the files move to run/config/colophon/backups/<time>/. The world and inventories stay.
+// Stop runServer first; while it runs, the record database is locked.
+def colophonDataDir = file('run/config/colophon')
+tasks.register('resetColophonData') {
+    group = 'colophon'
+    description = 'Moves the dev server\'s Colophon content and records into a backup folder (stop the server first).'
+    doLast {
+        def names = ['graphs.json', 'npcs.json', 'quests.json', 'records.mv.db', 'records.trace.db']
+        def present = names.collect { new File(colophonDataDir, it) }.findAll { it.exists() }
+        if (present.isEmpty()) {
+            logger.lifecycle("Nothing to reset in ${colophonDataDir}.")
+            return
+        }
+        def stamp = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern('yyyyMMdd-HHmmss'))
+        def backup = new File(colophonDataDir, "backups/${stamp}")
+        backup.mkdirs()
+        present.each { f ->
+            try {
+                java.nio.file.Files.move(f.toPath(), new File(backup, f.name).toPath())
+            } catch (IOException e) {
+                throw new GradleException("Could not move ${f.name} (is runServer still running? Stop it first). " +
+                        "Files already moved are in ${backup}.", e)
+            }
+        }
+        logger.lifecycle("Moved ${present*.name.join(', ')} to ${backup}")
+    }
+}
+
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
 idea {
     module {
