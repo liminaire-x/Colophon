@@ -18,6 +18,8 @@
 - 개발 단계라 mod_id까지 함께 바꾸고 로컬 데이터는 초기화했다(개발 단계에서는 형식이 바뀌면 변환 코드 대신 초기화). 옛 `run/config/colophon/`은 백업으로 남는다.
 - 결정 기록 0001~0006의 본문은 당시 이름 그대로 두고, 머리에 이 기록을 가리키는 한 줄만 달았다.
 
+게임 확인 완료(2026-09-24): 모드 목록의 Lorebench, `/lorebench npc spawn`과 촌장 모델(리소스팩 `lorebench-test`), `J` 화면, `run/config/lorebench/` 생성.
+
 ## 이름 확인 (2026-09-24)
 
 - Modrinth: 검색 결과 0건, `lorebench` 프로젝트 주소 없음. CurseForge: 자동 확인이 막혀 웹 검색으로만 확인(해당 이름의 모드 없음). GitHub: `lorebench` 계정 없음.
