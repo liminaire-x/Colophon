@@ -7,11 +7,17 @@
 이 파일은 매 세션 로드되는 **짧은 가이드**다. 개념은 [docs/map.md](docs/map.md), 진행 상태는
 [docs/roadmap.md](docs/roadmap.md)에만 있다.
 
-## 재시작 (2026-09-23)
-v2 설계가 사용자가 소화하는 속도보다 빨리 두꺼워져서, **이야기(구체 시나리오) 중심으로 다시
-시작**했다. 옛 코드·문서는 git 태그 `legacy-v2`, 형제 폴더 `../Colophon-legacy`(worktree)에
-보관. 옛 코드는 필요해질 때 사용자가 이해·동의한 파일만 다시 가져온다. 옛 문서는 반면교사로 읽되
-기준으로 삼지 않는다.
+## 지금 방향이 나온 이유
+- **이야기 중심**: v2 설계가 AI 주도로 사용자가 소화하는 속도보다 빨리 두꺼워져, 사용자가 도메인 감을
+  잃었다. 그래서 2026-09-23 **이야기(구체 시나리오) 중심으로 다시 시작**했다. 옛 코드·문서는 git 태그
+  `legacy-v2`, 형제 폴더 `../Colophon-legacy`(worktree, 폴더를 옮기면 `git worktree repair`)에 보관.
+  옛 코드는 필요해질 때 사용자가 이해·동의한 파일만 다시 가져온다. 옛 문서는 반면교사로 읽되 기준으로
+  삼지 않는다.
+- **FTB Quests 대신 자체 퀘스트**: FTB Quests(1.21.1)는 로그인 때 **퀘스트북 전체**를 모든 클라이언트에
+  보낸다(`SyncQuestsMessage`). "숨김"은 화면에서 가릴 뿐이라 스토리가 새어 나간다. Lorebench는 서버가
+  **공개된 퀘스트만 그 플레이어에게** 보낸다.
+- **GeckoLib**: NPC에 모델·애니메이션(손 내밀기, 기뻐하기 등)을 입히려고 쓴다. GeckoLib은 클라이언트에
+  모드와 에셋이 있어야 하므로 Lorebench는 **클라이언트+서버 모드**다.
 
 ## 코드 구조 (`kr.guinnessgroup.lorebench`)
 - `graph/` — 저장된 그래프 문서(`GraphDoc`)와 그 읽기·쓰기(`GraphFormat`, format 1). 모양만 검사.
@@ -29,11 +35,20 @@ v2 설계가 사용자가 소화하는 속도보다 빨리 두꺼워져서, **�
 - **사용자가 쉬운 말로 설명할 수 없는 결정은 확정하지 않는다.** 선택지 + 추천을 주고 결정은 사용자.
 - **이야기가 요구하는 것만** 설계한다. 쓰는 곳이 없는 타입·기능을 미리 설계하지 않는다.
 - 한 번에 하나씩, 문서는 작게. 같은 사실은 한 곳에만.
+- 배경: 사용자는 설계·기획 전공이 아니라고 밝혔고, 작은 결정이 나중에 부메랑이 될까 봐 모든 결정을 첫
+  단추처럼 다룬다. 쉬운 말로, 되돌리는 비용부터. 설명이 안 통하면 비유와 구체적 장면으로 다시 쓴다.
+  다이어그램을 요청하면 `show_widget`으로 그린다.
+- **개발 단계(첫 공개 전)엔 변환 대신 초기화**: 형식·키 규칙이 바뀌면 변환 코드를 쓰지 않고
+  `run/config/lorebench/`를 초기화한다(무엇을 지우는지 먼저 알림). 그래서 비싼 이유가 "옛 로컬 데이터
+  변환"뿐이면 지금은 싸다. 첫 공개 뒤엔 형식 번호 + 변환.
 
 ## 스택 / 사실
 - NeoForge **1.21.1** / Java **21**. mod_id `lorebench`, group `kr.guinnessgroup`, **MPL-2.0**(파일 단위).
 - git author: **liminaire-x <gntodtndls156@gmail.com>**. 커밋 = **conventional commits** (`feat(...)`, `docs:` …). 커밋 메시지 끝에 **공동 작성자 Claude** 줄을 넣는다(`Co-Authored-By: Claude … <noreply@anthropic.com>`).
-- 응답/문서 언어: **한국어**. git commit 언어: **영어**.
+- **커밋 전 `git diff --cached --stat`**: 사용자가 병행 편집·스테이징한다. 남의 스테이징분이 있으면 경로 지정 커밋(`git commit -- 파일`)으로 내 파일만(실제로 사용자의 이미지 삭제가 섞여 push된 적 있음).
+- 응답/문서 언어: **한국어**. git commit 언어: **영어**. Lorebench(로어벤치)는 모음으로 끝난다 → "Lorebench**는/를/가/와**".
+- 저장소: 로컬 `C:\Users\gntod\MyProjects\Intellij\LoreBench`, 원격 `https://github.com/liminaire-x/Lorebench.git`. Gradle 프로젝트 이름은 `settings.gradle`에서 `lorebench`로 고정(폴더 이름과 무관).
+- **인수인계 문서 `docs/handoff.md`는 로컬 전용**: 커밋하지 않는다(`.gitignore`에 있음).
 - 프런트: React + React Flow(@xyflow/react), Vite 단일 index.html. `editor/` 소스 → Gradle buildEditor/packEditor로 패키징.
 - 웹 서버: JDK `HttpServer` 8080 (`web/LorebenchWebServer.java`).
 - **에이전트 환경에서 Java 컴파일 금지**(NeoForge 빌드가 무겁고 Windows Gradle 캐시와 꼬임). 컴파일/실행 확인은 **GitHub Actions CI**(push 시 클린 리눅스 빌드) 또는 **사용자 IntelliJ**(`runServer` + `runClient1`/`runClient2`, 두 플레이어 Dev1·Dev2).
@@ -43,9 +58,23 @@ v2 설계가 사용자가 소화하는 속도보다 빨리 두꺼워져서, **�
 1. **조각 단위로 진행**한다([docs/roadmap.md](docs/roadmap.md)). 각 조각은 게임 안에서 확인된다.
 2. **외부 동작은 소스·문서로 확인**하고 추측하지 않는다. 결정은 선택지 + 추천 + 고치는 비용 → 사용자.
 3. 검증:
-   - **CI = 컴파일 게이트**. 커밋 → master push → 사후 CI 확인, 실패 시 fix-forward. 성공 판정은 **`gh run view <id> --json conclusion`으로 명시 확인**(`gh run watch` exit 코드만 믿지 말 것) + 테스트 리포트에서 **실행 개수** 확인.
+   - **CI = 컴파일 게이트**. 커밋 → master push → 사후 CI 확인, 실패 시 fix-forward. 성공 판정은 **`gh run view <id> --json conclusion`으로 명시 확인**(`gh run watch` exit 코드만 믿지 말 것, 실패를 green으로 오독해 보고한 적 있음) + 테스트 리포트에서 **실행 개수** 확인.
    - **IntelliJ = 동작 게이트**. 번호 매긴 게임 확인 체크리스트를 드리고, 사용자 확인까지 받고 다음 조각으로.
    - **테스트는 비싼 것에 붙인다**: 저장 형식·id처럼 깨지면 데이터가 손상되는 곳은 처음부터 테스트 동반.
 4. 게임 쪽 문제는 **`run/logs/latest.log`부터** 본다. 추측보다 증거.
 5. 에셋(NPC 모델)은 Blockbench MCP + `.claude/skills/`의 Blockbench 스킬(`blockbench-use` 먼저). 에셋 파일은 저장소에 넣지 않는다.
 6. 광범위 변경 전에는 graphify로 호출부를 먼저 파악할 수 있다(국소 변경은 grep/read).
+
+## 도구 환경 (에이전트용)
+- **기록은 이 파일에만** 한다. Claude 메모리(`~/.claude/projects/…/memory`)는 쓰지 않는다(2026-09-24 합쳤음).
+- **마인크래프트·NeoForge API 확인**: `build/moddev/artifacts/neoforge-21.1.249-merged.jar`에 마인크래프트 `.java` 소스가 들어 있다(`unzip -p <jar> net/minecraft/…/X.java`). NeoForge 소스는 같은 폴더의 `neoforge-21.1.249-sources.jar`. javap·strings는 없다.
+- **게임 데이터(git 밖)**: 실행 환경의 기본 경로는 [docs/workflow.md](docs/workflow.md) "게임 실행 환경". 그 밖에:
+  - 옛 데이터: `run/config/colophon/`(이름 변경 전, 새 이름에선 안 읽힘)과 그 안의 `legacy-v2/`(재시작 전), `pre-0004/`(id 규칙 변경 전), `backups/`.
+  - 테스트 리소스팩 `run/resourcepacks/lorebench-test/`: 에셋 `assets/lorebench/…`, 원본 `source/chief.bbmodel`·`source/chief-texture.mjs`. 서버·두 클라이언트의 `options.txt` 세 곳에서 켜져 있다.
+- **Python**: 저장소 최상위 `.venv/Scripts/python.exe`(3.14, git 밖, graphify·openai 포함). Bash의 `python`은 PATH에 없고, pip은 `-m pip`로.
+- **graphify**:
+  - 문서 추출은 **서브에이전트를 쓰지 않고 외부 AI(Gemini)**로: `graphify.llm.extract_corpus_parallel(files, backend="gemini")`. 키는 사용자 환경변수 `GEMINI_API_KEY`(값은 어디에도 적지 않음).
+  - Gemini 무료 등급은 한도가 작다(분당 요청 5회 등, 503 과부하도 잦음). `token_budget=20000`, `max_concurrency=1`로 작게·차례로. 그래도 실패하면 **코드(AST)만 빌드**하고 나중에 `--update`(실패한 문서는 다음에 다시 추출 대상).
+  - 중간 단계 파이썬은 스크래치패드에 `.py`로 써서 실행하고 `if __name__ == '__main__':`를 둔다. 인라인 heredoc + `Remove-Item`을 한 PowerShell 호출에 이으면 조용히 실패한다.
+  - `graphify-out/`은 git 밖. 마지막 빌드: 2026-09-24, **코드만**(문서 25개는 Gemini 한도로 대기) 759 노드·2007 연결·32 묶음, 중심 = `LorebenchRuntime`·`NpcEntity`·`Quests`. 재시작 전 그래프는 `graphify-out/pre-restart/`.
+- **셸 함정**: `sed` 치환에 `#` 구분자를 쓰면 `#minecraft:logs`, `## 제목`과 충돌한다. 파일 수정은 Edit 도구를 먼저, 셸 치환이 꼭 필요하면 `|` 구분자.
