@@ -265,7 +265,7 @@ sourceSets.main.resources.srcDir packEditor
 // the files move to run/config/colophon/backups/<time>/. The world and inventories stay.
 // Stop runServer first; while it runs, the record database is locked.
 def colophonDataDir = file('run/config/colophon')
-tasks.register('resetColophonData') {
+tasks.register('reset') {
     group = 'colophon'
     description = 'Moves the dev server\'s Colophon content and records into a backup folder (stop the server first).'
     doLast {
