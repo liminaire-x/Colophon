@@ -123,6 +123,14 @@ function LorebenchNode({ data, selected }) {
 
 const nodeTypes = { lorebench: LorebenchNode }
 
+// Header tabs. Only the graph screen exists; the others get their own screen once designed.
+const TABS = [
+  { id: 'graphs', label: 'Graphs', ready: true },
+  { id: 'quests', label: 'Quests', ready: false },
+  { id: 'npcs', label: 'NPCs', ready: false },
+]
+const CURRENT_TAB = 'graphs'
+
 const input = { width: '100%', padding: '4px 6px', boxSizing: 'border-box' }
 
 // A quest's goals or rewards: rows of target + count. Goals pick hand in / kill.
@@ -448,6 +456,29 @@ export default function App() {
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <header style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid #ddd' }}>
           <strong style={{ fontSize: 18 }}>Lorebench</strong>
+          <nav role="tablist" style={{ display: 'flex', gap: 2, alignSelf: 'stretch', margin: '-10px 0' }}>
+            {TABS.map((t) => {
+              const active = t.id === CURRENT_TAB
+              return (
+                <button
+                  key={t.id}
+                  role="tab"
+                  aria-selected={active}
+                  disabled={!t.ready}
+                  title={t.ready ? undefined : 'Not designed yet'}
+                  style={{
+                    padding: '0 14px', border: 'none', background: 'none', fontSize: 13,
+                    borderBottom: `2px solid ${active ? '#2563eb' : 'transparent'}`,
+                    color: active ? '#111' : t.ready ? '#555' : '#bbb',
+                    fontWeight: active ? 600 : 400,
+                    cursor: t.ready ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  {t.label}
+                </button>
+              )
+            })}
+          </nav>
           <span style={{ fontSize: 13, color: status === 'ok' ? '#2a7d4f' : '#c0392b' }}>server: {status}</span>
           <span style={{ flex: 1 }} />
           <button onClick={publish} disabled={publishing || status !== 'ok'} style={{ padding: '6px 14px', cursor: 'pointer' }}>
