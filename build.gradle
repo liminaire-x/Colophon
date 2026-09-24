@@ -264,6 +264,7 @@ sourceSets.main.resources.srcDir packEditor
 // and records (flags, NPC placements, quest state and progress). Nothing is deleted:
 // the files move to run/config/lorebench/backups/<time>/. The world and inventories stay.
 // Stop runServer first; while it runs, the record database is locked.
+// Configuration cache is on: don't touch `project` inside doLast; use values captured here (lorebenchDataDir).
 def lorebenchDataDir = file('run/config/lorebench')
 tasks.register('reset') {
     group = 'lorebench'
