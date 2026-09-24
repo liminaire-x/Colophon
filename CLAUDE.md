@@ -66,15 +66,14 @@
 6. 광범위 변경 전에는 graphify로 호출부를 먼저 파악할 수 있다(국소 변경은 grep/read).
 
 ## 도구 환경 (에이전트용)
-- **기록은 이 파일에만** 한다. Claude 메모리(`~/.claude/projects/…/memory`)는 쓰지 않는다(2026-09-24 합쳤음).
+- **기록은 이 파일에만** 한다. Claude 메모리(`~/.claude/projects/…/memory`)는 쓰지 않는다.
 - **마인크래프트·NeoForge API 확인**: `build/moddev/artifacts/neoforge-21.1.249-merged.jar`에 마인크래프트 `.java` 소스가 들어 있다(`unzip -p <jar> net/minecraft/…/X.java`). NeoForge 소스는 같은 폴더의 `neoforge-21.1.249-sources.jar`. javap·strings는 없다.
 - **게임 데이터(git 밖)**: 실행 환경의 기본 경로는 [docs/workflow.md](docs/workflow.md) "게임 실행 환경". 그 밖에:
-  - 옛 데이터: `run/config/colophon/`(이름 변경 전, 새 이름에선 안 읽힘)과 그 안의 `legacy-v2/`(재시작 전), `pre-0004/`(id 규칙 변경 전), `backups/`.
   - 테스트 리소스팩 `run/resourcepacks/lorebench-test/`: 에셋 `assets/lorebench/…`, 원본 `source/chief.bbmodel`·`source/chief-texture.mjs`. 서버·두 클라이언트의 `options.txt` 세 곳에서 켜져 있다.
 - **Python**: 저장소 최상위 `.venv/Scripts/python.exe`(3.14, git 밖, graphify·openai 포함). Bash의 `python`은 PATH에 없고, pip은 `-m pip`로.
 - **graphify**:
   - 문서 추출은 **서브에이전트를 쓰지 않고 외부 AI(Gemini)**로: `graphify.llm.extract_corpus_parallel(files, backend="gemini")`. 키는 사용자 환경변수 `GEMINI_API_KEY`(값은 어디에도 적지 않음).
   - Gemini 무료 등급은 한도가 작다(분당 요청 5회 등, 503 과부하도 잦음). `token_budget=20000`, `max_concurrency=1`로 작게·차례로. 그래도 실패하면 **코드(AST)만 빌드**하고 나중에 `--update`(실패한 문서는 다음에 다시 추출 대상).
   - 중간 단계 파이썬은 스크래치패드에 `.py`로 써서 실행하고 `if __name__ == '__main__':`를 둔다. 인라인 heredoc + `Remove-Item`을 한 PowerShell 호출에 이으면 조용히 실패한다.
-  - `graphify-out/`은 git 밖. 마지막 빌드: 2026-09-24, **코드만**(문서 25개는 Gemini 한도로 대기) 759 노드·2007 연결·32 묶음, 중심 = `LorebenchRuntime`·`NpcEntity`·`Quests`. 재시작 전 그래프는 `graphify-out/pre-restart/`.
+  - `graphify-out/`은 git 밖. 마지막 빌드: 2026-09-24, **코드만**(문서 25개는 Gemini 한도로 대기) 759 노드·2007 연결·32 묶음, 중심 = `LorebenchRuntime`·`NpcEntity`·`Quests`.
 - **셸 함정**: `sed` 치환에 `#` 구분자를 쓰면 `#minecraft:logs`, `## 제목`과 충돌한다. 파일 수정은 Edit 도구를 먼저, 셸 치환이 꼭 필요하면 `|` 구분자.
