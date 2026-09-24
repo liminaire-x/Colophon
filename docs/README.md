@@ -1,4 +1,4 @@
-# Colophon 문서
+# Lorebench 문서
 
 | 파일 | 내용 |
 |---|---|

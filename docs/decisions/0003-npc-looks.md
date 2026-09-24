@@ -2,6 +2,8 @@
 
 2026-09-23 · 조각 3 · 고치는 비용: **중간** (운영자의 리소스팩이 이 이름 규칙에 기대게 된다)
 
+> 이름 변경(2026-09-24, [0007](0007-rename-lorebench.md)): 이 기록의 Colophon·`colophon`은 지금 Lorebench·`lorebench`다(노드 id `lorebench:…`, 명령어 `/lorebench`, 폴더 `config/lorebench` 등).
+
 ## 결정
 
 - NPC는 **GeckoLib 4.7**(NeoForge 1.21.1)으로 그린다. 서버와 플레이어 모두 GeckoLib이 필요하다(`neoforge.mods.toml`에 필수 의존성으로 선언).

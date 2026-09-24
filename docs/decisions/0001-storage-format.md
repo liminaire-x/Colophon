@@ -2,6 +2,8 @@
 
 2026-09-23 · 조각 1 · 고치는 비용: **비쌈** (디스크에 남는다)
 
+> 이름 변경(2026-09-24, [0007](0007-rename-lorebench.md)): 이 기록의 Colophon·`colophon`은 지금 Lorebench·`lorebench`다(노드 id `lorebench:…`, 명령어 `/lorebench`, 폴더 `config/lorebench` 등).
+
 ## 그래프 문서 (`config/colophon/graphs.json`, format 1)
 
 ```json

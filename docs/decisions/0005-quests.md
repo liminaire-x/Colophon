@@ -2,6 +2,8 @@
 
 2026-09-23 · 조각 4 · 고치는 비용: **비쌈** (문서·기록 DB에 남는다)
 
+> 이름 변경(2026-09-24, [0007](0007-rename-lorebench.md)): 이 기록의 Colophon·`colophon`은 지금 Lorebench·`lorebench`다(노드 id `lorebench:…`, 명령어 `/lorebench`, 폴더 `config/lorebench` 등).
+
 ## 퀘스트 정의 (`config/colophon/quests.json`, format 1)
 
 ```json
