@@ -79,11 +79,14 @@
   보류: 그래프 연결, 진행 중 접기, 머리 위 `!`/`?`, 대사 줄마다 애니메이션·시선·말하는 사람·선택지.
   작가 시나리오 4개로 점검함(대사 고치기·선행 원인·퀘스트 순서·쓰이는 곳).
 - [ ] **3. 퀘스트 작업대 만들기** ([0009](decisions/0009-quest-workbench.md)):
-  - [ ] **1. 형식 + 에디터** (구현, CI·게임 확인 대기): 퀘스트에 `giver`·`receiver`·`requires`·`lines`, NPC에 `greeting`
+  - [x] **1. 형식 + 에디터**: 퀘스트에 `giver`·`receiver`·`requires`·`lines`, NPC에 `greeting`
     (형식 번호는 둘 다 1 그대로, 옛 문서도 읽힘). publish 검사: 없는 NPC(`QuestDoc.npcErrors`)·없는 선행 퀘스트·
     자기 자신이나 돌고 도는 선행 거부, 빈 대사 줄 거부(에디터는 빈 줄·빈 목록을 걸러서 보냄). 대사 읽기·쓰기는
     `DialogueLines`(퀘스트·인사말 공용). 에디터: 퀘스트 편집을 카드 4장(Basics / Flow / Dialogue / Needs and rewards),
     NPC 탭에 Dialogue 카드(인사말). 공용 `editor/src/Section.jsx`(카드·대사 줄 목록). **게임 동작은 아직 그대로.**
+    CI 그린(테스트 73), 확인 완료(2026-09-26, reset 뒤 사용자 서버의 에디터에서 Claude가 직접): 카드 4장, 주는·받는
+    NPC·선행·대사·인사말 입력, publish 후 새로고침해도 유지·빈 줄만 빠짐, 선행 순환 거부, 퀘스트가 가리키는 NPC 삭제
+    거부, 서버 로그 오류 없음. 게임 우클릭은 그래프가 없어(reset) 확인 대상 없음.
   - [ ] 2. 대화창 / 3. 두 이야기를 새 방식으로(그래프 연결이나 줄마다 애니메이션 중 하나를 그때 고름).
 
 ## 다음 이야기 후보
@@ -104,6 +107,8 @@
   묶으면 같은 뼈대의 모델끼리 공유(Bedrock 분리 파일·Unity Humanoid 방식). 몹 적용은 (가) Lorebench 전용 몹(쌈) /
   (나) 바닐라 몹 교체(GeckoLib `GeoReplacedEntityRenderer`, 한 마리만 바꿀 수 있는지 미확인) / (다) 바닐라 모델 직접
   움직이기(playerAnimator식, 비쌈). 뼈대 이름·파일 경로 규칙은 리소스팩에 남아 비쌈.
+- 형식 검사 메시지에 제목 함께: `quest 'quest_nj46mr8g' ends up requiring itself`처럼 id만 나오는 메시지를
+  `'늑대 사냥' (quest_…)`처럼(publish 때 NPC 검사 메시지는 이미 그렇다). 내부 코드라 쌈.
 - 알림 노드: 화면 오른쪽 위 알림(예: "퀘스트 완료: 밀 배달"). 지금 완료 알림은 그래프의 채팅·애니메이션에 맡긴다.
 - `Complete Quest`의 `not_ready` 갈래: 기다리기 노드처럼 확인과 완료 사이에 틈이 생길 때 추가. `next`는 그대로라 옛 그래프는 안 깨진다.
 - 결정 기록 규칙 맞추기: [README](README.md)는 "한 번 쓰면 고치지 않고, 바꿀 땐 새 기록으로 대체"인데,
