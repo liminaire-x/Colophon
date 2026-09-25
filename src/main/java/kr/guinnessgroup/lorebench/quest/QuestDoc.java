@@ -5,6 +5,8 @@
  */
 package kr.guinnessgroup.lorebench.quest;
 
+import kr.guinnessgroup.lorebench.Folders.Folder;
+
 import java.util.List;
 
 /**
@@ -12,7 +14,7 @@ import java.util.List;
  * editor. Who has which quest is a record, not part of this document.
  * See docs/decisions/0005-quests.md.
  *
- * @param folders how the editor groups quests; the game doesn't use them (0008)
+ * @param folders how the editor groups quests; the game doesn't use them ({@link kr.guinnessgroup.lorebench.Folders})
  */
 public record QuestDoc(List<Folder> folders, List<Quest> quests) {
 
@@ -29,13 +31,6 @@ public record QuestDoc(List<Folder> folders, List<Quest> quests) {
      */
     public record Quest(String id, String title, String icon, String text, List<Goal> goals, List<Stack> rewards,
                         String folder) {}
-
-    /**
-     * A folder in the editor's quest tree.
-     *
-     * @param parent the folder id it sits in, or "" for the top
-     */
-    public record Folder(String id, String name, String parent) {}
 
     /**
      * Some number of one item, e.g. {@code minecraft:emerald} × 5. A reward item may be

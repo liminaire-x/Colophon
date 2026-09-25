@@ -6,6 +6,7 @@
 package kr.guinnessgroup.lorebench.quest;
 
 import kr.guinnessgroup.lorebench.DocumentException;
+import kr.guinnessgroup.lorebench.Folders;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -49,27 +50,16 @@ class QuestFormatTest {
                   "quests": [ { "id": "quest_a", "title": "A", "folder": "folder_chief", "goals": [], "rewards": [] },
                               { "id": "quest_b", "title": "B", "goals": [], "rewards": [] } ] }
                 """);
-        assertEquals(List.of(new QuestDoc.Folder("folder_town", "마을", ""),
-                new QuestDoc.Folder("folder_chief", "촌장", "folder_town"),
-                new QuestDoc.Folder("folder_empty", "빈 폴더", "")), doc.folders());
+        assertEquals(List.of(new Folders.Folder("folder_town", "마을", ""),
+                new Folders.Folder("folder_chief", "촌장", "folder_town"),
+                new Folders.Folder("folder_empty", "빈 폴더", "")), doc.folders());
         assertEquals("folder_chief", doc.find("quest_a").folder());
         assertEquals("", doc.find("quest_b").folder());
         assertEquals(doc, QuestFormat.read(QuestFormat.write(doc)));
     }
 
     @Test
-    void foldersMustFormATree() {
-        for (String folders : new String[] {
-                "{ \"id\": \"town\", \"name\": \"a\" }",                                                   // not a folder id
-                "{ \"id\": \"folder_a\", \"name\": \" \" }",                                               // no name
-                "{ \"id\": \"folder_a\", \"name\": \"a\" }, { \"id\": \"folder_a\", \"name\": \"b\" }",    // duplicate
-                "{ \"id\": \"folder_a\", \"name\": \"a\", \"parent\": \"folder_x\" }",                     // unknown parent
-                "{ \"id\": \"folder_a\", \"name\": \"a\", \"parent\": \"folder_a\" }",                     // inside itself
-                "{ \"id\": \"folder_a\", \"name\": \"a\", \"parent\": \"folder_b\" }, "
-                        + "{ \"id\": \"folder_b\", \"name\": \"b\", \"parent\": \"folder_a\" }"}) {        // loop
-            assertThrows(DocumentException.class, () -> QuestFormat.read(
-                    "{\"format\":1,\"folders\":[" + folders + "],\"quests\":[]}"), folders);
-        }
+    void aQuestMustSitInAFolderThatExists() {
         assertThrows(DocumentException.class, () -> QuestFormat.read("""
                 { "format": 1, "quests": [ { "id": "quest_a", "title": "A", "folder": "folder_x", "goals": [], "rewards": [] } ] }
                 """));

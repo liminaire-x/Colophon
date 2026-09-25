@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { newId } from './ids.js'
+import { FolderPanel, FolderSelect, FolderTree, addFolder, folderPath, placeIn } from './FolderTree.jsx'
 
 const input = { width: '100%', padding: '4px 6px', boxSizing: 'border-box' }
 const label = { display: 'block', marginBottom: 10 }
@@ -16,18 +17,28 @@ function Section({ title, children }) {
   )
 }
 
-// The NPC tab: the NPC list on the left, the chosen NPC's sections on the right.
-export default function NpcTab({ npcs, setNpcs, placements, status, hidden }) {
-  const [selectedId, setSelectedId] = useState(null)
-  const npc = npcs.find((n) => n.id === selectedId) || null
+// The NPC tab: a folder tree of NPCs on the left, the chosen NPC's sections (or folder) on the right.
+export default function NpcTab({ npcs, setNpcs, folders, setFolders, placements, status, hidden }) {
+  const [selected, setSelected] = useState(null) // { kind: 'item' | 'folder', id }
+  const [collapsed, setCollapsed] = useState(() => new Set()) // folder ids
+  const npc = selected?.kind === 'item' ? npcs.find((n) => n.id === selected.id) || null : null
+  const folder = selected?.kind === 'folder' ? folders.find((f) => f.id === selected.id) || null : null
   const placed = npc ? placements[npc.id] || [] : []
+
+  // Where "+ Folder" and "+ NPC" put the new thing: the chosen folder, or the chosen NPC's folder.
+  const target = folder?.id ?? npc?.folder ?? ''
+
+  const newFolder = () => {
+    const id = addFolder(folders, setFolders, target)
+    if (id) setSelected({ kind: 'folder', id })
+  }
 
   const newNpc = () => {
     const name = window.prompt('NPC name (shown above the NPC in game):')
     if (name == null || !name.trim()) return
     const id = newId('npc', npcs.map((n) => n.id))
-    setNpcs((ns) => ns.concat({ id, name: name.trim() }))
-    setSelectedId(id)
+    setNpcs((ns) => ns.concat(placeIn({ id, name: name.trim() }, target)))
+    setSelected({ kind: 'item', id })
   }
 
   // Edit one field of the chosen NPC; an emptied optional field is dropped.
@@ -44,33 +55,26 @@ export default function NpcTab({ npcs, setNpcs, placements, status, hidden }) {
     const warning = placed.length ? `\n${placed.length} placed in the world will disappear on publish.` : ''
     if (!window.confirm(`Delete NPC '${npc.name}'?${warning}`)) return
     setNpcs((ns) => ns.filter((n) => n.id !== npc.id))
-    setSelectedId(null)
+    setSelected(null)
   }
-
-  const sorted = [...npcs].sort((a, b) => a.name.localeCompare(b.name, 'ko'))
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: hidden ? 'none' : 'flex' }}>
       <aside style={{ width: 260, borderRight: '1px solid #ddd', display: 'flex', flexDirection: 'column', fontSize: 12 }}>
-        <div style={{ padding: 10, borderBottom: '1px solid #eee' }}>
+        <div style={{ display: 'flex', gap: 6, padding: 10, borderBottom: '1px solid #eee' }}>
+          <button onClick={newFolder} disabled={status !== 'ok'} style={toolButton}>+ Folder</button>
           <button onClick={newNpc} disabled={status !== 'ok'} style={toolButton}>+ NPC</button>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: 6 }}>
-          {npcs.length === 0 && <div style={{ ...hint, padding: 6 }}>No NPCs yet. Create one with "+ NPC".</div>}
-          {sorted.map((n) => (
-            <button
-              key={n.id}
-              onClick={() => setSelectedId(n.id)}
-              style={{
-                display: 'flex', justifyContent: 'space-between', width: '100%', textAlign: 'left', cursor: 'pointer',
-                padding: '3px 6px', border: 'none', borderRadius: 4, fontSize: 12,
-                background: n.id === selectedId ? '#e0e7ff' : 'transparent',
-              }}
-            >
-              <span>{n.name}</span>
-              <span style={hint}>{(placements[n.id] || []).length} placed</span>
-            </button>
-          ))}
+          {folders.length === 0 && npcs.length === 0
+            ? <div style={{ ...hint, padding: 6 }}>No NPCs yet. Create one with "+ NPC".</div>
+            : (
+              <FolderTree
+                folders={folders} selected={selected} onSelect={setSelected}
+                collapsed={collapsed} setCollapsed={setCollapsed}
+                items={npcs.map((n) => ({ id: n.id, label: n.name, folder: n.folder, note: `${(placements[n.id] || []).length} placed` }))}
+              />
+            )}
         </div>
       </aside>
 
@@ -78,11 +82,16 @@ export default function NpcTab({ npcs, setNpcs, placements, status, hidden }) {
         <div style={{ maxWidth: 680 }}>
           {npc ? (
             <>
+              <div style={{ ...hint, marginBottom: 4 }}>{npc.folder ? folderPath(folders, npc.folder) : '(top)'}</div>
               <label style={label}>
                 <div style={{ marginBottom: 3 }}>Name <span style={hint}>(shown above the NPC in game)</span></div>
                 <input value={npc.name} onChange={(e) => setField('name', e.target.value)} style={{ ...input, fontSize: 15 }} />
               </label>
-              <div style={{ ...hint, marginBottom: 14 }}>id: {npc.id} (fixed)</div>
+              <div style={{ ...hint, marginBottom: 12 }}>id: {npc.id} (fixed)</div>
+              <label style={{ ...label, marginBottom: 14 }}>
+                <div style={{ marginBottom: 3 }}>Folder</div>
+                <FolderSelect folders={folders} value={npc.folder} onChange={(v) => setField('folder', v)} />
+              </label>
 
               <Section title="Look">
                 <label style={label}>
@@ -110,8 +119,13 @@ export default function NpcTab({ npcs, setNpcs, placements, status, hidden }) {
 
               <button onClick={deleteNpc} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete NPC</button>
             </>
+          ) : folder ? (
+            <FolderPanel
+              folder={folder} folders={folders} setFolders={setFolders} items={npcs} setItems={setNpcs}
+              onDeleted={(up) => setSelected(up ? { kind: 'folder', id: up } : null)}
+            />
           ) : (
-            <div style={{ color: '#888' }}>Choose an NPC on the left, or create one.</div>
+            <div style={{ color: '#888' }}>Choose an NPC or folder on the left, or create one.</div>
           )}
         </div>
       </main>

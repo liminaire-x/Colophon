@@ -13,13 +13,12 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import kr.guinnessgroup.lorebench.DocumentException;
+import kr.guinnessgroup.lorebench.Folders;
 import kr.guinnessgroup.lorebench.Ids;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -80,9 +79,7 @@ public final class QuestFormat {
         }
 
         List<String> errors = new ArrayList<>();
-        List<QuestDoc.Folder> folders = folders(root.get("folders"), errors);
-        Set<String> folderIds = new HashSet<>();
-        folders.forEach(f -> folderIds.add(f.id()));
+        List<Folders.Folder> folders = Folders.read(root.get("folders"), "quest document", errors);
         List<QuestDoc.Quest> quests = new ArrayList<>();
         Set<String> ids = new HashSet<>();
         for (JsonElement el : (JsonArray) arr) {
@@ -110,10 +107,7 @@ public final class QuestFormat {
                 errors.add(where + ": icon '" + icon + "' is not an item id like minecraft:wheat");
             }
             String text = string(o, "text");
-            String folder = optional(o, "folder");
-            if (!folder.isEmpty() && !folderIds.contains(folder)) {
-                errors.add(where + ": folder '" + folder + "' does not exist");
-            }
+            String folder = Folders.placement(o, folders, where, errors);
             List<QuestDoc.Goal> goals = goals(o, where, errors);
             List<QuestDoc.Stack> rewards = stacks(o, "rewards", ITEM_WITH_COMPONENTS, where, errors);
             if (errors.size() == before) {
@@ -124,55 +118,6 @@ public final class QuestFormat {
             throw new DocumentException(errors);
         }
         return new QuestDoc(folders, List.copyOf(quests));
-    }
-
-    /**
-     * Folders (optional list): ids are unique, each parent is another folder, and
-     * following parents always ends at the top (no folder sits inside itself).
-     */
-    private static List<QuestDoc.Folder> folders(JsonElement e, List<String> errors) {
-        if (e == null) {
-            return List.of();
-        }
-        if (!e.isJsonArray()) {
-            errors.add("quest document: 'folders' is not a list");
-            return List.of();
-        }
-        Map<String, QuestDoc.Folder> byId = new LinkedHashMap<>();
-        for (JsonElement el : e.getAsJsonArray()) {
-            if (!el.isJsonObject()) {
-                errors.add("a folder is not an object");
-                continue;
-            }
-            JsonObject o = el.getAsJsonObject();
-            String id = string(o, "id");
-            if (!Ids.valid(Ids.FOLDER, id)) {
-                errors.add("folder id " + (id == null ? "is missing" : "'" + id + "' " + Ids.rule(Ids.FOLDER)));
-                continue;
-            }
-            String name = string(o, "name");
-            if (name == null || name.isBlank()) {
-                errors.add("folder '" + id + "': missing 'name'");
-                continue;
-            }
-            if (byId.putIfAbsent(id, new QuestDoc.Folder(id, name.trim(), optional(o, "parent"))) != null) {
-                errors.add("duplicate folder id '" + id + "'");
-            }
-        }
-        for (QuestDoc.Folder f : byId.values()) {
-            if (!f.parent().isEmpty() && !byId.containsKey(f.parent())) {
-                errors.add("folder '" + f.id() + "': parent '" + f.parent() + "' does not exist");
-                continue;
-            }
-            Set<String> seen = new HashSet<>();
-            for (String at = f.id(); !at.isEmpty() && byId.containsKey(at); at = byId.get(at).parent()) {
-                if (!seen.add(at)) {
-                    errors.add("folder '" + f.id() + "' ends up inside itself");
-                    break;
-                }
-            }
-        }
-        return List.copyOf(byId.values());
     }
 
     /**
@@ -271,9 +216,7 @@ public final class QuestFormat {
             if (!q.text().isEmpty()) {
                 o.addProperty("text", q.text());
             }
-            if (!q.folder().isEmpty()) {
-                o.addProperty("folder", q.folder());
-            }
+            Folders.writePlacement(o, q.folder());
             JsonArray goals = new JsonArray();
             for (QuestDoc.Goal g : q.goals()) {
                 JsonObject go = new JsonObject();
@@ -287,19 +230,7 @@ public final class QuestFormat {
         }
         JsonObject root = new JsonObject();
         root.addProperty("format", VERSION);
-        if (!doc.folders().isEmpty()) {
-            JsonArray folders = new JsonArray();
-            for (QuestDoc.Folder f : doc.folders()) {
-                JsonObject o = new JsonObject();
-                o.addProperty("id", f.id());
-                o.addProperty("name", f.name());
-                if (!f.parent().isEmpty()) {
-                    o.addProperty("parent", f.parent());
-                }
-                folders.add(o);
-            }
-            root.add("folders", folders);
-        }
+        Folders.write(root, doc.folders());
         root.add("quests", arr);
         return GSON.toJson(root);
     }

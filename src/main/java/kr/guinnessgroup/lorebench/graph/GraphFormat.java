@@ -6,6 +6,7 @@
 package kr.guinnessgroup.lorebench.graph;
 
 import kr.guinnessgroup.lorebench.DocumentException;
+import kr.guinnessgroup.lorebench.Folders;
 import kr.guinnessgroup.lorebench.Ids;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -23,7 +24,8 @@ import java.util.regex.Pattern;
 /**
  * Reads and writes the graph document (format 1). This class checks only the
  * document's shape: the version, required fields, unique ids, and that links point
- * at nodes that exist. Whether node types exist is the runtime's job.
+ * at nodes that exist. Whether node types exist is the runtime's job. {@code folders}
+ * and a graph's {@code folder} group graphs in the editor ({@link Folders}).
  * <p>
  * The server owns this format; the editor converts to and from it.
  */
@@ -60,12 +62,13 @@ public final class GraphFormat {
             throw new DocumentException(List.of("unknown format " + version));
         }
 
+        List<Folders.Folder> folders = Folders.read(root.get("folders"), "graph document", errors);
         JsonArray graphsJson = array(root, "graphs", "document", errors);
         List<GraphDoc.DocGraph> graphs = new ArrayList<>();
         Set<String> graphIds = new HashSet<>();
         if (graphsJson != null) {
             for (JsonElement el : graphsJson) {
-                GraphDoc.DocGraph g = readGraph(el, errors);
+                GraphDoc.DocGraph g = readGraph(el, folders, errors);
                 if (g == null) {
                     continue;
                 }
@@ -78,10 +81,10 @@ public final class GraphFormat {
         if (!errors.isEmpty()) {
             throw new DocumentException(errors);
         }
-        return new GraphDoc(List.copyOf(graphs));
+        return new GraphDoc(folders, List.copyOf(graphs));
     }
 
-    private static GraphDoc.DocGraph readGraph(JsonElement el, List<String> errors) {
+    private static GraphDoc.DocGraph readGraph(JsonElement el, List<Folders.Folder> folders, List<String> errors) {
         if (!el.isJsonObject()) {
             errors.add("a graph is not an object");
             return null;
@@ -131,7 +134,8 @@ public final class GraphFormat {
                 links.add(link);
             }
         }
-        return new GraphDoc.DocGraph(id, name, List.copyOf(nodes), List.copyOf(links));
+        String folder = Folders.placement(o, folders, where, errors);
+        return new GraphDoc.DocGraph(id, name, List.copyOf(nodes), List.copyOf(links), folder);
     }
 
     private static GraphDoc.DocNode readNode(JsonElement el, String where, List<String> errors) {
@@ -194,11 +198,13 @@ public final class GraphFormat {
     public static String write(GraphDoc doc) {
         JsonObject root = new JsonObject();
         root.addProperty("format", VERSION);
+        Folders.write(root, doc.folders());
         JsonArray graphs = new JsonArray();
         for (GraphDoc.DocGraph g : doc.graphs()) {
             JsonObject go = new JsonObject();
             go.addProperty("id", g.id());
             go.addProperty("name", g.name());
+            Folders.writePlacement(go, g.folder());
             JsonArray nodes = new JsonArray();
             for (GraphDoc.DocNode n : g.nodes()) {
                 JsonObject no = new JsonObject();

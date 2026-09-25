@@ -57,7 +57,7 @@ public final class LorebenchRuntime {
 
     private record Start(Graph graph, String nodeId) {}
 
-    private static final Active EMPTY = new Active(new GraphDoc(List.of()), new NpcDoc(List.of()),
+    private static final Active EMPTY = new Active(GraphDoc.EMPTY, NpcDoc.EMPTY,
             QuestDoc.EMPTY, Map.of());
 
     private volatile Active active = EMPTY;
@@ -111,13 +111,13 @@ public final class LorebenchRuntime {
         try {
             NpcDoc npcDoc = Files.exists(npcsFile)
                     ? NpcFormat.read(Files.readString(npcsFile, StandardCharsets.UTF_8))
-                    : new NpcDoc(List.of());
+                    : NpcDoc.EMPTY;
             QuestDoc questDoc = Files.exists(questsFile)
                     ? QuestFormat.read(Files.readString(questsFile, StandardCharsets.UTF_8))
                     : QuestDoc.EMPTY;
             GraphDoc graphDoc = Files.exists(graphsFile)
                     ? GraphFormat.read(Files.readString(graphsFile, StandardCharsets.UTF_8))
-                    : new GraphDoc(List.of());
+                    : GraphDoc.EMPTY;
             activate(graphDoc, npcDoc, questDoc);
         } catch (DocumentException e) {
             LOGGER.error("[Lorebench] Saved content was not loaded; nothing will run until it is fixed or republished: {}",

@@ -50,6 +50,23 @@ class NpcFormatTest {
     }
 
     @Test
+    void npcsSitInFolders() {
+        NpcDoc doc = NpcFormat.read("""
+                { "format": 1, "folders": [ { "id": "folder_town", "name": "마을" } ],
+                  "npcs": [ { "id": "npc_chief", "name": "촌장", "folder": "folder_town" },
+                            { "id": "npc_smith", "name": "대장장이" } ] }
+                """);
+        assertEquals("folder_town", doc.find("npc_chief").folder());
+        assertEquals("", doc.find("npc_smith").folder());
+        assertEquals(1, doc.folders().size());
+        assertEquals(doc, NpcFormat.read(NpcFormat.write(doc)));
+        assertTrue(!NpcFormat.write(NpcFormat.read(CHIEF)).contains("folder"));
+        assertThrows(DocumentException.class, () -> NpcFormat.read("""
+                { "format": 1, "npcs": [ { "id": "npc_chief", "name": "촌장", "folder": "folder_x" } ] }
+                """));
+    }
+
+    @Test
     void rejectsBadModelName() {
         assertThrows(DocumentException.class, () -> NpcFormat.read(
                 "{\"format\":1,\"npcs\":[{\"id\":\"npc_chief\",\"name\":\"a\",\"model\":\"Chief Model\"}]}"));

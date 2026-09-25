@@ -58,6 +58,23 @@ class GraphFormatTest {
     }
 
     @Test
+    void graphsSitInFolders() {
+        GraphDoc doc = GraphFormat.read("""
+                { "format": 1, "folders": [ { "id": "folder_town", "name": "마을" } ],
+                  "graphs": [ { "id": "graph_a", "name": "A", "folder": "folder_town", "nodes": [], "links": [] },
+                              { "id": "graph_b", "name": "B", "nodes": [], "links": [] } ] }
+                """);
+        assertEquals("folder_town", doc.graphs().get(0).folder());
+        assertEquals("", doc.graphs().get(1).folder());
+        assertEquals(1, doc.folders().size());
+        assertEquals(doc, GraphFormat.read(GraphFormat.write(doc)));
+        assertTrue(!GraphFormat.write(GraphFormat.read(FIRST_GREETING)).contains("folder"));
+        assertThrows(DocumentException.class, () -> GraphFormat.read("""
+                { "format": 1, "graphs": [ { "id": "graph_a", "name": "A", "folder": "folder_x", "nodes": [], "links": [] } ] }
+                """));
+    }
+
+    @Test
     void writeLeavesOutTheDefaultWayOut() {
         String json = GraphFormat.write(GraphFormat.read(FIRST_GREETING));
         assertTrue(json.contains("\"out\": \"no\""));

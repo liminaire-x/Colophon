@@ -13,6 +13,7 @@ import '@xyflow/react/dist/style.css'
 import { newId } from './ids.js'
 import QuestTab from './QuestTab.jsx'
 import NpcTab from './NpcTab.jsx'
+import { FolderPanel, FolderSelect, FolderTree, addFolder, placeIn } from './FolderTree.jsx'
 
 // Must match the server (GraphFormat.java, NpcFormat.java, QuestFormat.java).
 const FORMAT = 1
@@ -28,7 +29,7 @@ const catColor = (c) => CATEGORY_COLORS[c] || '#555'
 const edgeId = (from, out) => `${from}:${out}` // one link per way out, so this is unique
 
 function toFlow(g) {
-  return {
+  return placeIn({
     id: g.id,
     name: g.name,
     nodes: g.nodes.map((n) => ({
@@ -41,13 +42,14 @@ function toFlow(g) {
       const out = l.out ?? NEXT
       return { id: edgeId(l.from, out), source: l.from, sourceHandle: out, target: l.to }
     }),
-  }
+  }, g.folder)
 }
 
-function toDoc(graphs) {
+function toDoc(graphs, folders) {
   return {
     format: FORMAT,
-    graphs: graphs.map((g) => ({
+    folders,
+    graphs: graphs.map((g) => placeIn({
       id: g.id,
       name: g.name,
       nodes: g.nodes.map((n) => ({
@@ -61,7 +63,7 @@ function toDoc(graphs) {
         if (e.sourceHandle && e.sourceHandle !== NEXT) link.out = e.sourceHandle
         return link
       }),
-    })),
+    }, g.folder)),
   }
 }
 
@@ -134,7 +136,12 @@ export default function App() {
   const [npcs, setNpcs] = useState([]) // [{ id, name }]
   const [placements, setPlacements] = useState({}) // { npcId: [{ dim, x, y, z }] }
   const [quests, setQuests] = useState([]) // server format: [{ id, title, icon?, text?, folder?, goals, rewards }]
-  const [folders, setFolders] = useState([]) // server format: [{ id, name, parent? }]
+  // Each document keeps its own folders, server format: [{ id, name, parent? }]
+  const [questFolders, setQuestFolders] = useState([])
+  const [npcFolders, setNpcFolders] = useState([])
+  const [graphFolders, setGraphFolders] = useState([])
+  const [graphFolderId, setGraphFolderId] = useState(null) // a folder chosen in the graph tree
+  const [graphCollapsed, setGraphCollapsed] = useState(() => new Set())
   const [tab, setTab] = useState(() => {
     try { const t = localStorage.getItem('lorebench.tab'); return isTab(t) ? t : 'graphs' } catch (e) { return 'graphs' }
   })
@@ -169,9 +176,11 @@ export default function App() {
         const loaded = (doc.graphs || []).map(toFlow)
         setGraphs(loaded)
         setCurrentId(loaded[0]?.id ?? null)
+        setGraphFolders(doc.folders || [])
+        setNpcFolders(npcDoc.folders || [])
         setNpcs(npcDoc.npcs || [])
         setQuests(questDoc.quests || [])
-        setFolders(questDoc.folders || [])
+        setQuestFolders(questDoc.folders || [])
         setStatus('ok')
         loadPlacements()
       } catch (e) {
@@ -249,14 +258,25 @@ export default function App() {
     setSelectedNodeId(null)
   }, [selectedNodeId, updateCurrent])
 
+  const graphFolder = graphFolders.find((f) => f.id === graphFolderId) || null
+  // Where "+ Folder" and "+ Graph" put the new thing: the chosen folder, or the open graph's folder.
+  const graphTarget = graphFolder?.id ?? current?.folder ?? ''
+
+  const openGraph = useCallback((id) => { setCurrentId(id); setGraphFolderId(null); setSelectedNodeId(null) }, [])
+  const chooseGraphFolder = useCallback((id) => { setGraphFolderId(id); setSelectedNodeId(null) }, [])
+
   const newGraph = useCallback(() => {
     const name = window.prompt('Graph name:')
     if (name == null || !name.trim()) return
     const id = newId('graph', graphs.map((g) => g.id))
-    setGraphs((gs) => gs.concat({ id, name: name.trim(), nodes: [], edges: [] }))
-    setCurrentId(id)
-    setSelectedNodeId(null)
-  }, [graphs])
+    setGraphs((gs) => gs.concat(placeIn({ id, name: name.trim(), nodes: [], edges: [] }, graphTarget)))
+    openGraph(id)
+  }, [graphs, graphTarget, openGraph])
+
+  const newGraphFolder = useCallback(() => {
+    const id = addFolder(graphFolders, setGraphFolders, graphTarget)
+    if (id) chooseGraphFolder(id)
+  }, [graphFolders, graphTarget, chooseGraphFolder])
 
   const deleteGraph = useCallback(() => {
     if (!current || !window.confirm(`Delete graph '${current.name}'? (takes effect on publish)`)) return
@@ -274,9 +294,9 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          graphs: toDoc(graphs),
-          npcs: { format: NPC_FORMAT, npcs },
-          quests: { format: QUEST_FORMAT, folders, quests },
+          graphs: toDoc(graphs, graphFolders),
+          npcs: { format: NPC_FORMAT, folders: npcFolders, npcs },
+          quests: { format: QUEST_FORMAT, folders: questFolders, quests },
         }),
       })
       const data = await res.json()
@@ -289,7 +309,7 @@ export default function App() {
     } finally {
       setPublishing(false)
     }
-  }, [graphs, npcs, quests, folders, loadPlacements])
+  }, [graphs, npcs, quests, graphFolders, npcFolders, questFolders, loadPlacements])
 
   const palette = useMemo(() => {
     const g = {}
@@ -299,6 +319,7 @@ export default function App() {
 
   const button = { display: 'block', width: '100%', textAlign: 'left', padding: '5px 8px', marginBottom: 3, cursor: 'pointer', border: '1px solid #ddd', borderRadius: 5, background: '#fafafa' }
   const sectionTitle = { fontWeight: 600, margin: '4px 0 6px' }
+  const toolButton = { padding: '4px 8px', cursor: 'pointer', color: '#2563eb', border: '1px solid #ddd', borderRadius: 5, background: '#fafafa' }
 
   return (
     <SchemaContext.Provider value={byType}>
@@ -344,38 +365,45 @@ export default function App() {
         )}
 
         <QuestTab
-          quests={quests} setQuests={setQuests} folders={folders} setFolders={setFolders}
+          quests={quests} setQuests={setQuests} folders={questFolders} setFolders={setQuestFolders}
           status={status} setMessage={setMessage} hidden={tab !== 'quests'}
         />
-        <NpcTab npcs={npcs} setNpcs={setNpcs} placements={placements} status={status} hidden={tab !== 'npcs'} />
+        <NpcTab
+          npcs={npcs} setNpcs={setNpcs} folders={npcFolders} setFolders={setNpcFolders}
+          placements={placements} status={status} hidden={tab !== 'npcs'}
+        />
 
         {tab === 'graphs' && <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-          <aside style={{ width: 200, borderRight: '1px solid #ddd', overflowY: 'auto', padding: 10, fontSize: 12 }}>
-            <div style={sectionTitle}>Graphs</div>
-            {graphs.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => { setCurrentId(g.id); setSelectedNodeId(null) }}
-                style={{ ...button, background: g.id === currentId ? '#e0e7ff' : '#fafafa' }}
-              >
-                {g.name} <span style={{ color: '#888', fontSize: 10 }}>{g.id}</span>
-              </button>
-            ))}
-            <button onClick={newGraph} disabled={status !== 'ok'} style={{ ...button, color: '#2563eb' }}>+ New graph</button>
-
-            {current && (
-              <>
-                <div style={{ ...sectionTitle, marginTop: 14 }}>Nodes</div>
-                {Object.entries(palette).map(([cat, defs]) => (
-                  <div key={cat} style={{ marginBottom: 10 }}>
-                    <div style={{ textTransform: 'uppercase', fontSize: 10, color: catColor(cat), fontWeight: 700, marginBottom: 4 }}>{cat}</div>
-                    {defs.map((d) => (
-                      <button key={d.type} onClick={() => addNode(d)} style={button}>+ {d.label}</button>
-                    ))}
-                  </div>
-                ))}
-              </>
-            )}
+          <aside style={{ width: 240, borderRight: '1px solid #ddd', display: 'flex', flexDirection: 'column', fontSize: 12 }}>
+            <div style={{ display: 'flex', gap: 6, padding: 10, borderBottom: '1px solid #eee' }}>
+              <button onClick={newGraphFolder} disabled={status !== 'ok'} style={toolButton}>+ Folder</button>
+              <button onClick={newGraph} disabled={status !== 'ok'} style={toolButton}>+ Graph</button>
+            </div>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 6 }}>
+              {graphFolders.length === 0 && graphs.length === 0
+                ? <div style={{ color: '#888', fontSize: 11, padding: 6 }}>No graphs yet. Create one with "+ Graph".</div>
+                : (
+                  <FolderTree
+                    folders={graphFolders}
+                    selected={graphFolderId ? { kind: 'folder', id: graphFolderId } : { kind: 'item', id: currentId }}
+                    onSelect={(sel) => (sel.kind === 'folder' ? chooseGraphFolder(sel.id) : openGraph(sel.id))}
+                    collapsed={graphCollapsed} setCollapsed={setGraphCollapsed}
+                    items={graphs.map((g) => ({ id: g.id, label: g.name, folder: g.folder }))}
+                  />
+                )}
+            </div>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 10, borderTop: '1px solid #ddd' }}>
+              <div style={sectionTitle}>Nodes</div>
+              {!current && <div style={{ color: '#888', fontSize: 11 }}>Open a graph to add nodes.</div>}
+              {current && Object.entries(palette).map(([cat, defs]) => (
+                <div key={cat} style={{ marginBottom: 10 }}>
+                  <div style={{ textTransform: 'uppercase', fontSize: 10, color: catColor(cat), fontWeight: 700, marginBottom: 4 }}>{cat}</div>
+                  {defs.map((d) => (
+                    <button key={d.type} onClick={() => addNode(d)} style={button}>+ {d.label}</button>
+                  ))}
+                </div>
+              ))}
+            </div>
           </aside>
 
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -398,7 +426,7 @@ export default function App() {
                 <MiniMap />
               </ReactFlow>
             ) : (
-              <div style={{ padding: 24, color: '#888' }}>No graph yet. Create one with "+ New graph".</div>
+              <div style={{ padding: 24, color: '#888' }}>No graph open. Choose one on the left, or create one with "+ Graph".</div>
             )}
           </div>
 
@@ -439,6 +467,11 @@ export default function App() {
                 ))}
                 <button onClick={deleteNode} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete node</button>
               </>
+            ) : graphFolder ? (
+              <FolderPanel
+                folder={graphFolder} folders={graphFolders} setFolders={setGraphFolders} items={graphs} setItems={setGraphs}
+                onDeleted={(up) => setGraphFolderId(up || null)}
+              />
             ) : current ? (
               <>
                 <div style={{ fontWeight: 600, marginBottom: 8 }}>Graph</div>
@@ -451,6 +484,10 @@ export default function App() {
                   />
                 </label>
                 <div style={{ color: '#888', marginBottom: 12 }}>id: {current.id} (fixed)</div>
+                <label style={{ display: 'block', marginBottom: 12 }}>
+                  <div style={{ marginBottom: 3 }}>Folder</div>
+                  <FolderSelect folders={graphFolders} value={current.folder} onChange={(v) => updateCurrent((g) => placeIn(g, v))} />
+                </label>
                 <button onClick={deleteGraph} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete graph</button>
               </>
             ) : null}
