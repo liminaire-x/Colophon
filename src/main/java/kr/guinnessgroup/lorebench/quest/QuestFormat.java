@@ -17,17 +17,22 @@ import kr.guinnessgroup.lorebench.Ids;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
  * Reads and writes the quest document (format 1):
- * <pre>{ "format": 1, "quests": [ {
- *   "id": "quest_k3f9x2ma", "title": "밀 배달", "icon": "minecraft:wheat", "text": "...",
+ * <pre>{ "format": 1,
+ *   "folders": [ { "id": "folder_2kq8d1xz", "name": "마을" }, { "id": "folder_9fm3a0pe", "name": "촌장", "parent": "folder_2kq8d1xz" } ],
+ *   "quests": [ {
+ *   "id": "quest_k3f9x2ma", "title": "밀 배달", "icon": "minecraft:wheat", "text": "...", "folder": "folder_9fm3a0pe",
  *   "goals":   [ { "item": "minecraft:wheat",   "count": 10 }, { "kill": "minecraft:wolf", "count": 3 } ],
  *   "rewards": [ { "item": "minecraft:emerald", "count": 5 } ] } ] }</pre>
- * {@code icon} and {@code text} are optional. This checks only the shape; whether
+ * {@code folders}, a folder's {@code parent}, and a quest's {@code icon}, {@code text} and
+ * {@code folder} are optional (no parent or folder = the top). This checks only the shape; whether
  * the items and entities exist is checked on publish, where the game's lists are available.
  */
 public final class QuestFormat {
@@ -75,6 +80,9 @@ public final class QuestFormat {
         }
 
         List<String> errors = new ArrayList<>();
+        List<QuestDoc.Folder> folders = folders(root.get("folders"), errors);
+        Set<String> folderIds = new HashSet<>();
+        folders.forEach(f -> folderIds.add(f.id()));
         List<QuestDoc.Quest> quests = new ArrayList<>();
         Set<String> ids = new HashSet<>();
         for (JsonElement el : (JsonArray) arr) {
@@ -102,16 +110,69 @@ public final class QuestFormat {
                 errors.add(where + ": icon '" + icon + "' is not an item id like minecraft:wheat");
             }
             String text = string(o, "text");
+            String folder = optional(o, "folder");
+            if (!folder.isEmpty() && !folderIds.contains(folder)) {
+                errors.add(where + ": folder '" + folder + "' does not exist");
+            }
             List<QuestDoc.Goal> goals = goals(o, where, errors);
             List<QuestDoc.Stack> rewards = stacks(o, "rewards", ITEM_WITH_COMPONENTS, where, errors);
             if (errors.size() == before) {
-                quests.add(new QuestDoc.Quest(id, title.trim(), icon, text == null ? "" : text, goals, rewards));
+                quests.add(new QuestDoc.Quest(id, title.trim(), icon, text == null ? "" : text, goals, rewards, folder));
             }
         }
         if (!errors.isEmpty()) {
             throw new DocumentException(errors);
         }
-        return new QuestDoc(List.copyOf(quests));
+        return new QuestDoc(folders, List.copyOf(quests));
+    }
+
+    /**
+     * Folders (optional list): ids are unique, each parent is another folder, and
+     * following parents always ends at the top (no folder sits inside itself).
+     */
+    private static List<QuestDoc.Folder> folders(JsonElement e, List<String> errors) {
+        if (e == null) {
+            return List.of();
+        }
+        if (!e.isJsonArray()) {
+            errors.add("quest document: 'folders' is not a list");
+            return List.of();
+        }
+        Map<String, QuestDoc.Folder> byId = new LinkedHashMap<>();
+        for (JsonElement el : e.getAsJsonArray()) {
+            if (!el.isJsonObject()) {
+                errors.add("a folder is not an object");
+                continue;
+            }
+            JsonObject o = el.getAsJsonObject();
+            String id = string(o, "id");
+            if (!Ids.valid(Ids.FOLDER, id)) {
+                errors.add("folder id " + (id == null ? "is missing" : "'" + id + "' " + Ids.rule(Ids.FOLDER)));
+                continue;
+            }
+            String name = string(o, "name");
+            if (name == null || name.isBlank()) {
+                errors.add("folder '" + id + "': missing 'name'");
+                continue;
+            }
+            if (byId.putIfAbsent(id, new QuestDoc.Folder(id, name.trim(), optional(o, "parent"))) != null) {
+                errors.add("duplicate folder id '" + id + "'");
+            }
+        }
+        for (QuestDoc.Folder f : byId.values()) {
+            if (!f.parent().isEmpty() && !byId.containsKey(f.parent())) {
+                errors.add("folder '" + f.id() + "': parent '" + f.parent() + "' does not exist");
+                continue;
+            }
+            Set<String> seen = new HashSet<>();
+            for (String at = f.id(); !at.isEmpty() && byId.containsKey(at); at = byId.get(at).parent()) {
+                if (!seen.add(at)) {
+                    errors.add("folder '" + f.id() + "' ends up inside itself");
+                    break;
+                }
+            }
+        }
+        return List.copyOf(byId.values());
     }
 
     /**
@@ -210,6 +271,9 @@ public final class QuestFormat {
             if (!q.text().isEmpty()) {
                 o.addProperty("text", q.text());
             }
+            if (!q.folder().isEmpty()) {
+                o.addProperty("folder", q.folder());
+            }
             JsonArray goals = new JsonArray();
             for (QuestDoc.Goal g : q.goals()) {
                 JsonObject go = new JsonObject();
@@ -223,6 +287,19 @@ public final class QuestFormat {
         }
         JsonObject root = new JsonObject();
         root.addProperty("format", VERSION);
+        if (!doc.folders().isEmpty()) {
+            JsonArray folders = new JsonArray();
+            for (QuestDoc.Folder f : doc.folders()) {
+                JsonObject o = new JsonObject();
+                o.addProperty("id", f.id());
+                o.addProperty("name", f.name());
+                if (!f.parent().isEmpty()) {
+                    o.addProperty("parent", f.parent());
+                }
+                folders.add(o);
+            }
+            root.add("folders", folders);
+        }
         root.add("quests", arr);
         return GSON.toJson(root);
     }

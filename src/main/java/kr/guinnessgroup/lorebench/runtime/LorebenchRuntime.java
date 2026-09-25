@@ -58,7 +58,7 @@ public final class LorebenchRuntime {
     private record Start(Graph graph, String nodeId) {}
 
     private static final Active EMPTY = new Active(new GraphDoc(List.of()), new NpcDoc(List.of()),
-            new QuestDoc(List.of()), Map.of());
+            QuestDoc.EMPTY, Map.of());
 
     private volatile Active active = EMPTY;
 
@@ -114,7 +114,7 @@ public final class LorebenchRuntime {
                     : new NpcDoc(List.of());
             QuestDoc questDoc = Files.exists(questsFile)
                     ? QuestFormat.read(Files.readString(questsFile, StandardCharsets.UTF_8))
-                    : new QuestDoc(List.of());
+                    : QuestDoc.EMPTY;
             GraphDoc graphDoc = Files.exists(graphsFile)
                     ? GraphFormat.read(Files.readString(graphsFile, StandardCharsets.UTF_8))
                     : new GraphDoc(List.of());

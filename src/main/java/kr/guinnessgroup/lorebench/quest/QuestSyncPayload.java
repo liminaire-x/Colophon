@@ -73,8 +73,9 @@ public record QuestSyncPayload(List<Entry> quests) implements CustomPacketPayloa
         int n = buf.readVarInt();
         List<Entry> quests = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
+            // Folders are for the editor only, so they aren't sent.
             QuestDoc.Quest q = new QuestDoc.Quest(buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
-                    readGoals(buf), readStacks(buf));
+                    readGoals(buf), readStacks(buf), "");
             boolean done = buf.readBoolean();
             int k = buf.readVarInt();
             Map<String, Integer> kills = new HashMap<>();

@@ -11,8 +11,12 @@ import java.util.List;
  * The saved quest document ({@code quests.json}): every quest, authored in the
  * editor. Who has which quest is a record, not part of this document.
  * See docs/decisions/0005-quests.md.
+ *
+ * @param folders how the editor groups quests; the game doesn't use them (0008)
  */
-public record QuestDoc(List<Quest> quests) {
+public record QuestDoc(List<Folder> folders, List<Quest> quests) {
+
+    public static final QuestDoc EMPTY = new QuestDoc(List.of(), List.of());
 
     /**
      * @param id      stable; graphs and players' records refer to it
@@ -21,8 +25,17 @@ public record QuestDoc(List<Quest> quests) {
      * @param text    the quest's story text, may be ""
      * @param goals   all must be met, shown in this order
      * @param rewards items given on completion
+     * @param folder  the folder id it sits in, or "" for the top
      */
-    public record Quest(String id, String title, String icon, String text, List<Goal> goals, List<Stack> rewards) {}
+    public record Quest(String id, String title, String icon, String text, List<Goal> goals, List<Stack> rewards,
+                        String folder) {}
+
+    /**
+     * A folder in the editor's quest tree.
+     *
+     * @param parent the folder id it sits in, or "" for the top
+     */
+    public record Folder(String id, String name, String parent) {}
 
     /**
      * Some number of one item, e.g. {@code minecraft:emerald} × 5. A reward item may be

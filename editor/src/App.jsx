@@ -10,22 +10,14 @@ import {
   applyEdgeChanges,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { newId } from './ids.js'
+import QuestTab from './QuestTab.jsx'
 
 // Must match the server (GraphFormat.java, NpcFormat.java, QuestFormat.java).
 const FORMAT = 1
 const NPC_FORMAT = 1
 const QUEST_FORMAT = 1
 const NEXT = 'next'
-
-// Ids are made up here, never typed or edited: <kind>_<8 random a-z0-9> (Ids.java).
-const ID_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789'
-function newId(kind, taken) {
-  for (;;) {
-    const bytes = crypto.getRandomValues(new Uint8Array(8))
-    const id = `${kind}_${Array.from(bytes, (b) => ID_CHARS[b % ID_CHARS.length]).join('')}`
-    if (!taken.includes(id)) return id
-  }
-}
 
 const CATEGORY_COLORS = { trigger: '#2a7d4f', condition: '#7c3aed', action: '#2563eb' }
 const catColor = (c) => CATEGORY_COLORS[c] || '#555'
@@ -123,78 +115,13 @@ function LorebenchNode({ data, selected }) {
 
 const nodeTypes = { lorebench: LorebenchNode }
 
-// Header tabs. Only the graph screen exists; the others get their own screen once designed.
+// Header tabs. A tab that isn't ready is shown disabled until its screen is designed.
 const TABS = [
   { id: 'graphs', label: 'Graphs', ready: true },
-  { id: 'quests', label: 'Quests', ready: false },
+  { id: 'quests', label: 'Quests', ready: true },
   { id: 'npcs', label: 'NPCs', ready: false },
 ]
-const CURRENT_TAB = 'graphs'
-
-const input = { width: '100%', padding: '4px 6px', boxSizing: 'border-box' }
-
-// A quest's goals or rewards: rows of target + count. Goals pick hand in / kill.
-// Rewards (`wide`) take a whole /give line such as minecraft:iron_sword[custom_name=...],
-// so the item gets its own line.
-function StackList({ stacks, onChange, fetchHeld, wide = false, goals = false }) {
-  const set = (i, key, value) => onChange(stacks.map((s, j) => (j === i ? { ...s, [key]: value } : s)))
-  return (
-    <div style={{ marginBottom: 10 }}>
-      {stacks.map((s, i) => {
-        const count = (
-          <input
-            type="number" min={1} value={s.count}
-            onChange={(e) => set(i, 'count', e.target.value === '' ? '' : Number(e.target.value))}
-            style={{ ...input, width: 52 }}
-          />
-        )
-        const remove = <button onClick={() => onChange(stacks.filter((_, j) => j !== i))} style={{ cursor: 'pointer' }}>×</button>
-        // Fill this row's item with what the chosen player holds in game.
-        const held = (key) => (
-          <button
-            title="Use the item the chosen player is holding"
-            onClick={async () => { const spec = await fetchHeld(); if (spec) set(i, key, spec) }}
-            style={{ cursor: 'pointer' }}
-          >✋</button>
-        )
-        if (goals) {
-          // A goal is { item, count } (hand in) or { kill, count } (kill while active).
-          const kind = s.kill !== undefined ? 'kill' : 'item'
-          const setKind = (k) => onChange(stacks.map((x, j) => (j === i ? { [k]: x[kind], count: x.count } : x)))
-          return (
-            <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 3 }}>
-              <select value={kind} onChange={(e) => setKind(e.target.value)} style={{ padding: '4px 2px' }}>
-                <option value="item">hand in</option>
-                <option value="kill">kill</option>
-              </select>
-              <input
-                value={s[kind]} placeholder={kind === 'kill' ? 'minecraft:wolf' : 'minecraft:wheat'}
-                onChange={(e) => set(i, kind, e.target.value)} style={{ ...input, flex: 1 }}
-              />
-              {kind === 'item' && held('item')}{count}{remove}
-            </div>
-          )
-        }
-        return wide ? (
-          <div key={i} style={{ marginBottom: 6 }}>
-            <textarea
-              value={s.item} rows={2} placeholder="minecraft:iron_sword[custom_name='&quot;...&quot;']"
-              onChange={(e) => set(i, 'item', e.target.value)}
-              style={{ ...input, resize: 'vertical', fontFamily: 'monospace', fontSize: 11 }}
-            />
-            <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>{held('item')}{count}{remove}</div>
-          </div>
-        ) : (
-          <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 3 }}>
-            <input value={s.item} placeholder="minecraft:wheat" onChange={(e) => set(i, 'item', e.target.value)} style={{ ...input, flex: 1 }} />
-            {count}{remove}
-          </div>
-        )
-      })}
-      <button onClick={() => onChange(stacks.concat({ item: '', count: 1 }))} style={{ cursor: 'pointer', color: '#2563eb' }}>+ add</button>
-    </div>
-  )
-}
+const readyTab = (id) => TABS.some((t) => t.id === id && t.ready)
 
 // --- app ---
 
@@ -206,11 +133,10 @@ export default function App() {
   const [npcs, setNpcs] = useState([]) // [{ id, name }]
   const [placements, setPlacements] = useState({}) // { npcId: [{ dim, x, y, z }] }
   const [selectedNpcId, setSelectedNpcId] = useState(null)
-  const [quests, setQuests] = useState([]) // server format: [{ id, title, icon?, text?, goals, rewards }]
-  const [selectedQuestId, setSelectedQuestId] = useState(null)
-  const [players, setPlayers] = useState([]) // online, for "use held item"
-  const [heldPlayer, setHeldPlayer] = useState(() => {
-    try { return localStorage.getItem('lorebench.heldPlayer') || '' } catch (e) { return '' }
+  const [quests, setQuests] = useState([]) // server format: [{ id, title, icon?, text?, folder?, goals, rewards }]
+  const [folders, setFolders] = useState([]) // server format: [{ id, name, parent? }]
+  const [tab, setTab] = useState(() => {
+    try { const t = localStorage.getItem('lorebench.tab'); return readyTab(t) ? t : 'graphs' } catch (e) { return 'graphs' }
   })
   const [status, setStatus] = useState('connecting...')
   const [message, setMessage] = useState(null) // { ok, text }
@@ -219,7 +145,11 @@ export default function App() {
   const byType = useMemo(() => Object.fromEntries(schema.map((d) => [d.type, d])), [schema])
   const current = graphs.find((g) => g.id === currentId) || null
   const selectedNpc = npcs.find((n) => n.id === selectedNpcId) || null
-  const selectedQuest = quests.find((q) => q.id === selectedQuestId) || null
+
+  const pickTab = useCallback((id) => {
+    setTab(id)
+    try { localStorage.setItem('lorebench.tab', id) } catch (e) { /* not remembered */ }
+  }, [])
 
   const loadPlacements = useCallback(async () => {
     try {
@@ -242,6 +172,7 @@ export default function App() {
         setCurrentId(loaded[0]?.id ?? null)
         setNpcs(npcDoc.npcs || [])
         setQuests(questDoc.quests || [])
+        setFolders(questDoc.folders || [])
         setStatus('ok')
         loadPlacements()
       } catch (e) {
@@ -252,10 +183,9 @@ export default function App() {
     return () => { cancelled = true }
   }, [loadPlacements])
 
-  // One thing is shown on the right at a time: a node, an NPC or a quest.
-  const selectNode = useCallback((id) => { setSelectedNodeId(id); setSelectedNpcId(null); setSelectedQuestId(null) }, [])
-  const selectNpc = useCallback((id) => { setSelectedNpcId(id); setSelectedNodeId(null); setSelectedQuestId(null) }, [])
-  const selectQuest = useCallback((id) => { setSelectedQuestId(id); setSelectedNodeId(null); setSelectedNpcId(null) }, [])
+  // One thing is shown on the right of the graph tab at a time: a node or an NPC.
+  const selectNode = useCallback((id) => { setSelectedNodeId(id); setSelectedNpcId(null) }, [])
+  const selectNpc = useCallback((id) => { setSelectedNpcId(id); setSelectedNodeId(null) }, [])
 
   const updateCurrent = useCallback(
     (fn) => setGraphs((gs) => gs.map((g) => (g.id === currentId ? fn(g) : g))),
@@ -367,56 +297,6 @@ export default function App() {
     setSelectedNpcId(null)
   }, [selectedNpc, placements])
 
-  const loadPlayers = useCallback(async () => {
-    try {
-      setPlayers((await fetch('/api/players').then((r) => r.json())).players || [])
-    } catch (e) { /* shown as offline elsewhere */ }
-  }, [])
-  useEffect(() => { if (selectedQuestId) loadPlayers() }, [selectedQuestId, loadPlayers])
-
-  const pickHeldPlayer = useCallback((name) => {
-    setHeldPlayer(name)
-    try { localStorage.setItem('lorebench.heldPlayer', name) } catch (e) { /* not remembered */ }
-  }, [])
-
-  // What the chosen player holds, as /give writes it; null (with a message) if none.
-  const fetchHeld = useCallback(async () => {
-    if (!heldPlayer) { setMessage({ ok: false, text: 'Choose whose held item to use (above Needs).' }); return null }
-    try {
-      const r = await fetch('/api/held-item?player=' + encodeURIComponent(heldPlayer)).then((res) => res.json())
-      if (r.error) { setMessage({ ok: false, text: r.error }); return null }
-      return r.item
-    } catch (e) {
-      setMessage({ ok: false, text: 'Reading the held item failed: ' + e })
-      return null
-    }
-  }, [heldPlayer])
-
-  const newQuest = useCallback(() => {
-    const title = window.prompt('Quest title:')
-    if (title == null || !title.trim()) return
-    const id = newId('quest', quests.map((q) => q.id))
-    setQuests((qs) => qs.concat({ id, title: title.trim(), goals: [], rewards: [] }))
-    selectQuest(id)
-  }, [quests, selectQuest])
-
-  // Edit one field of the selected quest; an emptied optional text field is dropped.
-  const setQuestField = useCallback((key, value) => {
-    setQuests((qs) => qs.map((q) => {
-      if (q.id !== selectedQuestId) return q
-      const next = { ...q, [key]: value }
-      if ((key === 'icon' || key === 'text') && value.trim() === '') delete next[key]
-      return next
-    }))
-  }, [selectedQuestId])
-
-  const deleteQuest = useCallback(() => {
-    if (!selectedQuest) return
-    if (!window.confirm(`Delete quest '${selectedQuest.title}'? Players keep their progress records.`)) return
-    setQuests((qs) => qs.filter((q) => q.id !== selectedQuest.id))
-    setSelectedQuestId(null)
-  }, [selectedQuest])
-
   const publish = useCallback(async () => {
     setPublishing(true)
     setMessage(null)
@@ -427,7 +307,7 @@ export default function App() {
         body: JSON.stringify({
           graphs: toDoc(graphs),
           npcs: { format: NPC_FORMAT, npcs },
-          quests: { format: QUEST_FORMAT, quests },
+          quests: { format: QUEST_FORMAT, folders, quests },
         }),
       })
       const data = await res.json()
@@ -440,7 +320,7 @@ export default function App() {
     } finally {
       setPublishing(false)
     }
-  }, [graphs, npcs, quests, loadPlacements])
+  }, [graphs, npcs, quests, folders, loadPlacements])
 
   const palette = useMemo(() => {
     const g = {}
@@ -458,13 +338,14 @@ export default function App() {
           <strong style={{ fontSize: 18 }}>Lorebench</strong>
           <nav role="tablist" style={{ display: 'flex', gap: 2, alignSelf: 'stretch', margin: '-10px 0' }}>
             {TABS.map((t) => {
-              const active = t.id === CURRENT_TAB
+              const active = t.id === tab
               return (
                 <button
                   key={t.id}
                   role="tab"
                   aria-selected={active}
                   disabled={!t.ready}
+                  onClick={() => pickTab(t.id)}
                   title={t.ready ? undefined : 'Not designed yet'}
                   style={{
                     padding: '0 14px', border: 'none', background: 'none', fontSize: 13,
@@ -495,7 +376,12 @@ export default function App() {
           </div>
         )}
 
-        <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        <QuestTab
+          quests={quests} setQuests={setQuests} folders={folders} setFolders={setFolders}
+          status={status} setMessage={setMessage} hidden={tab !== 'quests'}
+        />
+
+        {tab === 'graphs' && <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
           <aside style={{ width: 200, borderRight: '1px solid #ddd', overflowY: 'auto', padding: 10, fontSize: 12 }}>
             <div style={sectionTitle}>Graphs</div>
             {graphs.map((g) => (
@@ -520,18 +406,6 @@ export default function App() {
               </button>
             ))}
             <button onClick={newNpc} disabled={status !== 'ok'} style={{ ...button, color: '#2563eb' }}>+ New NPC</button>
-
-            <div style={{ ...sectionTitle, marginTop: 14 }}>Quests</div>
-            {quests.map((q) => (
-              <button
-                key={q.id}
-                onClick={() => selectQuest(q.id)}
-                style={{ ...button, background: q.id === selectedQuestId ? '#e0e7ff' : '#fafafa' }}
-              >
-                {q.title} <span style={{ color: '#888', fontSize: 10 }}>{q.id}</span>
-              </button>
-            ))}
-            <button onClick={newQuest} disabled={status !== 'ok'} style={{ ...button, color: '#2563eb' }}>+ New quest</button>
 
             {current && (
               <>
@@ -593,7 +467,7 @@ export default function App() {
                       <select
                         value={selectedNode.data.config?.[f.id] ?? ''}
                         onChange={(e) => setConfig(f.id, e.target.value)}
-                        style={input}
+                        style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
                       >
                         <option value="">(choose a quest)</option>
                         {quests.map((q) => <option key={q.id} value={q.id}>{q.title} ({q.id})</option>)}
@@ -653,51 +527,6 @@ export default function App() {
                 )}
                 <button onClick={deleteNpc} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete NPC</button>
               </>
-            ) : selectedQuest ? (
-              <>
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>Quest</div>
-                <label style={{ display: 'block', marginBottom: 10 }}>
-                  <div style={{ marginBottom: 3 }}>Title</div>
-                  <input value={selectedQuest.title} onChange={(e) => setQuestField('title', e.target.value)} style={input} />
-                </label>
-                <div style={{ color: '#888', marginBottom: 12 }}>id: {selectedQuest.id} (fixed)</div>
-                <label style={{ display: 'block', marginBottom: 10 }}>
-                  <div style={{ marginBottom: 3 }}>Icon <span style={{ color: '#888', fontSize: 10 }}>(item id; empty = first need)</span></div>
-                  <input
-                    value={selectedQuest.icon ?? ''}
-                    placeholder="e.g. minecraft:wheat"
-                    onChange={(e) => setQuestField('icon', e.target.value)}
-                    style={input}
-                  />
-                </label>
-                <label style={{ display: 'block', marginBottom: 10 }}>
-                  <div style={{ marginBottom: 3 }}>Text</div>
-                  <textarea
-                    value={selectedQuest.text ?? ''}
-                    rows={4}
-                    onChange={(e) => setQuestField('text', e.target.value)}
-                    style={{ ...input, resize: 'vertical', fontFamily: 'inherit' }}
-                  />
-                </label>
-                <label style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 4 }}>
-                  <span>✋ held item of</span>
-                  <select value={heldPlayer} onChange={(e) => pickHeldPlayer(e.target.value)} style={{ flex: 1, padding: '3px 2px' }}>
-                    <option value="">(player)</option>
-                    {(players.includes(heldPlayer) || !heldPlayer ? players : [heldPlayer, ...players]).map((p) => (
-                      <option key={p} value={p}>{p}{players.includes(p) ? '' : ' (offline)'}</option>
-                    ))}
-                  </select>
-                  <button onClick={loadPlayers} title="Refresh online players" style={{ cursor: 'pointer' }}>↻</button>
-                </label>
-                <div style={{ color: '#888', fontSize: 10, marginBottom: 8 }}>
-                  In a need, only the listed parts must match. Delete damage=… to accept any wear.
-                </div>
-                <div style={{ marginBottom: 3 }}>Needs <span style={{ color: '#888', fontSize: 10 }}>(all of them, in this order)</span></div>
-                <StackList goals fetchHeld={fetchHeld} stacks={selectedQuest.goals} onChange={(v) => setQuestField('goals', v)} />
-                <div style={{ marginBottom: 3 }}>Rewards <span style={{ color: '#888', fontSize: 10 }}>(item as /give writes it; [components] allowed)</span></div>
-                <StackList wide fetchHeld={fetchHeld} stacks={selectedQuest.rewards} onChange={(v) => setQuestField('rewards', v)} />
-                <button onClick={deleteQuest} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete quest</button>
-              </>
             ) : current ? (
               <>
                 <div style={{ fontWeight: 600, marginBottom: 8 }}>Graph</div>
@@ -714,7 +543,7 @@ export default function App() {
               </>
             ) : null}
           </aside>
-        </div>
+        </div>}
       </div>
     </SchemaContext.Provider>
   )

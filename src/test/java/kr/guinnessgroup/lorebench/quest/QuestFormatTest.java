@@ -32,8 +32,47 @@ class QuestFormatTest {
         QuestDoc.Quest q = doc.find("quest_k3f9x2ma");
         assertEquals(new QuestDoc.Quest("quest_k3f9x2ma", "밀 배달", "minecraft:wheat", "촌장에게 밀 10개를 가져다주자.\n빨리!",
                 List.of(QuestDoc.Goal.item("minecraft:wheat", 10)),
-                List.of(new QuestDoc.Stack("minecraft:emerald", 5))), q);
+                List.of(new QuestDoc.Stack("minecraft:emerald", 5)), ""), q);
         assertNull(doc.find("quest_other"));
+        assertEquals(List.of(), doc.folders());
+        String written = QuestFormat.write(doc);
+        assertTrue(!written.contains("\"folders\"") && !written.contains("\"folder\""), written);
+    }
+
+    @Test
+    void foldersNestAndHoldQuests() {
+        QuestDoc doc = QuestFormat.read("""
+                { "format": 1,
+                  "folders": [ { "id": "folder_town", "name": "마을" },
+                               { "id": "folder_chief", "name": " 촌장 ", "parent": "folder_town" },
+                               { "id": "folder_empty", "name": "빈 폴더" } ],
+                  "quests": [ { "id": "quest_a", "title": "A", "folder": "folder_chief", "goals": [], "rewards": [] },
+                              { "id": "quest_b", "title": "B", "goals": [], "rewards": [] } ] }
+                """);
+        assertEquals(List.of(new QuestDoc.Folder("folder_town", "마을", ""),
+                new QuestDoc.Folder("folder_chief", "촌장", "folder_town"),
+                new QuestDoc.Folder("folder_empty", "빈 폴더", "")), doc.folders());
+        assertEquals("folder_chief", doc.find("quest_a").folder());
+        assertEquals("", doc.find("quest_b").folder());
+        assertEquals(doc, QuestFormat.read(QuestFormat.write(doc)));
+    }
+
+    @Test
+    void foldersMustFormATree() {
+        for (String folders : new String[] {
+                "{ \"id\": \"town\", \"name\": \"a\" }",                                                   // not a folder id
+                "{ \"id\": \"folder_a\", \"name\": \" \" }",                                               // no name
+                "{ \"id\": \"folder_a\", \"name\": \"a\" }, { \"id\": \"folder_a\", \"name\": \"b\" }",    // duplicate
+                "{ \"id\": \"folder_a\", \"name\": \"a\", \"parent\": \"folder_x\" }",                     // unknown parent
+                "{ \"id\": \"folder_a\", \"name\": \"a\", \"parent\": \"folder_a\" }",                     // inside itself
+                "{ \"id\": \"folder_a\", \"name\": \"a\", \"parent\": \"folder_b\" }, "
+                        + "{ \"id\": \"folder_b\", \"name\": \"b\", \"parent\": \"folder_a\" }"}) {        // loop
+            assertThrows(DocumentException.class, () -> QuestFormat.read(
+                    "{\"format\":1,\"folders\":[" + folders + "],\"quests\":[]}"), folders);
+        }
+        assertThrows(DocumentException.class, () -> QuestFormat.read("""
+                { "format": 1, "quests": [ { "id": "quest_a", "title": "A", "folder": "folder_x", "goals": [], "rewards": [] } ] }
+                """));
     }
 
     @Test
