@@ -8,6 +8,7 @@ package kr.guinnessgroup.lorebench.npc;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import kr.guinnessgroup.lorebench.nodes.OnNpcInteract;
+import kr.guinnessgroup.lorebench.quest.Dialogues;
 import kr.guinnessgroup.lorebench.record.Owner;
 import kr.guinnessgroup.lorebench.record.RecordStore;
 import kr.guinnessgroup.lorebench.runtime.LorebenchRuntime;
@@ -101,11 +102,23 @@ public final class Npcs {
         return n;
     }
 
-    /** A player right-clicked one of this NPC's placements. */
+    /**
+     * A player right-clicked one of this NPC's placements: graphs that start there run,
+     * and its dialogue opens if it has anything to say (0009).
+     */
     public void interact(NpcEntity npc, ServerPlayer player) {
         runtime.fire(OnNpcInteract.ID, player.getServer(), player, Map.of(
                 OnNpcInteract.EVENT_NPC, npc.npcId(),
                 OnNpcInteract.EVENT_NPC_ENTITY, npc.getUUID().toString()));
+        Dialogues dialogues = Dialogues.current();
+        if (dialogues != null) {
+            dialogues.open(player, npc);
+        }
+    }
+
+    /** A placement's entity, if it is loaded in any dimension. */
+    public NpcEntity loaded(MinecraftServer server, UUID entity) {
+        return find(server, entity);
     }
 
     /**

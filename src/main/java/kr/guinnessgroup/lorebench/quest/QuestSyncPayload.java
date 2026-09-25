@@ -25,7 +25,6 @@ import java.util.Map;
  */
 public record QuestSyncPayload(List<Entry> quests) implements CustomPacketPayload {
 
-    /** A revealed quest and whether the player has completed it. */
     /** A revealed quest, whether the player has completed it, and their kill counts so far. */
     public record Entry(QuestDoc.Quest quest, boolean done, Map<String, Integer> kills) {}
 
@@ -48,24 +47,9 @@ public record QuestSyncPayload(List<Entry> quests) implements CustomPacketPayloa
     private void write(FriendlyByteBuf buf) {
         buf.writeVarInt(quests.size());
         for (Entry e : quests) {
-            QuestDoc.Quest q = e.quest();
-            buf.writeUtf(q.id());
-            buf.writeUtf(q.title());
-            buf.writeUtf(q.icon());
-            buf.writeUtf(q.text());
-            buf.writeVarInt(q.goals().size());
-            for (QuestDoc.Goal g : q.goals()) {
-                buf.writeEnum(g.kind());
-                buf.writeUtf(g.target());
-                buf.writeVarInt(g.count());
-            }
-            writeStacks(buf, q.rewards());
+            writeQuest(buf, e.quest());
             buf.writeBoolean(e.done());
-            buf.writeVarInt(e.kills().size());
-            e.kills().forEach((entity, n) -> {
-                buf.writeUtf(entity);
-                buf.writeVarInt(n);
-            });
+            writeKills(buf, e.kills());
         }
     }
 
@@ -73,19 +57,52 @@ public record QuestSyncPayload(List<Entry> quests) implements CustomPacketPayloa
         int n = buf.readVarInt();
         List<Entry> quests = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
-            // Folders are for the editor only, and the quest screen doesn't show givers or
-            // lines (dialogue has its own messages), so they aren't sent.
-            QuestDoc.Quest q = new QuestDoc.Quest(buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
-                    readGoals(buf), readStacks(buf), "", QuestDoc.Flow.NONE);
+            QuestDoc.Quest q = readQuest(buf);
             boolean done = buf.readBoolean();
-            int k = buf.readVarInt();
-            Map<String, Integer> kills = new HashMap<>();
-            for (int j = 0; j < k; j++) {
-                kills.put(buf.readUtf(), buf.readVarInt());
-            }
-            quests.add(new Entry(q, done, Map.copyOf(kills)));
+            quests.add(new Entry(q, done, readKills(buf)));
         }
         return new QuestSyncPayload(List.copyOf(quests));
+    }
+
+    /**
+     * What a player's screen shows of a quest: id, title, icon, story, goals and rewards.
+     * Folders are for the editor only and givers and lines stay on the server (dialogue
+     * sends the lines it needs), so they aren't sent. Shared with {@link DialoguePayload}.
+     */
+    static void writeQuest(FriendlyByteBuf buf, QuestDoc.Quest q) {
+        buf.writeUtf(q.id());
+        buf.writeUtf(q.title());
+        buf.writeUtf(q.icon());
+        buf.writeUtf(q.text());
+        buf.writeVarInt(q.goals().size());
+        for (QuestDoc.Goal g : q.goals()) {
+            buf.writeEnum(g.kind());
+            buf.writeUtf(g.target());
+            buf.writeVarInt(g.count());
+        }
+        writeStacks(buf, q.rewards());
+    }
+
+    static QuestDoc.Quest readQuest(FriendlyByteBuf buf) {
+        return new QuestDoc.Quest(buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
+                readGoals(buf), readStacks(buf), "", QuestDoc.Flow.NONE);
+    }
+
+    static void writeKills(FriendlyByteBuf buf, Map<String, Integer> kills) {
+        buf.writeVarInt(kills.size());
+        kills.forEach((entity, n) -> {
+            buf.writeUtf(entity);
+            buf.writeVarInt(n);
+        });
+    }
+
+    static Map<String, Integer> readKills(FriendlyByteBuf buf) {
+        int k = buf.readVarInt();
+        Map<String, Integer> kills = new HashMap<>();
+        for (int j = 0; j < k; j++) {
+            kills.put(buf.readUtf(), buf.readVarInt());
+        }
+        return Map.copyOf(kills);
     }
 
     private static List<QuestDoc.Goal> readGoals(FriendlyByteBuf buf) {

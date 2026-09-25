@@ -11,6 +11,8 @@ import kr.guinnessgroup.lorebench.nodes.OnPlayerJoin;
 import kr.guinnessgroup.lorebench.npc.LorebenchEntities;
 import kr.guinnessgroup.lorebench.npc.NpcCommands;
 import kr.guinnessgroup.lorebench.npc.Npcs;
+import kr.guinnessgroup.lorebench.quest.DialoguePayload;
+import kr.guinnessgroup.lorebench.quest.Dialogues;
 import kr.guinnessgroup.lorebench.quest.QuestSyncPayload;
 import kr.guinnessgroup.lorebench.quest.Quests;
 import kr.guinnessgroup.lorebench.record.H2RecordBackend;
@@ -53,6 +55,7 @@ public final class Lorebench {
     private final LorebenchRuntime runtime = new LorebenchRuntime(nodes, records, dir, Quests.CHECKS);
     private final Npcs npcs = new Npcs(runtime, records);
     private final Quests quests = new Quests(runtime, records);
+    private final Dialogues dialogues = new Dialogues(runtime, quests);
     private final LorebenchWebServer web = new LorebenchWebServer(runtime, nodes, npcs);
 
     public Lorebench(IEventBus modEventBus, ModContainer modContainer) {
@@ -60,6 +63,7 @@ public final class Lorebench {
         LorebenchEntities.TYPES.register(modEventBus);
         modEventBus.addListener(LorebenchEntities::onAttributes);
         modEventBus.addListener(QuestSyncPayload::register);
+        modEventBus.addListener(DialoguePayload::register);
         if (FMLEnvironment.dist == Dist.CLIENT) {
             LorebenchClient.init(modEventBus);
         }
@@ -74,6 +78,7 @@ public final class Lorebench {
         runtime.load(server);
         npcs.start();
         quests.start();
+        dialogues.start();
         // Publish arrives on the web thread; quest content goes out on the server thread.
         MinecraftServer mc = event.getServer();
         runtime.onPublish(() -> mc.execute(() -> quests.syncAll(mc)));
@@ -84,6 +89,7 @@ public final class Lorebench {
     public void onServerStopping(ServerStoppingEvent event) {
         web.stop();
         runtime.onPublish(null);
+        dialogues.stop();
         quests.stop();
         npcs.stop();
         runtime.clear();
@@ -108,6 +114,7 @@ public final class Lorebench {
     @SubscribeEvent
     public void onPlayerLeave(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            dialogues.forget(player);
             records.release(Owner.player(player.getUUID()));
             // The game saves the player's inventory as they leave; save their records
             // now too, so a crash before the next world save cannot split the two

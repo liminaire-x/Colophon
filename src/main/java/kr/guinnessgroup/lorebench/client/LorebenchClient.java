@@ -6,6 +6,7 @@
 package kr.guinnessgroup.lorebench.client;
 
 import kr.guinnessgroup.lorebench.npc.LorebenchEntities;
+import kr.guinnessgroup.lorebench.quest.DialoguePayload;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.neoforged.bus.api.IEventBus;
@@ -44,6 +45,14 @@ public final class LorebenchClient {
 
     private static void onClientTick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
+        DialoguePayload talk = ClientDialogue.take();
+        if (talk != null && mc.player != null) {
+            if (mc.screen instanceof DialogueScreen screen) {
+                screen.update(talk);
+            } else if (!talk.resume() && mc.screen == null) {
+                mc.setScreen(new DialogueScreen(talk));
+            }
+        }
         while (OPEN_QUESTS.consumeClick()) {
             if (mc.screen == null && mc.player != null) {
                 mc.setScreen(new QuestScreen());
@@ -53,5 +62,6 @@ public final class LorebenchClient {
 
     private static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         ClientQuests.clear();
+        ClientDialogue.clear();
     }
 }

@@ -13,15 +13,9 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.SpawnEggItem;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Predicate;
 
 /**
  * The quest screen: revealed quests on the left, the chosen one's story, needs
@@ -42,9 +36,7 @@ public final class QuestScreen extends Screen {
     private static final int GOLD = 0xFFFFD84A;
     private static final int GREEN = 0xFF55FF55;
 
-    private final Map<String, ItemStack> rewards = new HashMap<>();
-    private final Map<String, ItemStack> displays = new HashMap<>();
-    private final Map<String, Predicate<ItemStack>> conditions = new HashMap<>();
+    private final QuestCard card = new QuestCard();
     private String selectedId;
     private int left;
     private int top;
@@ -117,7 +109,6 @@ public final class QuestScreen extends Screen {
         }
 
         LocalPlayer player = minecraft.player;
-        ItemStack hovered = ItemStack.EMPTY;
 
         // Left: the list.
         int x0 = left + PAD;
@@ -127,7 +118,7 @@ public final class QuestScreen extends Screen {
             if (e == selected) {
                 g.fill(x0, y, x0 + LIST_W, y + ROW_H, SELECTED);
             }
-            g.renderItem(icon(e.quest()), x0 + 2, y + 2);
+            g.renderItem(card.icon(e.quest()), x0 + 2, y + 2);
             String name = font.plainSubstrByWidth(e.quest().title(), LIST_W - 24);
             g.drawString(font, name, x0 + 22, y + (ROW_H - font.lineHeight) / 2 + 1, e.done() ? GRAY : WHITE);
             y += ROW_H;
@@ -142,7 +133,7 @@ public final class QuestScreen extends Screen {
         int dw = left + panelW - PAD - dx;
         int bottom = top + panelH - PAD;
         boolean ready = !selected.done() && player != null
-                && Quests.goalsMet(player.getInventory(), selected.kills(), q, this::condition);
+                && Quests.goalsMet(player.getInventory(), selected.kills(), q, card::condition);
         y = listTop();
         g.enableScissor(dx, y, dx + dw, bottom);
         g.drawString(font, q.title(), dx, y, GOLD);
@@ -161,100 +152,11 @@ public final class QuestScreen extends Screen {
                 y += font.lineHeight;
             }
         }
-        if (!q.goals().isEmpty()) {
-            y += 6;
-            g.drawString(font, Component.translatable("lorebench.quests.needs"), dx, y, GRAY);
-            y += font.lineHeight + 2;
-            for (QuestDoc.Goal goal : q.goals()) {
-                boolean kill = goal.kind() == QuestDoc.Goal.Kind.KILL;
-                ItemStack icon = goalIcon(goal);
-                Component name = kill ? entityName(goal.target())
-                        : goal.target().startsWith("#") ? Component.literal(goal.target()) // a tag: any item in it
-                        : icon.getHoverName();
-                String amount;
-                int color;
-                if (selected.done() || player == null) {
-                    amount = " × " + goal.count();
-                    color = WHITE;
-                } else {
-                    int have = kill
-                            ? selected.kills().getOrDefault(goal.target(), 0)
-                            : Quests.count(player.getInventory(), condition(goal.target()));
-                    amount = " " + Math.min(have, goal.count()) + "/" + goal.count();
-                    color = have >= goal.count() ? GREEN : WHITE;
-                }
-                // A kill goal's icon is a spawn egg: its tooltip would say "Spawn Egg", so none.
-                hovered = row(g, icon, name, amount, color, !kill, dx, y, mouseX, mouseY, hovered);
-                y += 18;
-            }
-        }
-        if (!q.rewards().isEmpty()) {
-            y += 4;
-            g.drawString(font, Component.translatable("lorebench.quests.rewards"), dx, y, GRAY);
-            y += font.lineHeight + 2;
-            for (QuestDoc.Stack reward : q.rewards()) {
-                ItemStack stack = rewardStack(reward.item());
-                hovered = row(g, stack, stack.getHoverName(), " × " + reward.count(), WHITE, true, dx, y, mouseX, mouseY, hovered);
-                y += 18;
-            }
-        }
+        ItemStack hovered = card.needsAndRewards(g, font, q, selected.kills(), !selected.done() && player != null,
+                dx, y, mouseX, mouseY);
         g.disableScissor();
         if (!hovered.isEmpty()) {
             g.renderTooltip(font, hovered, mouseX, mouseY);
         }
-    }
-
-    /**
-     * An icon, a name and an amount. Returns the icon's stack if the mouse is over it
-     * and {@code tooltip} is on (so the caller shows its tooltip), else {@code hovered}.
-     */
-    private ItemStack row(GuiGraphics g, ItemStack icon, Component name, String amount, int color, boolean tooltip,
-                          int x, int y, int mouseX, int mouseY, ItemStack hovered) {
-        g.renderItem(icon, x, y);
-        g.drawString(font, name.copy().append(amount), x + 20, y + 5, color);
-        boolean over = mouseX >= x && mouseX < x + 16 && mouseY >= y && mouseY < y + 16;
-        return (over && tooltip) ? icon : hovered;
-    }
-
-    /**
-     * An item goal shows the item its condition names (with a name or enchantments if
-     * it lists them); a kill goal shows the mob's spawn egg, if it has one.
-     */
-    private ItemStack goalIcon(QuestDoc.Goal goal) {
-        if (goal.kind() == QuestDoc.Goal.Kind.ITEM) {
-            return displays.computeIfAbsent(goal.target(), s -> minecraft.player == null
-                    ? ItemStack.EMPTY
-                    : Quests.display(s, minecraft.player.registryAccess()));
-        }
-        SpawnEggItem egg = SpawnEggItem.byId(Quests.entityType(goal.target()));
-        return egg == null ? ItemStack.EMPTY : new ItemStack(egg);
-    }
-
-    /** A hand-in goal's condition, read once per screen. */
-    private Predicate<ItemStack> condition(String spec) {
-        return conditions.computeIfAbsent(spec, s -> minecraft.player == null
-                ? stack -> false
-                : Quests.conditionOrNothing(s, minecraft.player));
-    }
-
-    private static Component entityName(String id) {
-        EntityType<?> type = Quests.entityType(id);
-        return type == null ? Component.literal(id) : type.getDescription();
-    }
-
-    /** A reward with its components (name, enchantments, ...), read once per screen. */
-    private ItemStack rewardStack(String spec) {
-        return rewards.computeIfAbsent(spec, s -> minecraft.player == null
-                ? ItemStack.EMPTY
-                : Quests.stack(s, minecraft.player.registryAccess()));
-    }
-
-    /** The list icon: the quest's icon, else its first goal's icon, else a book. */
-    private ItemStack icon(QuestDoc.Quest q) {
-        if (!q.icon().isEmpty()) {
-            return new ItemStack(Quests.item(q.icon()));
-        }
-        ItemStack first = q.goals().isEmpty() ? ItemStack.EMPTY : goalIcon(q.goals().get(0));
-        return first.isEmpty() ? new ItemStack(Items.BOOK) : first;
     }
 }

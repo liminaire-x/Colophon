@@ -96,6 +96,11 @@ public final class Quests {
         return stored;
     }
 
+    /** The player's kill counts for a quest so far, by entity id. */
+    public Map<String, Integer> kills(ServerPlayer player, String questId) {
+        return kills(Owner.player(player.getUUID()), questId);
+    }
+
     private Map<String, Integer> kills(Owner owner, String questId) {
         return QuestProgress.read(records.get(owner, QuestProgress.key(questId)));
     }
