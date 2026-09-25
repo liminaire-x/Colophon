@@ -27,7 +27,7 @@
 - `quest/` — 퀘스트 문서(`QuestFormat`, format 1)·상태(`QuestState`, 플레이어 기록)·`Quests`(게임 쪽 창구)·`QuestSyncPayload`(공개된 퀘스트만 그 플레이어에게).
 - `nodes/` — 빌트인 노드. 노드당 파일 하나, `BuiltinNodes.registerAll`.
 - `client/` — 클라이언트 전용(`NpcRenderer`: GeckoLib 모델 있으면 그것, 없으면 스티브 / `NpcGeoModel`: 리소스 경로 규칙 / `QuestScreen`: `J` 퀘스트 화면 / `ClientQuests`: 받은 퀘스트). `FMLEnvironment.dist == CLIENT`일 때만 로드.
-- `web/` — 에디터 서버. `Lorebench.java` — 부트스트랩·게임 이벤트 연결. `LorebenchConfig` — `serverName`. `Folders` — 세 문서가 함께 쓰는 에디터 폴더(읽기·쓰기·검사).
+- `web/` — 에디터 서버. `Lorebench.java` — 부트스트랩·게임 이벤트 연결. `LorebenchConfig` — `serverName`. `Folders` — 세 문서가 함께 쓰는 에디터 폴더(읽기·쓰기·검사). `DialogueLines` — 대사(한 줄 = 한 페이지) 읽기·쓰기.
 - 결정 기록: [0001 저장 형식](docs/decisions/0001-storage-format.md), [0002 NPC](docs/decisions/0002-npc.md), [0003 NPC 외형](docs/decisions/0003-npc-looks.md), [0004 id·기록 키](docs/decisions/0004-ids-and-record-keys.md), [0005 퀘스트](docs/decisions/0005-quests.md), [0006 아이템 표기](docs/decisions/0006-item-syntax.md), [0007 이름](docs/decisions/0007-rename-lorebench.md), [0008 폴더](docs/decisions/0008-quest-folders.md), [0009 퀘스트 작업대](docs/decisions/0009-quest-workbench.md).
 
 ## 설계 약속 (꼭 지킬 것)
@@ -49,7 +49,7 @@
 - 응답/문서 언어: **한국어**. git commit 언어: **영어**. Lorebench(로어벤치)는 모음으로 끝난다 → "Lorebench**는/를/가/와**".
 - 저장소: 로컬 `C:\Users\gntod\MyProjects\Intellij\LoreBench`, 원격 `https://github.com/liminaire-x/Lorebench.git`. Gradle 프로젝트 이름은 `settings.gradle`에서 `lorebench`로 고정(폴더 이름과 무관).
 - **인수인계 문서 `docs/handoff.md`는 로컬 전용**: 커밋하지 않는다(`.gitignore`에 있음).
-- 프런트: React + React Flow(@xyflow/react), Vite 단일 index.html. `editor/` 소스 → Gradle buildEditor/packEditor로 패키징. 헤더 탭: `App.jsx`(그래프 탭·Publish·문서 상태), `QuestTab.jsx`(퀘스트 트리·편집), `NpcTab.jsx`(NPC 트리·섹션), `FolderTree.jsx`(세 탭이 함께 쓰는 폴더 트리·폴더 편집).
+- 프런트: React + React Flow(@xyflow/react), Vite 단일 index.html. `editor/` 소스 → Gradle buildEditor/packEditor로 패키징. 헤더 탭: `App.jsx`(그래프 탭·Publish·문서 상태), `QuestTab.jsx`(퀘스트 트리·편집), `NpcTab.jsx`(NPC 트리·섹션), `FolderTree.jsx`(세 탭이 함께 쓰는 폴더 트리·폴더 편집), `Section.jsx`(카드·대사 줄 목록).
 - 웹 서버: JDK `HttpServer` 8080 (`web/LorebenchWebServer.java`).
 - **에이전트 환경에서 Java 컴파일 금지**(NeoForge 빌드가 무겁고 Windows Gradle 캐시와 꼬임). 컴파일/실행 확인은 **GitHub Actions CI**(push 시 클린 리눅스 빌드) 또는 **사용자 IntelliJ**(`runServer` + `runClient1`/`runClient2`, 두 플레이어 Dev1·Dev2).
 
