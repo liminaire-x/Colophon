@@ -12,6 +12,7 @@ import {
 import '@xyflow/react/dist/style.css'
 import { newId } from './ids.js'
 import QuestTab from './QuestTab.jsx'
+import NpcTab from './NpcTab.jsx'
 
 // Must match the server (GraphFormat.java, NpcFormat.java, QuestFormat.java).
 const FORMAT = 1
@@ -115,13 +116,13 @@ function LorebenchNode({ data, selected }) {
 
 const nodeTypes = { lorebench: LorebenchNode }
 
-// Header tabs. A tab that isn't ready is shown disabled until its screen is designed.
+// Header tabs, one screen each.
 const TABS = [
-  { id: 'graphs', label: 'Graphs', ready: true },
-  { id: 'quests', label: 'Quests', ready: true },
-  { id: 'npcs', label: 'NPCs', ready: false },
+  { id: 'graphs', label: 'Graphs' },
+  { id: 'quests', label: 'Quests' },
+  { id: 'npcs', label: 'NPCs' },
 ]
-const readyTab = (id) => TABS.some((t) => t.id === id && t.ready)
+const isTab = (id) => TABS.some((t) => t.id === id)
 
 // --- app ---
 
@@ -132,11 +133,10 @@ export default function App() {
   const [selectedNodeId, setSelectedNodeId] = useState(null)
   const [npcs, setNpcs] = useState([]) // [{ id, name }]
   const [placements, setPlacements] = useState({}) // { npcId: [{ dim, x, y, z }] }
-  const [selectedNpcId, setSelectedNpcId] = useState(null)
   const [quests, setQuests] = useState([]) // server format: [{ id, title, icon?, text?, folder?, goals, rewards }]
   const [folders, setFolders] = useState([]) // server format: [{ id, name, parent? }]
   const [tab, setTab] = useState(() => {
-    try { const t = localStorage.getItem('lorebench.tab'); return readyTab(t) ? t : 'graphs' } catch (e) { return 'graphs' }
+    try { const t = localStorage.getItem('lorebench.tab'); return isTab(t) ? t : 'graphs' } catch (e) { return 'graphs' }
   })
   const [status, setStatus] = useState('connecting...')
   const [message, setMessage] = useState(null) // { ok, text }
@@ -144,7 +144,6 @@ export default function App() {
 
   const byType = useMemo(() => Object.fromEntries(schema.map((d) => [d.type, d])), [schema])
   const current = graphs.find((g) => g.id === currentId) || null
-  const selectedNpc = npcs.find((n) => n.id === selectedNpcId) || null
 
   const pickTab = useCallback((id) => {
     setTab(id)
@@ -183,9 +182,6 @@ export default function App() {
     return () => { cancelled = true }
   }, [loadPlacements])
 
-  // One thing is shown on the right of the graph tab at a time: a node or an NPC.
-  const selectNode = useCallback((id) => { setSelectedNodeId(id); setSelectedNpcId(null) }, [])
-  const selectNpc = useCallback((id) => { setSelectedNpcId(id); setSelectedNodeId(null) }, [])
 
   const updateCurrent = useCallback(
     (fn) => setGraphs((gs) => gs.map((g) => (g.id === currentId ? fn(g) : g))),
@@ -229,8 +225,8 @@ export default function App() {
       data: { type: def.type, config },
     }
     updateCurrent((g) => ({ ...g, nodes: g.nodes.concat(node) }))
-    selectNode(id)
-  }, [current, updateCurrent, selectNode])
+    setSelectedNodeId(id)
+  }, [current, updateCurrent])
 
   const selectedNode = current?.nodes.find((n) => n.id === selectedNodeId) || null
   const selectedDef = selectedNode ? byType[selectedNode.data.type] : null
@@ -269,33 +265,6 @@ export default function App() {
     setCurrentId(rest[0]?.id ?? null)
     setSelectedNodeId(null)
   }, [current, graphs])
-
-  const newNpc = useCallback(() => {
-    const name = window.prompt('NPC name (shown above the NPC in game):')
-    if (name == null || !name.trim()) return
-    const id = newId('npc', npcs.map((n) => n.id))
-    setNpcs((ns) => ns.concat({ id, name: name.trim() }))
-    selectNpc(id)
-  }, [npcs, selectNpc])
-
-  // Edit one field of the selected NPC; an emptied optional field is dropped.
-  const setNpcField = useCallback((key, value) => {
-    setNpcs((ns) => ns.map((n) => {
-      if (n.id !== selectedNpcId) return n
-      const next = { ...n, [key]: value }
-      if (key !== 'name' && value.trim() === '') delete next[key]
-      return next
-    }))
-  }, [selectedNpcId])
-
-  const deleteNpc = useCallback(() => {
-    if (!selectedNpc) return
-    const placed = (placements[selectedNpc.id] || []).length
-    const warning = placed ? `\n${placed} placed in the world will disappear on publish.` : ''
-    if (!window.confirm(`Delete NPC '${selectedNpc.name}'?${warning}`)) return
-    setNpcs((ns) => ns.filter((n) => n.id !== selectedNpc.id))
-    setSelectedNpcId(null)
-  }, [selectedNpc, placements])
 
   const publish = useCallback(async () => {
     setPublishing(true)
@@ -344,15 +313,13 @@ export default function App() {
                   key={t.id}
                   role="tab"
                   aria-selected={active}
-                  disabled={!t.ready}
                   onClick={() => pickTab(t.id)}
-                  title={t.ready ? undefined : 'Not designed yet'}
                   style={{
                     padding: '0 14px', border: 'none', background: 'none', fontSize: 13,
                     borderBottom: `2px solid ${active ? '#2563eb' : 'transparent'}`,
-                    color: active ? '#111' : t.ready ? '#555' : '#bbb',
+                    color: active ? '#111' : '#555',
                     fontWeight: active ? 600 : 400,
-                    cursor: t.ready ? 'pointer' : 'not-allowed',
+                    cursor: 'pointer',
                   }}
                 >
                   {t.label}
@@ -380,6 +347,7 @@ export default function App() {
           quests={quests} setQuests={setQuests} folders={folders} setFolders={setFolders}
           status={status} setMessage={setMessage} hidden={tab !== 'quests'}
         />
+        <NpcTab npcs={npcs} setNpcs={setNpcs} placements={placements} status={status} hidden={tab !== 'npcs'} />
 
         {tab === 'graphs' && <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
           <aside style={{ width: 200, borderRight: '1px solid #ddd', overflowY: 'auto', padding: 10, fontSize: 12 }}>
@@ -394,18 +362,6 @@ export default function App() {
               </button>
             ))}
             <button onClick={newGraph} disabled={status !== 'ok'} style={{ ...button, color: '#2563eb' }}>+ New graph</button>
-
-            <div style={{ ...sectionTitle, marginTop: 14 }}>NPCs</div>
-            {npcs.map((n) => (
-              <button
-                key={n.id}
-                onClick={() => selectNpc(n.id)}
-                style={{ ...button, background: n.id === selectedNpcId ? '#e0e7ff' : '#fafafa' }}
-              >
-                {n.name} <span style={{ color: '#888', fontSize: 10 }}>{n.id} · {(placements[n.id] || []).length} placed</span>
-              </button>
-            ))}
-            <button onClick={newNpc} disabled={status !== 'ok'} style={{ ...button, color: '#2563eb' }}>+ New NPC</button>
 
             {current && (
               <>
@@ -433,7 +389,7 @@ export default function App() {
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 isValidConnection={isValidConnection}
-                onNodeClick={(_, n) => selectNode(n.id)}
+                onNodeClick={(_, n) => setSelectedNodeId(n.id)}
                 onPaneClick={() => setSelectedNodeId(null)}
                 fitView
               >
@@ -482,50 +438,6 @@ export default function App() {
                   </label>
                 ))}
                 <button onClick={deleteNode} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete node</button>
-              </>
-            ) : selectedNpc ? (
-              <>
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>NPC</div>
-                <label style={{ display: 'block', marginBottom: 10 }}>
-                  <div style={{ marginBottom: 3 }}>Name</div>
-                  <input
-                    value={selectedNpc.name}
-                    onChange={(e) => setNpcField('name', e.target.value)}
-                    style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
-                  />
-                </label>
-                <div style={{ color: '#888', marginBottom: 12 }}>id: {selectedNpc.id} (fixed)</div>
-                <label style={{ display: 'block', marginBottom: 10 }}>
-                  <div style={{ marginBottom: 3 }}>Model <span style={{ color: '#888', fontSize: 10 }}>(empty = default look)</span></div>
-                  <input
-                    value={selectedNpc.model ?? ''}
-                    placeholder="e.g. chief"
-                    onChange={(e) => setNpcField('model', e.target.value)}
-                    style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
-                  />
-                </label>
-                <label style={{ display: 'block', marginBottom: 10 }}>
-                  <div style={{ marginBottom: 3 }}>Idle animation <span style={{ color: '#888', fontSize: 10 }}>(loops)</span></div>
-                  <input
-                    value={selectedNpc.idle ?? ''}
-                    placeholder="e.g. animation.chief.wave"
-                    onChange={(e) => setNpcField('idle', e.target.value)}
-                    style={{ width: '100%', padding: '4px 6px', boxSizing: 'border-box' }}
-                  />
-                </label>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>Placed in the world</div>
-                {(placements[selectedNpc.id] || []).length === 0 ? (
-                  <div style={{ color: '#888', marginBottom: 12 }}>
-                    Not placed yet. Publish, then in game: <code>/lorebench npc spawn {selectedNpc.id}</code>
-                  </div>
-                ) : (
-                  <ul style={{ margin: '0 0 12px', paddingLeft: 16, color: '#555' }}>
-                    {placements[selectedNpc.id].map((p, i) => (
-                      <li key={i}>{p.dim.replace('minecraft:', '')} {p.x}, {p.y}, {p.z}</li>
-                    ))}
-                  </ul>
-                )}
-                <button onClick={deleteNpc} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete NPC</button>
               </>
             ) : current ? (
               <>
