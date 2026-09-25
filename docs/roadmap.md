@@ -51,10 +51,14 @@
     섹션 표시, 새 NPC publish 후 소환 자동완성, 소환 뒤 새로고침하면 배치 수·위치 반영, 모델 비우면 스티브·되돌리면
     복귀, 그래프가 쓰는 NPC 삭제는 publish 거부, 배치된 NPC 삭제 경고 후 게임에서 사라짐, Graphs 탭에 NPC 목록 없음·
     노드의 NPC 선택은 그대로.
-  - [ ] **NPC·그래프 폴더** (구현, CI·게임 확인 대기): 퀘스트와 같은 방식으로 `npcs.json`·`graphs.json`에도 폴더
-    목록(문서마다 따로, [0008](decisions/0008-quest-folders.md)). NPC 탭 왼쪽이 트리(`+ Folder`·`+ NPC`, 배치 수).
-    Graphs 탭 사이드바는 **위아래 2단**: 위 트리(`+ Folder`·`+ Graph`), 아래 노드 팔레트. 폴더를 고르면 오른쪽 칸에
-    폴더 설정, 그래프 설정에 Folder 선택. 트리·폴더 편집은 `editor/src/FolderTree.jsx`, 서버는 `Folders.java`로 모음.
+  - [x] **NPC·그래프 폴더**: 퀘스트와 같은 방식으로 `npcs.json`·`graphs.json`에도 폴더 목록(문서마다 따로,
+    [0008](decisions/0008-quest-folders.md)). NPC 탭 왼쪽이 트리(`+ Folder`·`+ NPC`, 배치 수). Graphs 탭 사이드바는
+    **위아래 2단**: 위 트리(`+ Folder`·`+ Graph`), 아래 노드 팔레트. 폴더를 고르면 오른쪽 칸에 폴더 설정, 그래프
+    설정에 Folder 선택. 고른 항목이 든 폴더는 접혀 있어도 펼쳐짐. 트리·폴더 편집은 `editor/src/FolderTree.jsx`,
+    서버는 `Folders.java`로 모음. CI 그린(테스트 68), 게임 확인 완료(2026-09-25): 2단 사이드바·기존 그래프 맨 위에
+    그대로(초기화 불필요), 고른 폴더 안에 새 그래프가 생기고 열림, Folder 선택으로 이동, 접힌 폴더 자동 펼침, NPC
+    폴더·배치 수 유지, publish 후 새로고침해도 세 트리 유지, 그래프 폴더 삭제 시 안의 것이 위로, 그래프 동작(우클릭·
+    접속 인사)은 폴더와 무관하게 그대로.
   - Graphs 탭은 그래프 트리 + 노드 팔레트, 캔버스, 노드·그래프·폴더 설정. Publish는 헤더에서 세 문서를 한 번에.
     상태(graphs·npcs·quests·folders)는 Publish 때문에 `App.jsx`에 있다.
   - 시네마틱 탭은 **이야기가 요구할 때** 만든다(빈 탭을 미리 두지 않음).
