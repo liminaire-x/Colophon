@@ -28,7 +28,7 @@
 - `nodes/` — 빌트인 노드. 노드당 파일 하나, `BuiltinNodes.registerAll`.
 - `client/` — 클라이언트 전용(`NpcRenderer`: GeckoLib 모델 있으면 그것, 없으면 스티브 / `NpcGeoModel`: 리소스 경로 규칙 / `QuestScreen`: `J` 퀘스트 화면 / `ClientQuests`: 받은 퀘스트). `FMLEnvironment.dist == CLIENT`일 때만 로드.
 - `web/` — 에디터 서버. `Lorebench.java` — 부트스트랩·게임 이벤트 연결. `LorebenchConfig` — `serverName`.
-- 결정 기록: [0001 저장 형식](docs/decisions/0001-storage-format.md), [0002 NPC](docs/decisions/0002-npc.md), [0003 NPC 외형](docs/decisions/0003-npc-looks.md), [0004 id·기록 키](docs/decisions/0004-ids-and-record-keys.md), [0005 퀘스트](docs/decisions/0005-quests.md), [0006 아이템 표기](docs/decisions/0006-item-syntax.md), [0007 이름](docs/decisions/0007-rename-lorebench.md).
+- 결정 기록: [0001 저장 형식](docs/decisions/0001-storage-format.md), [0002 NPC](docs/decisions/0002-npc.md), [0003 NPC 외형](docs/decisions/0003-npc-looks.md), [0004 id·기록 키](docs/decisions/0004-ids-and-record-keys.md), [0005 퀘스트](docs/decisions/0005-quests.md), [0006 아이템 표기](docs/decisions/0006-item-syntax.md), [0007 이름](docs/decisions/0007-rename-lorebench.md), [0008 퀘스트 폴더](docs/decisions/0008-quest-folders.md).
 
 ## 설계 약속 (꼭 지킬 것)
 - **"잠김" 대신 고치는 비용**(비쌈 = 저장 형식·id·공개 API / 중간 / 쌈 = 내부 코드)을 표시한다.
@@ -49,7 +49,7 @@
 - 응답/문서 언어: **한국어**. git commit 언어: **영어**. Lorebench(로어벤치)는 모음으로 끝난다 → "Lorebench**는/를/가/와**".
 - 저장소: 로컬 `C:\Users\gntod\MyProjects\Intellij\LoreBench`, 원격 `https://github.com/liminaire-x/Lorebench.git`. Gradle 프로젝트 이름은 `settings.gradle`에서 `lorebench`로 고정(폴더 이름과 무관).
 - **인수인계 문서 `docs/handoff.md`는 로컬 전용**: 커밋하지 않는다(`.gitignore`에 있음).
-- 프런트: React + React Flow(@xyflow/react), Vite 단일 index.html. `editor/` 소스 → Gradle buildEditor/packEditor로 패키징.
+- 프런트: React + React Flow(@xyflow/react), Vite 단일 index.html. `editor/` 소스 → Gradle buildEditor/packEditor로 패키징. 헤더 탭: `App.jsx`(그래프 탭·Publish·문서 상태), `QuestTab.jsx`(퀘스트 트리·편집).
 - 웹 서버: JDK `HttpServer` 8080 (`web/LorebenchWebServer.java`).
 - **에이전트 환경에서 Java 컴파일 금지**(NeoForge 빌드가 무겁고 Windows Gradle 캐시와 꼬임). 컴파일/실행 확인은 **GitHub Actions CI**(push 시 클린 리눅스 빌드) 또는 **사용자 IntelliJ**(`runServer` + `runClient1`/`runClient2`, 두 플레이어 Dev1·Dev2).
 
