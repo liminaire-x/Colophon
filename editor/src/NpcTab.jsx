@@ -1,21 +1,12 @@
 import { useState } from 'react'
 import { newId } from './ids.js'
 import { FolderPanel, FolderSelect, FolderTree, addFolder, folderPath, placeIn } from './FolderTree.jsx'
+import { LineList, Section } from './Section.jsx'
 
 const input = { width: '100%', padding: '4px 6px', boxSizing: 'border-box' }
 const label = { display: 'block', marginBottom: 10 }
 const hint = { color: '#888', fontSize: 11 }
 const toolButton = { padding: '4px 8px', cursor: 'pointer', color: '#2563eb', border: '1px solid #ddd', borderRadius: 5, background: '#fafafa' }
-
-// One card per part of an NPC. A new NPC feature gets its own section below the others.
-function Section({ title, children }) {
-  return (
-    <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
-      <div style={{ fontWeight: 600, marginBottom: 8 }}>{title}</div>
-      {children}
-    </section>
-  )
-}
 
 // The NPC tab: a folder tree of NPCs on the left, the chosen NPC's sections (or folder) on the right.
 export default function NpcTab({ npcs, setNpcs, folders, setFolders, placements, status, hidden }) {
@@ -48,6 +39,14 @@ export default function NpcTab({ npcs, setNpcs, folders, setFolders, placements,
       const next = { ...n, [key]: value }
       if (key !== 'name' && value.trim() === '') delete next[key]
       return next
+    }))
+  }
+
+  const setGreeting = (lines) => {
+    setNpcs((ns) => ns.map((n) => {
+      if (n.id !== npc.id) return n
+      const { greeting, ...rest } = n
+      return lines.length ? { ...rest, greeting: lines } : rest
     }))
   }
 
@@ -102,6 +101,13 @@ export default function NpcTab({ npcs, setNpcs, folders, setFolders, placements,
                   <div style={{ marginBottom: 3 }}>Idle animation <span style={hint}>(loops)</span></div>
                   <input value={npc.idle ?? ''} placeholder="e.g. animation.chief.wave" onChange={(e) => setField('idle', e.target.value)} style={input} />
                 </label>
+              </Section>
+
+              <Section title="Dialogue">
+                <div style={{ marginBottom: 3 }}>
+                  Greeting <span style={hint}>(when the player has nothing to do with this NPC; one page per line)</span>
+                </div>
+                <LineList lines={npc.greeting} onChange={setGreeting} placeholder="오, 자네 왔군." />
               </Section>
 
               <Section title="Placed in the world">

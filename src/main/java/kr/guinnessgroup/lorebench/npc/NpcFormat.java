@@ -11,6 +11,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import kr.guinnessgroup.lorebench.DialogueLines;
 import kr.guinnessgroup.lorebench.DocumentException;
 import kr.guinnessgroup.lorebench.Folders;
 import kr.guinnessgroup.lorebench.Ids;
@@ -24,9 +25,11 @@ import java.util.regex.Pattern;
 /**
  * Reads and writes the NPC document (format 1):
  * <pre>{ "format": 1, "folders": [ ... ],
- *   "npcs": [ { "id": "npc_7ha2m0qe", "name": "촌장", "model": "chief", "idle": "wave", "folder": "folder_2kq8d1xz" } ] }</pre>
+ *   "npcs": [ { "id": "npc_7ha2m0qe", "name": "촌장", "model": "chief", "idle": "wave", "folder": "folder_2kq8d1xz",
+ *               "greeting": [ "오, 자네 왔군.", "무슨 일인가?" ] } ] }</pre>
  * {@code model} and {@code idle} are optional (a plain NPC has neither). {@code folders} and
- * {@code folder} group NPCs in the editor ({@link Folders}).
+ * {@code folder} group NPCs in the editor ({@link Folders}). {@code greeting} is optional
+ * ({@link DialogueLines}).
  * This file has its own format number so NPCs can grow (looks, animations,
  * cinematics) without touching the graph document.
  */
@@ -96,7 +99,8 @@ public final class NpcFormat {
                 continue;
             }
             String folder = Folders.placement(o, folders, "NPC '" + id + "'", errors);
-            npcs.add(new NpcDoc.NpcDef(id, name, model, idle, folder));
+            List<String> greeting = DialogueLines.read(o.get("greeting"), "NPC '" + id + "' greeting", errors);
+            npcs.add(new NpcDoc.NpcDef(id, name, model, idle, folder, greeting));
         }
         if (!errors.isEmpty()) {
             throw new DocumentException(errors);
@@ -117,6 +121,9 @@ public final class NpcFormat {
                 o.addProperty("idle", n.idle());
             }
             Folders.writePlacement(o, n.folder());
+            if (!n.greeting().isEmpty()) {
+                o.add("greeting", DialogueLines.write(n.greeting()));
+            }
             arr.add(o);
         }
         JsonObject root = new JsonObject();

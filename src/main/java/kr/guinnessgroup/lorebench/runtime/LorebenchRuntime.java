@@ -130,6 +130,10 @@ public final class LorebenchRuntime {
     private void activate(GraphDoc graphDoc, NpcDoc npcDoc, QuestDoc questDoc) {
         checkItems(questDoc);
         Set<String> npcIds = npcDoc.npcs().stream().map(NpcDoc.NpcDef::id).collect(Collectors.toUnmodifiableSet());
+        List<String> npcErrors = questDoc.npcErrors(npcIds);
+        if (!npcErrors.isEmpty()) {
+            throw new DocumentException(npcErrors);
+        }
         Set<String> questIds = questDoc.quests().stream().map(QuestDoc.Quest::id).collect(Collectors.toUnmodifiableSet());
         List<Graph> graphs = GraphBuilder.build(graphDoc, registry, new Catalog(npcIds, questIds));
         Map<String, List<Start>> starts = new HashMap<>();

@@ -26,15 +26,17 @@ public record NpcDoc(List<Folder> folders, List<NpcDef> npcs) {
      *              {@code animations/npc/<model>.animation.json}, {@code textures/npc/<model>.png}
      * @param idle  animation looped while nothing else plays, or ""
      * @param folder the editor folder id it sits in, or "" for the top ({@link kr.guinnessgroup.lorebench.Folders})
+     * @param greeting what it says when the player has nothing to do with it, one page per line
+     *                 ({@link kr.guinnessgroup.lorebench.DialogueLines}, docs/decisions/0009-quest-workbench.md)
      */
-    public record NpcDef(String id, String name, String model, String idle, String folder) {
+    public record NpcDef(String id, String name, String model, String idle, String folder, List<String> greeting) {
 
         public NpcDef(String id, String name) {
-            this(id, name, "", "", "");
+            this(id, name, "", "", "", List.of());
         }
 
         public NpcDef(String id, String name, String model, String idle) {
-            this(id, name, model, idle, "");
+            this(id, name, model, idle, "", List.of());
         }
     }
 

@@ -67,6 +67,22 @@ function toDoc(graphs, folders) {
   }
 }
 
+// Lines an author left blank are dropped on publish, and so are lists left empty,
+// because the server takes only real lines (DialogueLines.java).
+const realLines = (lines) => (lines || []).filter((l) => l.trim() !== '')
+
+function tidyNpc(n) {
+  const { greeting, ...rest } = n
+  const lines = realLines(greeting)
+  return lines.length ? { ...rest, greeting: lines } : rest
+}
+
+function tidyQuest(q) {
+  const { lines, ...rest } = q
+  const kept = Object.fromEntries(Object.entries(lines || {}).map(([k, v]) => [k, realLines(v)]).filter(([, v]) => v.length))
+  return Object.keys(kept).length ? { ...rest, lines: kept } : rest
+}
+
 // --- node on the canvas ---
 
 const SchemaContext = createContext({})
@@ -295,8 +311,8 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           graphs: toDoc(graphs, graphFolders),
-          npcs: { format: NPC_FORMAT, folders: npcFolders, npcs },
-          quests: { format: QUEST_FORMAT, folders: questFolders, quests },
+          npcs: { format: NPC_FORMAT, folders: npcFolders, npcs: npcs.map(tidyNpc) },
+          quests: { format: QUEST_FORMAT, folders: questFolders, quests: quests.map(tidyQuest) },
         }),
       })
       const data = await res.json()
@@ -365,7 +381,7 @@ export default function App() {
         )}
 
         <QuestTab
-          quests={quests} setQuests={setQuests} folders={questFolders} setFolders={setQuestFolders}
+          quests={quests} setQuests={setQuests} folders={questFolders} setFolders={setQuestFolders} npcs={npcs}
           status={status} setMessage={setMessage} hidden={tab !== 'quests'}
         />
         <NpcTab

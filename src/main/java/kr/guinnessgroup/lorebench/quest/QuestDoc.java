@@ -7,7 +7,9 @@ package kr.guinnessgroup.lorebench.quest;
 
 import kr.guinnessgroup.lorebench.Folders.Folder;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The saved quest document ({@code quests.json}): every quest, authored in the
@@ -28,9 +30,41 @@ public record QuestDoc(List<Folder> folders, List<Quest> quests) {
      * @param goals   all must be met, shown in this order
      * @param rewards items given on completion
      * @param folder  the folder id it sits in, or "" for the top
+     * @param flow    who offers and receives it, what comes first, and what the NPCs say
      */
     public record Quest(String id, String title, String icon, String text, List<Goal> goals, List<Stack> rewards,
-                        String folder) {}
+                        String folder, Flow flow) {}
+
+    /**
+     * How a quest runs through NPC dialogue. See docs/decisions/0009-quest-workbench.md.
+     *
+     * @param giver    the NPC id that offers it, or "" (then only graphs reveal it)
+     * @param receiver the NPC id it is handed in to, or "" for the giver
+     * @param requires quest ids that must all be done before it is offered
+     * @param lines    what the NPCs say
+     */
+    public record Flow(String giver, String receiver, List<String> requires, Lines lines) {
+
+        public static final Flow NONE = new Flow("", "", List.of(), Lines.NONE);
+
+        /** The NPC it is handed in to: the receiver, or the giver when none is set. */
+        public String handInTo() {
+            return receiver.isEmpty() ? giver : receiver;
+        }
+    }
+
+    /**
+     * What the NPCs say about a quest, each a list of lines shown one page at a time
+     * ({@link kr.guinnessgroup.lorebench.DialogueLines}).
+     *
+     * @param offer    when the giver offers it
+     * @param active   when the player talks to the receiver while it is in progress
+     * @param complete when the player hands it in
+     */
+    public record Lines(List<String> offer, List<String> active, List<String> complete) {
+
+        public static final Lines NONE = new Lines(List.of(), List.of(), List.of());
+    }
 
     /**
      * Some number of one item, e.g. {@code minecraft:emerald} × 5. A reward item may be
@@ -68,6 +102,19 @@ public record QuestDoc(List<Folder> folders, List<Quest> quests) {
         public static Goal kill(String entity, int count) {
             return new Goal(Kind.KILL, entity, count);
         }
+    }
+
+    /** A problem for each quest whose giver or receiver is not one of {@code npcIds}. */
+    public List<String> npcErrors(Set<String> npcIds) {
+        List<String> errors = new ArrayList<>();
+        for (Quest q : quests) {
+            for (String npc : List.of(q.flow().giver(), q.flow().receiver())) {
+                if (!npc.isEmpty() && !npcIds.contains(npc)) {
+                    errors.add("quest '" + q.title() + "' (" + q.id() + "): NPC '" + npc + "' does not exist");
+                }
+            }
+        }
+        return errors;
     }
 
     public Quest find(String id) {

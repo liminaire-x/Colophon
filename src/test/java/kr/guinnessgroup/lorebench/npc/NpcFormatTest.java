@@ -8,6 +8,7 @@ package kr.guinnessgroup.lorebench.npc;
 import kr.guinnessgroup.lorebench.DocumentException;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -47,6 +48,21 @@ class NpcFormatTest {
         String written = NpcFormat.write(doc);
         assertEquals(1, written.split("\"model\"", -1).length - 1);
         assertEquals(doc, NpcFormat.read(written));
+    }
+
+    @Test
+    void greetingIsOptionalLinesOfText() {
+        NpcDoc doc = NpcFormat.read("""
+                { "format": 1, "npcs": [ { "id": "npc_guard", "name": "경비대장", "greeting": [ "오, 자네 왔군.", "무슨 일인가?" ] } ] }
+                """);
+        assertEquals(List.of("오, 자네 왔군.", "무슨 일인가?"), doc.find("npc_guard").greeting());
+        assertEquals(doc, NpcFormat.read(NpcFormat.write(doc)));
+        assertEquals(List.of(), NpcFormat.read(CHIEF).find("npc_chief").greeting());
+        assertTrue(!NpcFormat.write(NpcFormat.read(CHIEF)).contains("greeting"));
+        for (String greeting : new String[] {"\"hi\"", "[ 1 ]", "[ \"\" ]"}) {
+            assertThrows(DocumentException.class, () -> NpcFormat.read(
+                    "{\"format\":1,\"npcs\":[{\"id\":\"npc_a\",\"name\":\"A\",\"greeting\":" + greeting + "}]}"), greeting);
+        }
     }
 
     @Test

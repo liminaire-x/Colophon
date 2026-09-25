@@ -10,6 +10,7 @@ import kr.guinnessgroup.lorebench.Folders;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -33,7 +34,7 @@ class QuestFormatTest {
         QuestDoc.Quest q = doc.find("quest_k3f9x2ma");
         assertEquals(new QuestDoc.Quest("quest_k3f9x2ma", "밀 배달", "minecraft:wheat", "촌장에게 밀 10개를 가져다주자.\n빨리!",
                 List.of(QuestDoc.Goal.item("minecraft:wheat", 10)),
-                List.of(new QuestDoc.Stack("minecraft:emerald", 5)), ""), q);
+                List.of(new QuestDoc.Stack("minecraft:emerald", 5)), "", QuestDoc.Flow.NONE), q);
         assertNull(doc.find("quest_other"));
         assertEquals(List.of(), doc.folders());
         String written = QuestFormat.write(doc);
@@ -56,6 +57,82 @@ class QuestFormatTest {
         assertEquals("folder_chief", doc.find("quest_a").folder());
         assertEquals("", doc.find("quest_b").folder());
         assertEquals(doc, QuestFormat.read(QuestFormat.write(doc)));
+    }
+
+    @Test
+    void flowAndLinesRoundTrip() {
+        QuestDoc doc = QuestFormat.read("""
+                { "format": 1, "quests": [
+                  { "id": "quest_sword", "title": "칼 만들기", "giver": "npc_smith", "goals": [], "rewards": [] },
+                  { "id": "quest_wolf", "title": "늑대 사냥", "giver": "npc_guard", "receiver": "npc_smith",
+                    "requires": [ "quest_sword" ],
+                    "lines": { "offer": [ "늑대 3마리만 잡아주게.", "요즘 가축이 자꾸 사라지거든." ],
+                               "complete": [ "대단하군!" ] },
+                    "goals": [], "rewards": [] } ] }
+                """);
+        QuestDoc.Flow wolf = doc.find("quest_wolf").flow();
+        assertEquals(new QuestDoc.Flow("npc_guard", "npc_smith", List.of("quest_sword"),
+                new QuestDoc.Lines(List.of("늑대 3마리만 잡아주게.", "요즘 가축이 자꾸 사라지거든."), List.of(), List.of("대단하군!"))),
+                wolf);
+        assertEquals("npc_smith", wolf.handInTo());
+        assertEquals("npc_smith", doc.find("quest_sword").flow().handInTo());
+        String written = QuestFormat.write(doc);
+        assertTrue(!written.contains("\"active\""), written);
+        assertEquals(doc, QuestFormat.read(written));
+        // A quest without them is written as before.
+        assertEquals(QuestDoc.Flow.NONE, QuestFormat.read(WHEAT).find("quest_k3f9x2ma").flow());
+        String plain = QuestFormat.write(QuestFormat.read(WHEAT));
+        for (String key : new String[] {"giver", "receiver", "requires", "lines"}) {
+            assertTrue(!plain.contains("\"" + key + "\""), plain);
+        }
+    }
+
+    @Test
+    void requiredQuestsMustExistAndNeverLeadBack() {
+        for (String quests : new String[] {
+                "{ \"id\": \"quest_a\", \"title\": \"A\", \"requires\": [\"quest_x\"], \"goals\": [], \"rewards\": [] }", // unknown
+                "{ \"id\": \"quest_a\", \"title\": \"A\", \"requires\": [\"quest_a\"], \"goals\": [], \"rewards\": [] }", // itself
+                "{ \"id\": \"quest_a\", \"title\": \"A\", \"requires\": [\"quest_b\"], \"goals\": [], \"rewards\": [] },"
+                        + "{ \"id\": \"quest_b\", \"title\": \"B\", \"requires\": [\"quest_a\"], \"goals\": [], \"rewards\": [] }", // loop
+                "{ \"id\": \"quest_a\", \"title\": \"A\", \"goals\": [], \"rewards\": [] },"
+                        + "{ \"id\": \"quest_b\", \"title\": \"B\", \"requires\": [\"quest_a\", \"quest_a\"], \"goals\": [], \"rewards\": [] }", // twice
+                "{ \"id\": \"quest_a\", \"title\": \"A\", \"requires\": \"quest_b\", \"goals\": [], \"rewards\": [] }"}) { // not a list
+            assertThrows(DocumentException.class, () -> QuestFormat.read("{\"format\":1,\"quests\":[" + quests + "]}"), quests);
+        }
+        // A chain is fine: C needs B, B needs A.
+        QuestFormat.read("""
+                { "format": 1, "quests": [
+                  { "id": "quest_c", "title": "C", "requires": [ "quest_b" ], "goals": [], "rewards": [] },
+                  { "id": "quest_b", "title": "B", "requires": [ "quest_a" ], "goals": [], "rewards": [] },
+                  { "id": "quest_a", "title": "A", "goals": [], "rewards": [] } ] }
+                """);
+    }
+
+    @Test
+    void giversAreNpcIdsAndLinesAreText() {
+        for (String part : new String[] {
+                "\"giver\": \"chief\"",                                   // not an NPC id
+                "\"receiver\": \"quest_a\"",                              // not an NPC id
+                "\"lines\": [ \"hi\" ]",                                  // not an object
+                "\"lines\": { \"offfer\": [ \"hi\" ] }",                // unknown key
+                "\"lines\": { \"offer\": \"hi\" }",                     // not a list
+                "\"lines\": { \"offer\": [ 1 ] }",                        // not text
+                "\"lines\": { \"offer\": [ \" \" ] }"}) {               // empty line
+            assertThrows(DocumentException.class, () -> QuestFormat.read(
+                    "{\"format\":1,\"quests\":[{\"id\":\"quest_a\",\"title\":\"A\"," + part + ",\"goals\":[],\"rewards\":[]}]}"),
+                    part);
+        }
+    }
+
+    @Test
+    void publishFindsGiversAndReceiversThatAreNotNpcs() {
+        QuestDoc doc = QuestFormat.read("""
+                { "format": 1, "quests": [
+                  { "id": "quest_a", "title": "A", "giver": "npc_chief", "receiver": "npc_gone", "goals": [], "rewards": [] } ] }
+                """);
+        assertEquals(List.of(), doc.npcErrors(Set.of("npc_chief", "npc_gone")));
+        assertEquals(1, doc.npcErrors(Set.of("npc_chief")).size());
+        assertEquals(2, doc.npcErrors(Set.of()).size());
     }
 
     @Test

@@ -12,13 +12,18 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
+import kr.guinnessgroup.lorebench.DialogueLines;
 import kr.guinnessgroup.lorebench.DocumentException;
 import kr.guinnessgroup.lorebench.Folders;
 import kr.guinnessgroup.lorebench.Ids;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -28,11 +33,15 @@ import java.util.regex.Pattern;
  *   "folders": [ { "id": "folder_2kq8d1xz", "name": "마을" }, { "id": "folder_9fm3a0pe", "name": "촌장", "parent": "folder_2kq8d1xz" } ],
  *   "quests": [ {
  *   "id": "quest_k3f9x2ma", "title": "밀 배달", "icon": "minecraft:wheat", "text": "...", "folder": "folder_9fm3a0pe",
+ *   "giver": "npc_7ha2m0qe", "receiver": "npc_7ha2m0qe", "requires": [ "quest_p0a8s1dd" ],
+ *   "lines": { "offer": [ "밀 10개만 구해다 주겠나?" ], "active": [ "아직 부족하구먼." ], "complete": [ "고맙네!" ] },
  *   "goals":   [ { "item": "minecraft:wheat",   "count": 10 }, { "kill": "minecraft:wolf", "count": 3 } ],
  *   "rewards": [ { "item": "minecraft:emerald", "count": 5 } ] } ] }</pre>
- * {@code folders}, a folder's {@code parent}, and a quest's {@code icon}, {@code text} and
- * {@code folder} are optional (no parent or folder = the top). This checks only the shape; whether
- * the items and entities exist is checked on publish, where the game's lists are available.
+ * {@code folders}, a folder's {@code parent}, and a quest's {@code icon}, {@code text}, {@code folder},
+ * {@code giver}, {@code receiver}, {@code requires} and {@code lines} are optional (no parent or
+ * folder = the top; see docs/decisions/0009-quest-workbench.md for the rest). Required quests must
+ * exist and never lead back to the quest. Beyond that this checks only the shape; whether the items,
+ * entities and NPCs exist is checked on publish, where the game's lists are available.
  */
 public final class QuestFormat {
 
@@ -110,14 +119,108 @@ public final class QuestFormat {
             String folder = Folders.placement(o, folders, where, errors);
             List<QuestDoc.Goal> goals = goals(o, where, errors);
             List<QuestDoc.Stack> rewards = stacks(o, "rewards", ITEM_WITH_COMPONENTS, where, errors);
+            QuestDoc.Flow flow = flow(o, where, errors);
             if (errors.size() == before) {
-                quests.add(new QuestDoc.Quest(id, title.trim(), icon, text == null ? "" : text, goals, rewards, folder));
+                quests.add(new QuestDoc.Quest(id, title.trim(), icon, text == null ? "" : text, goals, rewards, folder, flow));
             }
         }
+        checkRequires(quests, ids, errors);
         if (!errors.isEmpty()) {
             throw new DocumentException(errors);
         }
         return new QuestDoc(folders, List.copyOf(quests));
+    }
+
+    /** Who offers and receives a quest, what must be done first, and what the NPCs say. */
+    private static QuestDoc.Flow flow(JsonObject o, String where, List<String> errors) {
+        String giver = npc(o, "giver", where, errors);
+        String receiver = npc(o, "receiver", where, errors);
+        List<String> requires = new ArrayList<>();
+        JsonElement r = o.get("requires");
+        if (r != null && !r.isJsonArray()) {
+            errors.add(where + ": 'requires' is not a list");
+        } else if (r != null) {
+            for (JsonElement e : r.getAsJsonArray()) {
+                String q = (e.isJsonPrimitive() && e.getAsJsonPrimitive().isString()) ? e.getAsString().trim() : null;
+                if (!Ids.valid(Ids.QUEST, q)) {
+                    errors.add(where + ": required quest " + (q == null ? "is not a quest id" : "'" + q + "' " + Ids.rule(Ids.QUEST)));
+                } else if (requires.contains(q)) {
+                    errors.add(where + ": requires '" + q + "' twice");
+                } else {
+                    requires.add(q);
+                }
+            }
+        }
+        return new QuestDoc.Flow(giver, receiver, List.copyOf(requires), lines(o.get("lines"), where, errors));
+    }
+
+    private static String npc(JsonObject o, String key, String where, List<String> errors) {
+        String id = optional(o, key);
+        if (!id.isEmpty() && !Ids.valid(Ids.NPC, id)) {
+            errors.add(where + ": " + key + " '" + id + "' " + Ids.rule(Ids.NPC));
+        }
+        return id;
+    }
+
+    /** The keys of {@code lines}. Never rename: they are saved. */
+    private static final List<String> LINE_KEYS = List.of("offer", "active", "complete");
+
+    private static QuestDoc.Lines lines(JsonElement e, String where, List<String> errors) {
+        if (e == null) {
+            return QuestDoc.Lines.NONE;
+        }
+        if (!e.isJsonObject()) {
+            errors.add(where + ": 'lines' is not an object");
+            return QuestDoc.Lines.NONE;
+        }
+        JsonObject o = e.getAsJsonObject();
+        for (String key : o.keySet()) {
+            if (!LINE_KEYS.contains(key)) {
+                errors.add(where + ": unknown lines '" + key + "' (use offer, active, complete)");
+            }
+        }
+        return new QuestDoc.Lines(
+                DialogueLines.read(o.get("offer"), where + " offer", errors),
+                DialogueLines.read(o.get("active"), where + " active", errors),
+                DialogueLines.read(o.get("complete"), where + " complete", errors));
+    }
+
+    /**
+     * Required quests must exist, and following them must never come back to the quest
+     * (it could never be offered).
+     */
+    private static void checkRequires(List<QuestDoc.Quest> quests, Set<String> ids, List<String> errors) {
+        Map<String, List<String>> requires = new HashMap<>();
+        for (QuestDoc.Quest q : quests) {
+            requires.put(q.id(), q.flow().requires());
+            for (String r : q.flow().requires()) {
+                if (r.equals(q.id())) {
+                    errors.add("quest '" + q.id() + "' requires itself");
+                } else if (!ids.contains(r)) {
+                    errors.add("quest '" + q.id() + "' requires quest '" + r + "' that does not exist");
+                }
+            }
+        }
+        for (QuestDoc.Quest q : quests) {
+            if (!q.flow().requires().contains(q.id()) && leadsBack(q.id(), requires)) {
+                errors.add("quest '" + q.id() + "' ends up requiring itself");
+            }
+        }
+    }
+
+    private static boolean leadsBack(String start, Map<String, List<String>> requires) {
+        Deque<String> todo = new ArrayDeque<>(requires.getOrDefault(start, List.of()));
+        Set<String> seen = new HashSet<>();
+        while (!todo.isEmpty()) {
+            String at = todo.pop();
+            if (at.equals(start)) {
+                return true;
+            }
+            if (seen.add(at)) {
+                todo.addAll(requires.getOrDefault(at, List.of()));
+            }
+        }
+        return false;
     }
 
     /**
@@ -217,6 +320,7 @@ public final class QuestFormat {
                 o.addProperty("text", q.text());
             }
             Folders.writePlacement(o, q.folder());
+            writeFlow(o, q.flow());
             JsonArray goals = new JsonArray();
             for (QuestDoc.Goal g : q.goals()) {
                 JsonObject go = new JsonObject();
@@ -233,6 +337,32 @@ public final class QuestFormat {
         Folders.write(root, doc.folders());
         root.add("quests", arr);
         return GSON.toJson(root);
+    }
+
+    /** Writes only the parts that are set, so a quest without them looks as before. */
+    private static void writeFlow(JsonObject o, QuestDoc.Flow flow) {
+        if (!flow.giver().isEmpty()) {
+            o.addProperty("giver", flow.giver());
+        }
+        if (!flow.receiver().isEmpty()) {
+            o.addProperty("receiver", flow.receiver());
+        }
+        if (!flow.requires().isEmpty()) {
+            JsonArray requires = new JsonArray();
+            flow.requires().forEach(requires::add);
+            o.add("requires", requires);
+        }
+        JsonObject lines = new JsonObject();
+        QuestDoc.Lines l = flow.lines();
+        List<List<String>> all = List.of(l.offer(), l.active(), l.complete());
+        for (int i = 0; i < LINE_KEYS.size(); i++) {
+            if (!all.get(i).isEmpty()) {
+                lines.add(LINE_KEYS.get(i), DialogueLines.write(all.get(i)));
+            }
+        }
+        if (lines.size() > 0) {
+            o.add("lines", lines);
+        }
     }
 
     private static JsonArray writeStacks(List<QuestDoc.Stack> stacks) {

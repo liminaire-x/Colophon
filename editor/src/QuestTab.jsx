@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { newId } from './ids.js'
-import { FolderPanel, FolderSelect, FolderTree, addFolder, folderPath, placeIn } from './FolderTree.jsx'
+import { FolderPanel, FolderSelect, FolderTree, addFolder, byText, folderPath, placeIn } from './FolderTree.jsx'
+import { LineList, Section } from './Section.jsx'
 
 const input = { width: '100%', padding: '4px 6px', boxSizing: 'border-box' }
 const label = { display: 'block', marginBottom: 12 }
@@ -71,7 +72,7 @@ function StackList({ stacks, onChange, fetchHeld, wide = false, goals = false })
 }
 
 // The quest tab: a folder tree on the left, the chosen quest or folder on the right.
-export default function QuestTab({ quests, setQuests, folders, setFolders, status, setMessage, hidden }) {
+export default function QuestTab({ quests, setQuests, folders, setFolders, npcs, status, setMessage, hidden }) {
   const [selected, setSelected] = useState(null) // { kind: 'item' | 'folder', id }
   const [collapsed, setCollapsed] = useState(() => new Set()) // folder ids
   const [players, setPlayers] = useState([]) // online, for "use held item"
@@ -129,10 +130,31 @@ export default function QuestTab({ quests, setQuests, folders, setFolders, statu
     setQuests((qs) => qs.map((q) => {
       if (q.id !== quest.id) return q
       const next = { ...q, [key]: value }
-      if ((key === 'icon' || key === 'text' || key === 'folder') && value.trim() === '') delete next[key]
+      if (['icon', 'text', 'folder', 'giver', 'receiver'].includes(key) && value.trim() === '') delete next[key]
       return next
     }))
   }
+
+  // Required quests and dialogue lines: an emptied list is dropped (0009).
+  const setRequires = (ids) => {
+    setQuests((qs) => qs.map((q) => {
+      if (q.id !== quest.id) return q
+      const { requires, ...rest } = q
+      return ids.length ? { ...rest, requires: ids } : rest
+    }))
+  }
+  const setLines = (key, lines) => {
+    setQuests((qs) => qs.map((q) => {
+      if (q.id !== quest.id) return q
+      const all = { ...q.lines, [key]: lines }
+      if (!lines.length) delete all[key]
+      const { lines: _, ...rest } = q
+      return Object.keys(all).length ? { ...rest, lines: all } : rest
+    }))
+  }
+
+  const npcOptions = [...npcs].sort((a, b) => byText(a.name, b.name))
+    .map((n) => <option key={n.id} value={n.id}>{n.name}</option>)
 
   const deleteQuest = () => {
     if (!window.confirm(`Delete quest '${quest.title}'? Players keep their progress records.`)) return
@@ -170,45 +192,100 @@ export default function QuestTab({ quests, setQuests, folders, setFolders, statu
                 <input value={quest.title} onChange={(e) => setQuestField('title', e.target.value)} style={{ ...input, fontSize: 15 }} />
               </label>
               <div style={{ ...hint, marginBottom: 12 }}>id: {quest.id} (fixed)</div>
-              <label style={label}>
-                <div style={{ marginBottom: 3 }}>Folder</div>
-                <FolderSelect folders={folders} value={quest.folder} onChange={(v) => setQuestField('folder', v)} />
-              </label>
-              <label style={label}>
-                <div style={{ marginBottom: 3 }}>Icon <span style={hint}>(item id; empty = first need)</span></div>
-                <input
-                  value={quest.icon ?? ''}
-                  placeholder="e.g. minecraft:wheat"
-                  onChange={(e) => setQuestField('icon', e.target.value)}
-                  style={input}
-                />
-              </label>
-              <label style={label}>
-                <div style={{ marginBottom: 3 }}>Text</div>
-                <textarea
-                  value={quest.text ?? ''}
-                  rows={6}
-                  onChange={(e) => setQuestField('text', e.target.value)}
-                  style={{ ...input, resize: 'vertical', fontFamily: 'inherit' }}
-                />
-              </label>
-              <label style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 4 }}>
-                <span>✋ held item of</span>
-                <select value={heldPlayer} onChange={(e) => pickHeldPlayer(e.target.value)} style={{ flex: 1, padding: '3px 2px' }}>
-                  <option value="">(player)</option>
-                  {(players.includes(heldPlayer) || !heldPlayer ? players : [heldPlayer, ...players]).map((p) => (
-                    <option key={p} value={p}>{p}{players.includes(p) ? '' : ' (offline)'}</option>
-                  ))}
-                </select>
-                <button onClick={loadPlayers} title="Refresh online players" style={{ cursor: 'pointer' }}>↻</button>
-              </label>
-              <div style={{ ...hint, marginBottom: 10 }}>
-                In a need, only the listed parts must match. Delete damage=… to accept any wear.
-              </div>
-              <div style={{ marginBottom: 3 }}>Needs <span style={hint}>(all of them, in this order)</span></div>
-              <StackList goals fetchHeld={fetchHeld} stacks={quest.goals} onChange={(v) => setQuestField('goals', v)} />
-              <div style={{ marginBottom: 3 }}>Rewards <span style={hint}>(item as /give writes it; [components] allowed)</span></div>
-              <StackList wide fetchHeld={fetchHeld} stacks={quest.rewards} onChange={(v) => setQuestField('rewards', v)} />
+
+              <Section title="Basics">
+                <label style={label}>
+                  <div style={{ marginBottom: 3 }}>Folder</div>
+                  <FolderSelect folders={folders} value={quest.folder} onChange={(v) => setQuestField('folder', v)} />
+                </label>
+                <label style={label}>
+                  <div style={{ marginBottom: 3 }}>Icon <span style={hint}>(item id; empty = first need)</span></div>
+                  <input
+                    value={quest.icon ?? ''}
+                    placeholder="e.g. minecraft:wheat"
+                    onChange={(e) => setQuestField('icon', e.target.value)}
+                    style={input}
+                  />
+                </label>
+                <label style={{ ...label, marginBottom: 0 }}>
+                  <div style={{ marginBottom: 3 }}>Text <span style={hint}>(shown in the quest screen)</span></div>
+                  <textarea
+                    value={quest.text ?? ''}
+                    rows={5}
+                    onChange={(e) => setQuestField('text', e.target.value)}
+                    style={{ ...input, resize: 'vertical', fontFamily: 'inherit' }}
+                  />
+                </label>
+              </Section>
+
+              <Section title="Flow">
+                <label style={label}>
+                  <div style={{ marginBottom: 3 }}>Given by <span style={hint}>(offers it when the player talks; none = only graphs reveal it)</span></div>
+                  <select value={quest.giver ?? ''} onChange={(e) => setQuestField('giver', e.target.value)} style={input}>
+                    <option value="">(none)</option>
+                    {npcOptions}
+                  </select>
+                </label>
+                <label style={label}>
+                  <div style={{ marginBottom: 3 }}>Handed in to</div>
+                  <select value={quest.receiver ?? ''} onChange={(e) => setQuestField('receiver', e.target.value)} style={input}>
+                    <option value="">(the giver)</option>
+                    {npcOptions}
+                  </select>
+                </label>
+                <div style={{ marginBottom: 3 }}>Requires <span style={hint}>(all of these done before it is offered)</span></div>
+                {(quest.requires || []).map((r, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 3 }}>
+                    <select
+                      value={r}
+                      onChange={(e) => setRequires(quest.requires.map((x, j) => (j === i ? e.target.value : x)))}
+                      style={{ ...input, flex: 1 }}
+                    >
+                      {quests.filter((q) => q.id !== quest.id).sort((a, b) => byText(a.title, b.title))
+                        .map((q) => <option key={q.id} value={q.id}>{q.title}</option>)}
+                    </select>
+                    <button onClick={() => setRequires(quest.requires.filter((_, j) => j !== i))} style={{ cursor: 'pointer' }}>×</button>
+                  </div>
+                ))}
+                {quests.some((q) => q.id !== quest.id && !(quest.requires || []).includes(q.id)) && (
+                  <button
+                    onClick={() => setRequires((quest.requires || []).concat(
+                      quests.find((q) => q.id !== quest.id && !(quest.requires || []).includes(q.id)).id))}
+                    style={{ cursor: 'pointer', color: '#2563eb' }}
+                  >+ add</button>
+                )}
+              </Section>
+
+              <Section title="Dialogue">
+                <div style={{ ...hint, marginBottom: 8 }}>What the NPCs say, one page per line.</div>
+                <div style={{ marginBottom: 3 }}>Offer <span style={hint}>(the giver, before Accept / Decline)</span></div>
+                <LineList lines={quest.lines?.offer} onChange={(v) => setLines('offer', v)} placeholder="밀 10개만 구해다 주겠나?" />
+                <div style={{ margin: '10px 0 3px' }}>In progress <span style={hint}>(the receiver; with no lines the quest shows but can't be chosen)</span></div>
+                <LineList lines={quest.lines?.active} onChange={(v) => setLines('active', v)} placeholder="아직 부족하구먼." />
+                <div style={{ margin: '10px 0 3px' }}>Hand in <span style={hint}>(the receiver, before Hand over)</span></div>
+                <LineList lines={quest.lines?.complete} onChange={(v) => setLines('complete', v)} placeholder="고맙네!" />
+              </Section>
+
+              <Section title="Needs and rewards">
+                <label style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 4 }}>
+                  <span>✋ held item of</span>
+                  <select value={heldPlayer} onChange={(e) => pickHeldPlayer(e.target.value)} style={{ flex: 1, padding: '3px 2px' }}>
+                    <option value="">(player)</option>
+                    {(players.includes(heldPlayer) || !heldPlayer ? players : [heldPlayer, ...players]).map((p) => (
+                      <option key={p} value={p}>{p}{players.includes(p) ? '' : ' (offline)'}</option>
+                    ))}
+                  </select>
+                  <button onClick={loadPlayers} title="Refresh online players" style={{ cursor: 'pointer' }}>↻</button>
+                </label>
+                <div style={{ ...hint, marginBottom: 10 }}>
+                  In a need, only the listed parts must match. Delete damage=… to accept any wear.
+                </div>
+                <div style={{ marginBottom: 3 }}>Needs <span style={hint}>(all of them, in this order)</span></div>
+                <StackList goals fetchHeld={fetchHeld} stacks={quest.goals} onChange={(v) => setQuestField('goals', v)} />
+                <div style={{ marginBottom: 3 }}>Rewards <span style={hint}>(item as /give writes it; [components] allowed)</span></div>
+                <StackList wide fetchHeld={fetchHeld} stacks={quest.rewards} onChange={(v) => setQuestField('rewards', v)} />
+              </Section>
+
               <button onClick={deleteQuest} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete quest</button>
             </>
           ) : folder ? (
