@@ -50,6 +50,8 @@
 - **받는 동물**: 번식하면 새끼가 바로 태어나는 동물(`Animal.spawnChildFromBreeding` → `BabyEntitySpawnEvent`). 알을 낳는
   동물(거북·개구리·스니퍼: NeoForge 소스에서 개구리·스니퍼는 번식 처리를 덮어쓰고, 거북은 자기 알 낳기 동작을 쓴다)과
   주민(먹이가 아닌 다른 체계)은 publish 거부(**보류**).
+- 구현(쌈): **태어난 새끼의 종류**로 센다(말 + 당나귀 → 노새면 `breed: minecraft:mule`). 게임은 몹을 만들어 봐야 종류를
+  알 수 있어서, publish 검사와 에디터 동물 목록(`GET /api/animals`)은 월드에 넣지 않는 몹을 한 번씩 만들어 본다(`Breeding`).
 
 ## 진행 기록 키: `<종류>:<대상 id>`
 
