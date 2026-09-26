@@ -12,28 +12,30 @@ const toolButton = { padding: '4px 8px', cursor: 'pointer', color: '#2563eb', bo
 const GOAL_KINDS = [
   { key: 'item', label: 'hand in', placeholder: 'minecraft:wheat' },
   { key: 'kill', label: 'kill', placeholder: 'minecraft:wolf' },
-  { key: 'harvest', label: 'harvest', placeholder: 'minecraft:wheat' },
+  { key: 'harvest', label: 'harvest', placeholder: 'minecraft:wheat', list: 'crops', choose: 'Choose a crop…' },
+  { key: 'breed', label: 'breed', placeholder: 'minecraft:cow', list: 'animals', choose: 'Choose an animal…' },
 ]
 
-// A harvest goal's crop: picked from the game's list, or typed when the list can't be read.
-function CropPicker({ value, crops, onChange }) {
-  if (!crops.length) {
-    return <input value={value} placeholder="minecraft:wheat" onChange={(e) => onChange(e.target.value)} style={{ ...input, flex: 1 }} />
+// A harvest goal's crop or a breed goal's animal: picked from the game's list
+// ([{ id, name }]), or typed when the list can't be read.
+function ListPicker({ value, options, placeholder, choose, onChange }) {
+  if (!options.length) {
+    return <input value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} style={{ ...input, flex: 1 }} />
   }
-  const known = crops.some((c) => c.id === value)
+  const known = options.some((c) => c.id === value)
   return (
     <select value={value} onChange={(e) => onChange(e.target.value)} style={{ ...input, flex: 1 }}>
-      {!value && <option value="">Choose a crop…</option>}
+      {!value && <option value="">{choose}</option>}
       {value && !known && <option value={value}>{value} (not in this game)</option>}
-      {crops.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}
+      {options.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}
     </select>
   )
 }
 
-// A quest's goals or rewards: rows of target + count. Goals pick hand in / kill / harvest.
+// A quest's goals or rewards: rows of target + count. Goals pick hand in / kill / harvest / breed.
 // Rewards (`wide`) take a whole /give line such as minecraft:iron_sword[custom_name=...],
 // so the item gets its own line.
-function StackList({ stacks, onChange, fetchHeld, crops = [], wide = false, goals = false }) {
+function StackList({ stacks, onChange, fetchHeld, lists = {}, wide = false, goals = false }) {
   const set = (i, key, value) => onChange(stacks.map((s, j) => (j === i ? { ...s, [key]: value } : s)))
   return (
     <div style={{ marginBottom: 12 }}>
@@ -56,19 +58,24 @@ function StackList({ stacks, onChange, fetchHeld, crops = [], wide = false, goal
         )
         if (goals) {
           // A goal is { item, count } (hand in), or something done while active:
-          // { kill, count } or { harvest, count } (fully grown crops, one per plant).
-          const kind = (GOAL_KINDS.find((k) => s[k.key] !== undefined) || GOAL_KINDS[0]).key
+          // { kill, count }, { harvest, count } (fully grown crops, one per plant) or
+          // { breed, count } (babies born to animals the player fed).
+          const kindDef = GOAL_KINDS.find((k) => s[k.key] !== undefined) || GOAL_KINDS[0]
+          const kind = kindDef.key
           const setKind = (k) => onChange(stacks.map((x, j) => (j === i ? { [k]: x[kind], count: x.count } : x)))
           return (
             <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 3 }}>
               <select value={kind} onChange={(e) => setKind(e.target.value)} style={{ padding: '4px 2px' }}>
                 {GOAL_KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
               </select>
-              {kind === 'harvest' ? (
-                <CropPicker value={s.harvest} crops={crops} onChange={(v) => set(i, 'harvest', v)} />
+              {kindDef.list ? (
+                <ListPicker
+                  value={s[kind]} options={lists[kindDef.list] || []} placeholder={kindDef.placeholder}
+                  choose={kindDef.choose} onChange={(v) => set(i, kind, v)}
+                />
               ) : (
                 <input
-                  value={s[kind]} placeholder={GOAL_KINDS.find((k) => k.key === kind).placeholder}
+                  value={s[kind]} placeholder={kindDef.placeholder}
                   onChange={(e) => set(i, kind, e.target.value)} style={{ ...input, flex: 1 }}
                 />
               )}
@@ -120,12 +127,16 @@ export default function QuestTab({ quests, setQuests, folders, setFolders, npcs,
   const questId = quest?.id
   useEffect(() => { if (questId) loadPlayers() }, [questId, loadPlayers])
 
-  // The crops a harvest goal may name, from the running game (other mods' crops too).
-  const [crops, setCrops] = useState([])
+  // The crops a harvest goal and the animals a breed goal may name, from the running
+  // game (other mods' too). Read once; if the game can't be reached, they are typed.
+  const [lists, setLists] = useState({})
+  const listsLoaded = Object.keys(lists).length > 0
   useEffect(() => {
-    if (!questId || crops.length) return
-    fetch('/api/crops').then((r) => r.json()).then((r) => setCrops(r.crops || [])).catch(() => { /* typed instead */ })
-  }, [questId, crops.length])
+    if (!questId || listsLoaded) return
+    const read = (path, key) => fetch(path).then((r) => r.json()).then((r) => r[key] || []).catch(() => [])
+    Promise.all([read('/api/crops', 'crops'), read('/api/animals', 'animals')])
+      .then(([crops, animals]) => { if (crops.length || animals.length) setLists({ crops, animals }) })
+  }, [questId, listsLoaded])
 
   const pickHeldPlayer = useCallback((name) => {
     setHeldPlayer(name)
@@ -314,9 +325,9 @@ export default function QuestTab({ quests, setQuests, folders, setFolders, npcs,
                   In a need, only the listed parts must match. Delete damage=… to accept any wear.
                 </div>
                 <div style={{ marginBottom: 3 }}>
-                  Needs <span style={hint}>(all of them, in this order; kill and harvest count only after accepting)</span>
+                  Needs <span style={hint}>(all of them, in this order; kill, harvest and breed count only after accepting)</span>
                 </div>
-                <StackList goals fetchHeld={fetchHeld} crops={crops} stacks={quest.goals} onChange={(v) => setQuestField('goals', v)} />
+                <StackList goals fetchHeld={fetchHeld} lists={lists} stacks={quest.goals} onChange={(v) => setQuestField('goals', v)} />
                 <div style={{ marginBottom: 3 }}>Rewards <span style={hint}>(item as /give writes it; [components] allowed)</span></div>
                 <StackList wide fetchHeld={fetchHeld} stacks={quest.rewards} onChange={(v) => setQuestField('rewards', v)} />
               </Section>

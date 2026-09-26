@@ -221,6 +221,21 @@ class QuestFormatTest {
     }
 
     @Test
+    void breedGoalsNameAnAnimalAndCountApartFromKillingIt() {
+        QuestDoc doc = QuestFormat.read("""
+                { "format": 1, "quests": [ { "id": "quest_a", "title": "A",
+                  "goals": [ { "breed": "minecraft:cow", "count": 2 }, { "kill": "minecraft:cow", "count": 1 } ],
+                  "rewards": [] } ] }
+                """);
+        List<QuestDoc.Goal> goals = doc.find("quest_a").goals();
+        assertEquals(List.of(QuestDoc.Goal.breed("minecraft:cow", 2), QuestDoc.Goal.kill("minecraft:cow", 1)), goals);
+        assertEquals("breed:minecraft:cow", goals.get(0).progressKey());
+        String written = QuestFormat.write(doc);
+        assertTrue(written.contains("\"breed\": \"minecraft:cow\""), written);
+        assertEquals(doc, QuestFormat.read(written));
+    }
+
+    @Test
     void aGoalNamesExactlyOneKnownKindAndEachTargetOncePerKind() {
         for (String goals : new String[] {
                 "{ \"count\": 1 }",                                                             // neither
@@ -230,7 +245,10 @@ class QuestFormatTest {
                 "{ \"harvest\": \"wheat crops\", \"count\": 1 }",
                 "{ \"harvest\": \"minecraft:wheat\", \"count\": 0 }",
                 "{ \"kill\": \"minecraft:wolf\", \"count\": 1 }, { \"kill\": \"minecraft:wolf\", \"count\": 2 }",
-                "{ \"harvest\": \"minecraft:wheat\", \"count\": 1 }, { \"harvest\": \"minecraft:wheat\", \"count\": 2 }"}) {
+                "{ \"harvest\": \"minecraft:wheat\", \"count\": 1 }, { \"harvest\": \"minecraft:wheat\", \"count\": 2 }",
+                "{ \"breed\": \"minecraft:cow\", \"kill\": \"minecraft:cow\", \"count\": 1 }",
+                "{ \"breed\": \"Cow\", \"count\": 1 }",
+                "{ \"breed\": \"minecraft:cow\", \"count\": 1 }, { \"breed\": \"minecraft:cow\", \"count\": 2 }"}) {
             assertThrows(DocumentException.class, () -> QuestFormat.read(
                     "{\"format\":1,\"quests\":[{\"id\":\"quest_a\",\"title\":\"A\",\"goals\":[" + goals + "],\"rewards\":[]}]}"),
                     goals);

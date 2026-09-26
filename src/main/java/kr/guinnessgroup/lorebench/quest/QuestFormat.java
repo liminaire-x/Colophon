@@ -36,7 +36,7 @@ import java.util.regex.Pattern;
  *   "giver": "npc_7ha2m0qe", "receiver": "npc_7ha2m0qe", "requires": [ "quest_p0a8s1dd" ],
  *   "lines": { "offer": [ "밀 10개만 구해다 주겠나?" ], "active": [ "아직 부족하구먼." ], "complete": [ "고맙네!" ] },
  *   "goals":   [ { "item": "minecraft:wheat",   "count": 10 }, { "kill": "minecraft:wolf", "count": 3 },
- *                { "harvest": "minecraft:potatoes", "count": 5 } ],
+ *                { "harvest": "minecraft:potatoes", "count": 5 }, { "breed": "minecraft:cow", "count": 2 } ],
  *   "rewards": [ { "item": "minecraft:emerald", "count": 5 } ] } ] }</pre>
  * {@code folders}, a folder's {@code parent}, and a quest's {@code icon}, {@code text}, {@code folder},
  * {@code giver}, {@code receiver}, {@code requires} and {@code lines} are optional (no parent or
@@ -227,12 +227,13 @@ public final class QuestFormat {
     /** What a counted goal's target looks like, for messages. */
     private static final Map<QuestDoc.Goal.Kind, String> TARGET_EXAMPLE = Map.of(
             QuestDoc.Goal.Kind.KILL, "an entity id like minecraft:wolf",
-            QuestDoc.Goal.Kind.HARVEST, "a crop block id like minecraft:wheat");
+            QuestDoc.Goal.Kind.HARVEST, "a crop block id like minecraft:wheat",
+            QuestDoc.Goal.Kind.BREED, "an entity id like minecraft:cow");
 
     /**
      * Goals: each names exactly one kind: {@code item} (hand in; an item condition as
-     * {@code /clear} reads it), {@code kill} (an entity type id) or {@code harvest} (a
-     * crop block id). Counted goals of one kind must name different targets, because
+     * {@code /clear} reads it), {@code kill} (an entity type id), {@code harvest} (a
+     * crop block id) or {@code breed} (an entity type id). Counted goals of one kind must name different targets, because
      * progress is saved per kind and target.
      */
     private static List<QuestDoc.Goal> goals(JsonObject o, String where, List<String> errors) {
@@ -258,7 +259,7 @@ public final class QuestFormat {
                 }
             }
             if (kinds != 1) {
-                errors.add(where + ": a goal needs exactly one of 'item', 'kill' or 'harvest'");
+                errors.add(where + ": a goal needs exactly one of 'item', 'kill', 'harvest' or 'breed'");
                 continue;
             }
             String target = optional(go, kind.key);

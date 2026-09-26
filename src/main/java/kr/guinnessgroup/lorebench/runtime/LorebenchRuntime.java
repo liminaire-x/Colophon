@@ -151,8 +151,9 @@ public final class LorebenchRuntime {
     }
 
     /**
-     * Quest items, kill targets and crops must exist in this game (a typo, a missing mod
-     * or bad components is rejected), and crops must be ones whose full growth shows.
+     * Quest items, kill and breed targets and crops must exist in this game (a typo, a
+     * missing mod or bad components is rejected), crops must be ones whose full growth
+     * shows, and breed targets animals whose babies are born when fed.
      */
     private void checkItems(QuestDoc questDoc) {
         List<String> errors = new ArrayList<>();
@@ -166,6 +167,7 @@ public final class LorebenchRuntime {
                     case ITEM -> checks.itemCondition(g.target());
                     case KILL -> checks.entity(g.target());
                     case HARVEST -> checks.crop(g.target());
+                    case BREED -> checks.breedable(g.target());
                 };
                 String what = g.kind() == QuestDoc.Goal.Kind.ITEM ? "goal" : g.kind().key;
                 check(errors, where + what + " '" + g.target() + "': ", problem);

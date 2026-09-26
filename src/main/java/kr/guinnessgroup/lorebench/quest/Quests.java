@@ -24,6 +24,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.TamableAnimal;
@@ -44,6 +45,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -131,6 +135,14 @@ public final class Quests {
         if (Crops.ripe(state)) {
             tally(player, QuestDoc.Goal.Kind.HARVEST, Crops.id(state.getBlock()));
         }
+    }
+
+    /**
+     * A baby was born to animals this player fed: count it toward their active breed
+     * goals for its kind. It counts at birth, whenever the parents were fed.
+     */
+    public void onBreed(ServerPlayer player, Entity baby) {
+        tally(player, QuestDoc.Goal.Kind.BREED, BuiltInRegistries.ENTITY_TYPE.getKey(baby.getType()).toString());
     }
 
     /**
@@ -407,6 +419,28 @@ public final class Quests {
             return Crops.harvestable(block) ? null
                     : "not a crop whose full growth the game shows (wheat, carrots, potatoes, beetroots, nether wart, "
                     + "cocoa ...); pumpkins, melons, sugar cane, cactus, bamboo and berries are not supported yet";
+        }
+
+        @Override
+        public String breedable(String id) {
+            EntityType<?> type = entityType(id);
+            if (type == null) {
+                return "no entity '" + id + "' in this game";
+            }
+            MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+            if (server == null) {
+                return "the server is not running";
+            }
+            boolean ok;
+            try {
+                // Making an entity belongs on the server thread (runs right away when already on it).
+                ok = server.submit(() -> Breeding.breedable(type, server.overworld())).get(5, TimeUnit.SECONDS);
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                return "the game did not answer whether it can be bred";
+            }
+            return ok ? null
+                    : "not an animal whose baby is born when two are fed (cows, sheep, pigs, chickens, wolves ...); "
+                    + "turtles, frogs, sniffers and villagers are not supported yet";
         }
     };
 

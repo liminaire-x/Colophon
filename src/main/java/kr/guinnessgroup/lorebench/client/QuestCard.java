@@ -27,7 +27,7 @@ import java.util.function.Predicate;
 /**
  * A quest's needs and rewards as the quest screen and the dialogue show them, with
  * the items read once per screen. Progress comes from this player's inventory and
- * the counts (kills, harvests) the server sent.
+ * the counts (kills, harvests, babies) the server sent.
  */
 final class QuestCard {
 
@@ -71,7 +71,7 @@ final class QuestCard {
             for (QuestDoc.Goal goal : q.goals()) {
                 ItemStack icon = goalIcon(goal);
                 Component name = switch (goal.kind()) {
-                    case KILL -> entityName(goal.target());
+                    case KILL, BREED -> entityName(goal.target());
                     case HARVEST -> cropName(goal.target());
                     case ITEM -> goal.target().startsWith("#") ? Component.literal(goal.target()) // a tag: any item in it
                             : icon.getHoverName();
@@ -121,7 +121,7 @@ final class QuestCard {
 
     /**
      * An item goal shows the item its condition names (with a name or enchantments if
-     * it lists them); a kill goal shows the mob's spawn egg, if it has one; a harvest
+     * it lists them); a kill or breed goal shows the mob's spawn egg, if it has one; a harvest
      * goal shows what picking the crop gives (wheat seeds, a potato, cocoa beans ...).
      */
     private ItemStack goalIcon(QuestDoc.Goal goal) {
@@ -129,7 +129,7 @@ final class QuestCard {
             case ITEM -> displays.computeIfAbsent(goal.target(), s -> minecraft.player == null
                     ? ItemStack.EMPTY
                     : Quests.display(s, minecraft.player.registryAccess()));
-            case KILL -> {
+            case KILL, BREED -> {
                 SpawnEggItem egg = SpawnEggItem.byId(Quests.entityType(goal.target()));
                 yield egg == null ? ItemStack.EMPTY : new ItemStack(egg);
             }

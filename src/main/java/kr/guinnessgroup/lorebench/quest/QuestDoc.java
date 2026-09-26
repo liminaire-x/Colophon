@@ -79,8 +79,9 @@ public record QuestDoc(List<Folder> folders, List<Quest> quests) {
      * (hand in: an item condition as {@code /clear} reads it; listed components must
      * match, others are ignored), or as something the player does while the quest is
      * active, counted in their progress record: {@code {"kill": "minecraft:wolf", "count": 3}}
-     * (an entity type id) or {@code {"harvest": "minecraft:wheat", "count": 10}} (a crop
-     * block id; fully grown ones, one per plant). See docs/decisions/0010-farming-goals.md.
+     * (an entity type id), {@code {"harvest": "minecraft:wheat", "count": 10}} (a crop
+     * block id; fully grown ones, one per plant) or {@code {"breed": "minecraft:cow", "count": 2}}
+     * (an entity type id; babies born). See docs/decisions/0010-farming-goals.md.
      *
      * @param target an item condition, an entity type id or a block id, depending on {@code kind}
      */
@@ -89,7 +90,8 @@ public record QuestDoc(List<Folder> folders, List<Quest> quests) {
         public enum Kind {
             ITEM("item"),
             KILL("kill"),
-            HARVEST("harvest");
+            HARVEST("harvest"),
+            BREED("breed");
 
             /** The key that names the target in the saved goal and in progress records. Never rename. */
             public final String key;
@@ -114,6 +116,10 @@ public record QuestDoc(List<Folder> folders, List<Quest> quests) {
 
         public static Goal harvest(String crop, int count) {
             return new Goal(Kind.HARVEST, crop, count);
+        }
+
+        public static Goal breed(String entity, int count) {
+            return new Goal(Kind.BREED, entity, count);
         }
 
         /** Where a counted goal's count is kept in the progress record, e.g. {@code kill:minecraft:wolf}. */

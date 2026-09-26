@@ -22,4 +22,7 @@ public interface ContentChecks {
 
     /** A crop block id whose full growth the game shows (harvest goals). */
     String crop(String id);
+
+    /** An entity type id of an animal whose babies are born when fed (breed goals). */
+    String breedable(String id);
 }

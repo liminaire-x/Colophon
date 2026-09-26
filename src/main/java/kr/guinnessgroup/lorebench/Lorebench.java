@@ -23,6 +23,9 @@ import kr.guinnessgroup.lorebench.runtime.NodeRegistry;
 import kr.guinnessgroup.lorebench.web.LorebenchWebServer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.AgeableMob;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.animal.Animal;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
@@ -34,6 +37,7 @@ import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.entity.living.BabyEntitySpawnEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
@@ -42,7 +46,9 @@ import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 
 /** Mod entry point: wires the pieces together and connects them to game events. */
 @Mod(Lorebench.MODID)
@@ -145,6 +151,25 @@ public final class Lorebench {
         if (event.getPlayer() instanceof ServerPlayer player) {
             quests.onHarvest(player, event.getState());
         }
+    }
+
+    /**
+     * Last in line, and only if no other mod cancelled the birth. Every player who fed
+     * one of the two parents counts it (the game's own statistic credits only one).
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onBabyBorn(BabyEntitySpawnEvent event) {
+        AgeableMob baby = event.getChild();
+        if (baby == null) {
+            return; // another mod took the baby away
+        }
+        Set<ServerPlayer> feeders = new LinkedHashSet<>();
+        for (Mob parent : new Mob[] {event.getParentA(), event.getParentB()}) {
+            if (parent instanceof Animal animal && animal.getLoveCause() != null) {
+                feeders.add(animal.getLoveCause());
+            }
+        }
+        feeders.forEach(player -> quests.onBreed(player, baby));
     }
 
     @SubscribeEvent

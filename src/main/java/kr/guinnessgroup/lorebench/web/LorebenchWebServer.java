@@ -12,12 +12,15 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import kr.guinnessgroup.lorebench.DocumentException;
 import kr.guinnessgroup.lorebench.npc.Npcs;
+import kr.guinnessgroup.lorebench.quest.Breeding;
 import kr.guinnessgroup.lorebench.quest.Crops;
 import kr.guinnessgroup.lorebench.quest.Quests;
 import kr.guinnessgroup.lorebench.runtime.LorebenchRuntime;
 import kr.guinnessgroup.lorebench.runtime.NodeRegistry;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.slf4j.Logger;
@@ -48,6 +51,7 @@ import java.util.function.Function;
  *   <li>{@code GET /api/players} — who is online</li>
  *   <li>{@code GET /api/held-item?player=Name} — what they hold, as {@code /give} writes it</li>
  *   <li>{@code GET /api/crops} — the crops a harvest goal may name</li>
+ *   <li>{@code GET /api/animals} — the animals a breed goal may name</li>
  * </ul>
  */
 public final class LorebenchWebServer {
@@ -90,6 +94,7 @@ public final class LorebenchWebServer {
             server.createContext("/api/publish", this::handlePublish);
             server.createContext("/api/players", ex -> fromGame(ex, LorebenchWebServer::players));
             server.createContext("/api/crops", ex -> fromGame(ex, LorebenchWebServer::crops));
+            server.createContext("/api/animals", ex -> fromGame(ex, LorebenchWebServer::animals));
             server.createContext("/api/held-item", ex -> {
                 String player = query(ex, "player");
                 fromGame(ex, mc -> heldItem(mc, player));
@@ -191,6 +196,23 @@ public final class LorebenchWebServer {
         }
         JsonObject o = new JsonObject();
         o.add("crops", list);
+        return o.toString();
+    }
+
+    /**
+     * {@code {"animals": [{"id": "minecraft:cow", "name": "Cow"}]}}: every animal in this game
+     * a breed goal may name ({@link Breeding}), including other mods' animals.
+     */
+    private static String animals(MinecraftServer mc) {
+        JsonArray list = new JsonArray();
+        for (EntityType<?> type : Breeding.all(mc.overworld())) {
+            JsonObject a = new JsonObject();
+            a.addProperty("id", BuiltInRegistries.ENTITY_TYPE.getKey(type).toString());
+            a.addProperty("name", type.getDescription().getString());
+            list.add(a);
+        }
+        JsonObject o = new JsonObject();
+        o.add("animals", list);
         return o.toString();
     }
 
