@@ -5,6 +5,7 @@
  */
 package kr.guinnessgroup.lorebench.quest;
 
+import kr.guinnessgroup.lorebench.DialogueLines.Line;
 import kr.guinnessgroup.lorebench.Folders.Folder;
 
 import java.util.ArrayList;
@@ -61,7 +62,7 @@ public record QuestDoc(List<Folder> folders, List<Quest> quests) {
      * @param active   when the player talks to the receiver while it is in progress
      * @param complete when the player hands it in
      */
-    public record Lines(List<String> offer, List<String> active, List<String> complete) {
+    public record Lines(List<Line> offer, List<Line> active, List<Line> complete) {
 
         public static final Lines NONE = new Lines(List.of(), List.of(), List.of());
     }

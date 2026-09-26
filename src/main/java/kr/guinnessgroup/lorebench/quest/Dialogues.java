@@ -76,7 +76,7 @@ public final class Dialogues {
             return;
         }
         talks.put(player.getUUID(), new Talk(def.id(), npc.getUUID()));
-        send(player, def, plan, false);
+        send(player, def, npc, plan, false);
     }
 
     /** The player accepted an offer or handed a quest in. Anything that no longer holds is ignored. */
@@ -101,7 +101,7 @@ public final class Dialogues {
         } else {
             quests.complete(player, choice.questId());
         }
-        send(player, def, plan(player, def.id()), true);
+        send(player, def, npc, plan(player, def.id()), true);
     }
 
     /** The player left: forget who they were talking to. */
@@ -113,11 +113,12 @@ public final class Dialogues {
         return Dialogue.plan(npcId, runtime.quests(), id -> quests.state(player, id));
     }
 
-    private void send(ServerPlayer player, NpcDoc.NpcDef def, List<Dialogue.Entry> plan, boolean resume) {
+    private void send(ServerPlayer player, NpcDoc.NpcDef def, NpcEntity npc, List<Dialogue.Entry> plan, boolean resume) {
         List<DialoguePayload.Entry> entries = new ArrayList<>();
         for (Dialogue.Entry e : plan) {
             entries.add(new DialoguePayload.Entry(e.kind(), e.quest(), Dialogue.lines(e), quests.kills(player, e.quest().id())));
         }
-        PacketDistributor.sendToPlayer(player, new DialoguePayload(def.name(), def.greeting(), List.copyOf(entries), resume));
+        PacketDistributor.sendToPlayer(player,
+                new DialoguePayload(def.name(), npc.getId(), def.greeting(), List.copyOf(entries), resume));
     }
 }

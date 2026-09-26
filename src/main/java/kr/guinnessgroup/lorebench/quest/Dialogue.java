@@ -5,6 +5,8 @@
  */
 package kr.guinnessgroup.lorebench.quest;
 
+import kr.guinnessgroup.lorebench.DialogueLines;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -62,7 +64,7 @@ public final class Dialogue {
     }
 
     /** The lines the NPC says for an entry. */
-    public static List<String> lines(Entry entry) {
+    public static List<DialogueLines.Line> lines(Entry entry) {
         QuestDoc.Lines lines = entry.quest().flow().lines();
         return switch (entry.kind()) {
             case READY -> lines.complete();

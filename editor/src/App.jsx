@@ -13,6 +13,7 @@ import '@xyflow/react/dist/style.css'
 import { newId } from './ids.js'
 import QuestTab from './QuestTab.jsx'
 import NpcTab from './NpcTab.jsx'
+import { lineText } from './Section.jsx'
 import { FolderPanel, FolderSelect, FolderTree, addFolder, placeIn } from './FolderTree.jsx'
 
 // Must match the server (GraphFormat.java, NpcFormat.java, QuestFormat.java).
@@ -69,7 +70,7 @@ function toDoc(graphs, folders) {
 
 // Lines an author left blank are dropped on publish, and so are lists left empty,
 // because the server takes only real lines (DialogueLines.java).
-const realLines = (lines) => (lines || []).filter((l) => l.trim() !== '')
+const realLines = (lines) => (lines || []).filter((l) => lineText(l).trim() !== '')
 
 function tidyNpc(n) {
   const { greeting, ...rest } = n

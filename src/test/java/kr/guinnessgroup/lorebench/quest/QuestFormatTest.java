@@ -5,6 +5,7 @@
  */
 package kr.guinnessgroup.lorebench.quest;
 
+import kr.guinnessgroup.lorebench.DialogueLines;
 import kr.guinnessgroup.lorebench.DocumentException;
 import kr.guinnessgroup.lorebench.Folders;
 import org.junit.jupiter.api.Test;
@@ -72,7 +73,8 @@ class QuestFormatTest {
                 """);
         QuestDoc.Flow wolf = doc.find("quest_wolf").flow();
         assertEquals(new QuestDoc.Flow("npc_guard", "npc_smith", List.of("quest_sword"),
-                new QuestDoc.Lines(List.of("늑대 3마리만 잡아주게.", "요즘 가축이 자꾸 사라지거든."), List.of(), List.of("대단하군!"))),
+                new QuestDoc.Lines(DialogueLines.text("늑대 3마리만 잡아주게.", "요즘 가축이 자꾸 사라지거든."), List.of(),
+                        DialogueLines.text("대단하군!"))),
                 wolf);
         assertEquals("npc_smith", wolf.handInTo());
         assertEquals("npc_smith", doc.find("quest_sword").flow().handInTo());

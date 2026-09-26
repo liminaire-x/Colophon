@@ -5,6 +5,7 @@
  */
 package kr.guinnessgroup.lorebench.quest;
 
+import kr.guinnessgroup.lorebench.DialogueLines;
 import kr.guinnessgroup.lorebench.Lorebench;
 import kr.guinnessgroup.lorebench.client.ClientDialogue;
 import net.minecraft.network.FriendlyByteBuf;
@@ -23,17 +24,20 @@ import java.util.Map;
  * player's quests for this NPC are in it, so an offer reaches the client only when
  * the NPC can make it.
  *
+ * @param npcEntity the network id of the NPC entity the player clicked, which plays the
+ *                  lines' animations on this player's screen only
  * @param resume sent after the player accepted or handed something in: carry on with
  *               the list instead of starting over
  */
-public record DialoguePayload(String npcName, List<String> greeting, List<Entry> entries, boolean resume)
+public record DialoguePayload(String npcName, int npcEntity, List<DialogueLines.Line> greeting, List<Entry> entries,
+                              boolean resume)
         implements CustomPacketPayload {
 
     /**
      * @param lines what the NPC says about it (offer, in progress or hand-in lines)
      * @param kills the player's kill counts, for progress
      */
-    public record Entry(Dialogue.Kind kind, QuestDoc.Quest quest, List<String> lines, Map<String, Integer> kills) {}
+    public record Entry(Dialogue.Kind kind, QuestDoc.Quest quest, List<DialogueLines.Line> lines, Map<String, Integer> kills) {}
 
     public static final Type<DialoguePayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(Lorebench.MODID, "dialogue"));
@@ -60,6 +64,7 @@ public record DialoguePayload(String npcName, List<String> greeting, List<Entry>
 
     private void write(FriendlyByteBuf buf) {
         buf.writeUtf(npcName);
+        buf.writeVarInt(npcEntity);
         writeLines(buf, greeting);
         buf.writeVarInt(entries.size());
         for (Entry e : entries) {
@@ -73,28 +78,32 @@ public record DialoguePayload(String npcName, List<String> greeting, List<Entry>
 
     private static DialoguePayload read(FriendlyByteBuf buf) {
         String npcName = buf.readUtf();
-        List<String> greeting = readLines(buf);
+        int npcEntity = buf.readVarInt();
+        List<DialogueLines.Line> greeting = readLines(buf);
         int n = buf.readVarInt();
         List<Entry> entries = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
             Dialogue.Kind kind = buf.readEnum(Dialogue.Kind.class);
             QuestDoc.Quest quest = QuestSyncPayload.readQuest(buf);
-            List<String> lines = readLines(buf);
+            List<DialogueLines.Line> lines = readLines(buf);
             entries.add(new Entry(kind, quest, lines, QuestSyncPayload.readKills(buf)));
         }
-        return new DialoguePayload(npcName, greeting, List.copyOf(entries), buf.readBoolean());
+        return new DialoguePayload(npcName, npcEntity, greeting, List.copyOf(entries), buf.readBoolean());
     }
 
-    private static void writeLines(FriendlyByteBuf buf, List<String> lines) {
+    private static void writeLines(FriendlyByteBuf buf, List<DialogueLines.Line> lines) {
         buf.writeVarInt(lines.size());
-        lines.forEach(buf::writeUtf);
+        for (DialogueLines.Line l : lines) {
+            buf.writeUtf(l.text());
+            buf.writeUtf(l.animation());
+        }
     }
 
-    private static List<String> readLines(FriendlyByteBuf buf) {
+    private static List<DialogueLines.Line> readLines(FriendlyByteBuf buf) {
         int n = buf.readVarInt();
-        List<String> lines = new ArrayList<>(n);
+        List<DialogueLines.Line> lines = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
-            lines.add(buf.readUtf());
+            lines.add(new DialogueLines.Line(buf.readUtf(), buf.readUtf()));
         }
         return List.copyOf(lines);
     }

@@ -5,6 +5,8 @@
  */
 package kr.guinnessgroup.lorebench.client;
 
+import kr.guinnessgroup.lorebench.DialogueLines;
+import kr.guinnessgroup.lorebench.npc.NpcEntity;
 import kr.guinnessgroup.lorebench.quest.Dialogue;
 import kr.guinnessgroup.lorebench.quest.DialogueChoicePayload;
 import kr.guinnessgroup.lorebench.quest.DialoguePayload;
@@ -24,8 +26,9 @@ import java.util.List;
  * Talking to an NPC (0009). The talk starts with the first thing the player can do
  * (hand in, then a new offer), else with the NPC's greeting; afterwards a list shows
  * everything else the NPC can talk about. Lines show one page at a time; a click,
- * Space or Enter turns the page. Accepting and handing in go to the server, which
- * checks them and sends the list back.
+ * Space or Enter turns the page, and a line's animation plays as its page shows, on
+ * this screen only (other players don't see this talk). Accepting and handing in go
+ * to the server, which checks them and sends the list back.
  */
 final class DialogueScreen extends Screen {
 
@@ -43,7 +46,7 @@ final class DialogueScreen extends Screen {
     private final QuestCard card = new QuestCard();
     private DialoguePayload talk;
     private Mode mode;
-    private List<String> pages = List.of();
+    private List<DialogueLines.Line> pages = List.of();
     private int page;
     private Runnable afterPages;
     private DialoguePayload.Entry shown;
@@ -89,7 +92,7 @@ final class DialogueScreen extends Screen {
         say(entry.lines(), () -> showCard(entry));
     }
 
-    private void say(List<String> lines, Runnable then) {
+    private void say(List<DialogueLines.Line> lines, Runnable then) {
         if (lines.isEmpty()) {
             then.run();
             return;
@@ -99,6 +102,7 @@ final class DialogueScreen extends Screen {
         afterPages = then;
         mode = Mode.PAGES;
         rebuild();
+        animate();
     }
 
     private void nextPage() {
@@ -106,6 +110,17 @@ final class DialogueScreen extends Screen {
             Runnable then = afterPages;
             afterPages = null;
             then.run();
+        } else {
+            animate();
+        }
+    }
+
+    /** The shown line's animation, played by the NPC being talked to, on this screen only. */
+    private void animate() {
+        String animation = pages.get(page).animation();
+        if (!animation.isEmpty() && minecraft != null && minecraft.level != null
+                && minecraft.level.getEntity(talk.npcEntity()) instanceof NpcEntity npc) {
+            npc.playLocally(animation);
         }
     }
 
@@ -146,7 +161,7 @@ final class DialogueScreen extends Screen {
         if (mode == Mode.LIST) {
             return PAD * 2 + (talk.entries().size() + 1) * (BUTTON_H + 2);
         }
-        int lines = font.split(Component.literal(pages.get(page)), boxW() - PAD * 2).size();
+        int lines = font.split(Component.literal(pages.get(page).text()), boxW() - PAD * 2).size();
         return Math.max(48, PAD * 2 + lines * (font.lineHeight + 2) + 8);
     }
 
@@ -270,7 +285,7 @@ final class DialogueScreen extends Screen {
         g.fill(x, y, x + w, y + h, PANEL);
         if (mode == Mode.PAGES) {
             int ty = y + PAD;
-            for (FormattedCharSequence line : font.split(Component.literal(pages.get(page)), w - PAD * 2)) {
+            for (FormattedCharSequence line : font.split(Component.literal(pages.get(page).text()), w - PAD * 2)) {
                 g.drawString(font, line, x + PAD, ty, WHITE);
                 ty += font.lineHeight + 2;
             }

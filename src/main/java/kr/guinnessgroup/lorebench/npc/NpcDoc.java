@@ -5,6 +5,7 @@
  */
 package kr.guinnessgroup.lorebench.npc;
 
+import kr.guinnessgroup.lorebench.DialogueLines.Line;
 import kr.guinnessgroup.lorebench.Folders.Folder;
 
 import java.util.List;
@@ -29,7 +30,7 @@ public record NpcDoc(List<Folder> folders, List<NpcDef> npcs) {
      * @param greeting what it says when the player has nothing to do with it, one page per line
      *                 ({@link kr.guinnessgroup.lorebench.DialogueLines}, docs/decisions/0009-quest-workbench.md)
      */
-    public record NpcDef(String id, String name, String model, String idle, String folder, List<String> greeting) {
+    public record NpcDef(String id, String name, String model, String idle, String folder, List<Line> greeting) {
 
         public NpcDef(String id, String name) {
             this(id, name, "", "", "", List.of());

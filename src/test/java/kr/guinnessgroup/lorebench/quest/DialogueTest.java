@@ -5,6 +5,7 @@
  */
 package kr.guinnessgroup.lorebench.quest;
 
+import kr.guinnessgroup.lorebench.DialogueLines;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -86,8 +87,8 @@ class DialogueTest {
     @Test
     void eachKindSaysItsOwnLines() {
         QuestDoc.Quest sword = DOC.find("quest_sword");
-        assertEquals(List.of("철 5개만 가져오게."), Dialogue.lines(new Dialogue.Entry(Dialogue.Kind.OFFER, sword)));
-        assertEquals(List.of("자, 자네 칼일세."), Dialogue.lines(new Dialogue.Entry(Dialogue.Kind.READY, sword)));
+        assertEquals(DialogueLines.text("철 5개만 가져오게."), Dialogue.lines(new Dialogue.Entry(Dialogue.Kind.OFFER, sword)));
+        assertEquals(DialogueLines.text("자, 자네 칼일세."), Dialogue.lines(new Dialogue.Entry(Dialogue.Kind.READY, sword)));
         assertEquals(List.of(), Dialogue.lines(new Dialogue.Entry(Dialogue.Kind.ACTIVE, sword)));
     }
 }

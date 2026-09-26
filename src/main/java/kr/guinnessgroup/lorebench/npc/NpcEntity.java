@@ -60,6 +60,8 @@ public class NpcEntity extends PathfinderMob implements GeoEntity {
     // Client-side animation state.
     private int seenActionSeq = -1;
     private String playingAction = "";
+    /** Client: an animation to start on this screen only, see {@link #playLocally}. */
+    private volatile String localRequest;
 
     public NpcEntity(EntityType<? extends NpcEntity> type, Level level) {
         super(type, level);
@@ -91,10 +93,18 @@ public class NpcEntity extends PathfinderMob implements GeoEntity {
         return entityData.get(MODEL);
     }
 
-    /** Server: play an animation once, then return to idle. */
+    /** Server: play an animation once for everyone who sees this NPC, then return to idle. */
     public void playAnimation(String animation) {
         entityData.set(ACTION, animation);
         entityData.set(ACTION_SEQ, entityData.get(ACTION_SEQ) + 1);
+    }
+
+    /**
+     * Client: play an animation once on this player's screen only (a dialogue line's
+     * animation: only the player talking sees it), then return to idle.
+     */
+    public void playLocally(String animation) {
+        localRequest = animation;
     }
 
     @Override
@@ -139,11 +149,19 @@ public class NpcEntity extends PathfinderMob implements GeoEntity {
     private PlayState animate(AnimationState<NpcEntity> state) {
         AnimationController<NpcEntity> controller = state.getController();
         int seq = entityData.get(ACTION_SEQ);
+        String start = null;
         if (seenActionSeq == -1) {
             seenActionSeq = seq; // just appeared: do not replay an old request
         } else if (seq != seenActionSeq) {
             seenActionSeq = seq;
-            playingAction = entityData.get(ACTION);
+            start = entityData.get(ACTION);
+        }
+        if (start == null && localRequest != null) {
+            start = localRequest;
+        }
+        localRequest = null;
+        if (start != null) {
+            playingAction = start;
             controller.forceAnimationReset();
             if (!playingAction.isEmpty()) {
                 return state.setAndContinue(RawAnimation.begin().thenPlay(playingAction));

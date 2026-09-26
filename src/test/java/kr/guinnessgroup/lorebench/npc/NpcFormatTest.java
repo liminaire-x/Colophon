@@ -5,6 +5,7 @@
  */
 package kr.guinnessgroup.lorebench.npc;
 
+import kr.guinnessgroup.lorebench.DialogueLines;
 import kr.guinnessgroup.lorebench.DocumentException;
 import org.junit.jupiter.api.Test;
 
@@ -55,7 +56,7 @@ class NpcFormatTest {
         NpcDoc doc = NpcFormat.read("""
                 { "format": 1, "npcs": [ { "id": "npc_guard", "name": "경비대장", "greeting": [ "오, 자네 왔군.", "무슨 일인가?" ] } ] }
                 """);
-        assertEquals(List.of("오, 자네 왔군.", "무슨 일인가?"), doc.find("npc_guard").greeting());
+        assertEquals(DialogueLines.text("오, 자네 왔군.", "무슨 일인가?"), doc.find("npc_guard").greeting());
         assertEquals(doc, NpcFormat.read(NpcFormat.write(doc)));
         assertEquals(List.of(), NpcFormat.read(CHIEF).find("npc_chief").greeting());
         assertTrue(!NpcFormat.write(NpcFormat.read(CHIEF)).contains("greeting"));

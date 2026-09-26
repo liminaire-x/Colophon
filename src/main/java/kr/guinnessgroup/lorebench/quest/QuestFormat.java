@@ -354,7 +354,7 @@ public final class QuestFormat {
         }
         JsonObject lines = new JsonObject();
         QuestDoc.Lines l = flow.lines();
-        List<List<String>> all = List.of(l.offer(), l.active(), l.complete());
+        List<List<DialogueLines.Line>> all = List.of(l.offer(), l.active(), l.complete());
         for (int i = 0; i < LINE_KEYS.size(); i++) {
             if (!all.get(i).isEmpty()) {
                 lines.add(LINE_KEYS.get(i), DialogueLines.write(all.get(i)));

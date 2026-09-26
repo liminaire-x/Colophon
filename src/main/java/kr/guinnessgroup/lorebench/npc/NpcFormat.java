@@ -99,7 +99,7 @@ public final class NpcFormat {
                 continue;
             }
             String folder = Folders.placement(o, folders, "NPC '" + id + "'", errors);
-            List<String> greeting = DialogueLines.read(o.get("greeting"), "NPC '" + id + "' greeting", errors);
+            List<DialogueLines.Line> greeting = DialogueLines.read(o.get("greeting"), "NPC '" + id + "' greeting", errors);
             npcs.add(new NpcDoc.NpcDef(id, name, model, idle, folder, greeting));
         }
         if (!errors.isEmpty()) {
