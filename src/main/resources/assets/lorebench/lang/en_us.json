@@ -3,6 +3,7 @@
   "key.lorebench.quests": "Quests",
   "lorebench.quests.title": "Quests",
   "lorebench.quests.none": "No quests yet.",
+  "lorebench.quests.supplies": "Given on accepting",
   "lorebench.quests.needs": "Needs",
   "lorebench.quests.goal.kill": "Kill %s",
   "lorebench.quests.goal.harvest": "Harvest %s",

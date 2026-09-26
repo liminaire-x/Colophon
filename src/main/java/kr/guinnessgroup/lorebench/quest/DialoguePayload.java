@@ -28,9 +28,11 @@ import java.util.Map;
  *                  lines' animations on this player's screen only
  * @param resume sent after the player accepted or handed something in: carry on with
  *               the list instead of starting over
+ * @param said   with {@code resume}: what the NPC says first (a quest's lines for right after
+ *               accepting it), or empty
  */
 public record DialoguePayload(String npcName, int npcEntity, List<DialogueLines.Line> greeting, List<Entry> entries,
-                              boolean resume)
+                              boolean resume, List<DialogueLines.Line> said)
         implements CustomPacketPayload {
 
     /**
@@ -47,7 +49,7 @@ public record DialoguePayload(String npcName, int npcEntity, List<DialogueLines.
 
     /** Registers both dialogue messages. Handled on the main thread (the registrar's default). */
     public static void register(RegisterPayloadHandlersEvent event) {
-        event.registrar("2")
+        event.registrar("3")
                 .playToClient(TYPE, CODEC, (payload, context) -> ClientDialogue.accept(payload))
                 .playToServer(DialogueChoicePayload.TYPE, DialogueChoicePayload.CODEC, (choice, context) -> {
                     Dialogues dialogues = Dialogues.current();
@@ -74,6 +76,7 @@ public record DialoguePayload(String npcName, int npcEntity, List<DialogueLines.
             QuestSyncPayload.writeProgress(buf, e.progress());
         }
         buf.writeBoolean(resume);
+        writeLines(buf, said);
     }
 
     private static DialoguePayload read(FriendlyByteBuf buf) {
@@ -88,7 +91,8 @@ public record DialoguePayload(String npcName, int npcEntity, List<DialogueLines.
             List<DialogueLines.Line> lines = readLines(buf);
             entries.add(new Entry(kind, quest, lines, QuestSyncPayload.readProgress(buf)));
         }
-        return new DialoguePayload(npcName, npcEntity, greeting, List.copyOf(entries), buf.readBoolean());
+        boolean resume = buf.readBoolean();
+        return new DialoguePayload(npcName, npcEntity, greeting, List.copyOf(entries), resume, readLines(buf));
     }
 
     private static void writeLines(FriendlyByteBuf buf, List<DialogueLines.Line> lines) {

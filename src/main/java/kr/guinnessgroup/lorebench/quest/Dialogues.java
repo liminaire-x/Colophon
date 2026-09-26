@@ -6,6 +6,7 @@
 package kr.guinnessgroup.lorebench.quest;
 
 import com.mojang.logging.LogUtils;
+import kr.guinnessgroup.lorebench.DialogueLines;
 import kr.guinnessgroup.lorebench.npc.NpcDoc;
 import kr.guinnessgroup.lorebench.npc.NpcEntity;
 import kr.guinnessgroup.lorebench.npc.Npcs;
@@ -76,7 +77,7 @@ public final class Dialogues {
             return;
         }
         talks.put(player.getUUID(), new Talk(def.id(), npc.getUUID()));
-        send(player, def, npc, plan, false);
+        send(player, def, npc, plan, false, List.of());
     }
 
     /** The player accepted an offer or handed a quest in. Anything that no longer holds is ignored. */
@@ -93,15 +94,17 @@ public final class Dialogues {
         Dialogue.Kind needed = choice.action() == DialogueChoicePayload.Action.ACCEPT ? Dialogue.Kind.OFFER : Dialogue.Kind.READY;
         boolean allowed = plan(player, def.id()).stream()
                 .anyMatch(e -> e.kind() == needed && e.quest().id().equals(choice.questId()));
+        List<DialogueLines.Line> said = List.of();
         if (!allowed) {
             LOGGER.debug("[Lorebench] {} chose {} {} with {}, which no longer holds",
                     player.getGameProfile().getName(), choice.action(), choice.questId(), def.id());
         } else if (choice.action() == DialogueChoicePayload.Action.ACCEPT) {
             quests.reveal(player, choice.questId());
+            said = runtime.quest(choice.questId()).flow().lines().accepted();
         } else {
             quests.complete(player, choice.questId());
         }
-        send(player, def, npc, plan(player, def.id()), true);
+        send(player, def, npc, plan(player, def.id()), true, said);
     }
 
     /** The player left: forget who they were talking to. */
@@ -113,12 +116,13 @@ public final class Dialogues {
         return Dialogue.plan(npcId, runtime.quests(), id -> quests.state(player, id));
     }
 
-    private void send(ServerPlayer player, NpcDoc.NpcDef def, NpcEntity npc, List<Dialogue.Entry> plan, boolean resume) {
+    private void send(ServerPlayer player, NpcDoc.NpcDef def, NpcEntity npc, List<Dialogue.Entry> plan, boolean resume,
+                      List<DialogueLines.Line> said) {
         List<DialoguePayload.Entry> entries = new ArrayList<>();
         for (Dialogue.Entry e : plan) {
             entries.add(new DialoguePayload.Entry(e.kind(), e.quest(), Dialogue.lines(e), quests.progress(player, e.quest().id())));
         }
         PacketDistributor.sendToPlayer(player,
-                new DialoguePayload(def.name(), npc.getId(), def.greeting(), List.copyOf(entries), resume));
+                new DialoguePayload(def.name(), npc.getId(), def.greeting(), List.copyOf(entries), resume, said));
     }
 }

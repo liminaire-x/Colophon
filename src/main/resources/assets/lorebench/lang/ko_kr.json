@@ -3,6 +3,7 @@
   "key.lorebench.quests": "퀘스트",
   "lorebench.quests.title": "퀘스트",
   "lorebench.quests.none": "아직 퀘스트가 없습니다.",
+  "lorebench.quests.supplies": "받는 것",
   "lorebench.quests.needs": "필요한 것",
   "lorebench.quests.goal.kill": "%s 처치",
   "lorebench.quests.goal.harvest": "%s 수확",

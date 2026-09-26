@@ -175,13 +175,23 @@ public final class Quests {
         }
     }
 
-    /** Show a hidden quest to the player (it becomes active). Does nothing if already revealed. */
+    /**
+     * Show a hidden quest to the player (it becomes active) and give its supplies, once:
+     * whether they accepted it in dialogue or a graph revealed it. Does nothing if already
+     * revealed. Supplies that do not fit drop at the player's feet.
+     */
     public void reveal(ServerPlayer player, String questId) {
         Owner owner = Owner.player(player.getUUID());
         if (QuestState.fromRecord(records.get(owner, questId)) != QuestState.HIDDEN) {
             return;
         }
         records.set(owner, questId, QuestState.ACTIVE_VALUE);
+        QuestDoc.Quest quest = runtime.quest(questId);
+        if (quest != null) {
+            for (QuestDoc.Stack supply : quest.supplies()) {
+                give(player, stack(supply.item(), player.registryAccess()), supply.count());
+            }
+        }
         sync(player);
     }
 

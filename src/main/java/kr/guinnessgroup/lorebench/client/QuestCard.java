@@ -42,8 +42,11 @@ final class QuestCard {
     private final Map<String, Predicate<ItemStack>> conditions = new HashMap<>();
 
     /** How tall {@link #needsAndRewards} draws a quest. */
-    int height(Font font, QuestDoc.Quest q) {
+    int height(Font font, QuestDoc.Quest q, boolean supplies) {
         int h = 0;
+        if (supplies && !q.supplies().isEmpty()) {
+            h += 6 + font.lineHeight + 2 + q.supplies().size() * ROW_H;
+        }
         if (!q.goals().isEmpty()) {
             h += 6 + font.lineHeight + 2 + q.goals().size() * ROW_H;
         }
@@ -54,16 +57,27 @@ final class QuestCard {
     }
 
     /**
-     * Needs and rewards from {@code y} down.
+     * Needs and rewards from {@code y} down, after what accepting gives when {@code supplies} is on.
      *
      * @param progress     this player's counted progress, by {@link QuestDoc.Goal#progressKey()}
      * @param showProgress show "3/10" from this player's inventory and progress; off shows "× 10"
+     * @param supplies     show the supplies first (an offer: what accepting gives)
      * @return the item under the mouse, for a tooltip, or empty
      */
     ItemStack needsAndRewards(GuiGraphics g, Font font, QuestDoc.Quest q, Map<String, Integer> progress, boolean showProgress,
-                              int x, int y, int mouseX, int mouseY) {
+                              boolean supplies, int x, int y, int mouseX, int mouseY) {
         ItemStack hovered = ItemStack.EMPTY;
         LocalPlayer player = minecraft.player;
+        if (supplies && !q.supplies().isEmpty()) {
+            y += 6;
+            g.drawString(font, Component.translatable("lorebench.quests.supplies"), x, y, GRAY);
+            y += font.lineHeight + 2;
+            for (QuestDoc.Stack supply : q.supplies()) {
+                ItemStack stack = rewardStack(supply.item());
+                hovered = row(g, font, stack, stack.getHoverName(), " × " + supply.count(), WHITE, true, x, y, mouseX, mouseY, hovered);
+                y += ROW_H;
+            }
+        }
         if (!q.goals().isEmpty()) {
             y += 6;
             g.drawString(font, Component.translatable("lorebench.quests.needs"), x, y, GRAY);

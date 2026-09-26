@@ -304,6 +304,8 @@ export default function QuestTab({ quests, setQuests, folders, setFolders, npcs,
                 <div style={{ ...hint, marginBottom: 8 }}>What the NPCs say, one page per line.</div>
                 <div style={{ marginBottom: 3 }}>Offer <span style={hint}>(the giver, before Accept / Decline)</span></div>
                 <LineList lines={quest.lines?.offer} onChange={(v) => setLines('offer', v)} placeholder="밀 10개만 구해다 주겠나?" />
+                <div style={{ margin: '10px 0 3px' }}>After accepting <span style={hint}>(the giver, right after Accept)</span></div>
+                <LineList lines={quest.lines?.accepted} onChange={(v) => setLines('accepted', v)} placeholder="자, 이 씨앗으로 시작하게." />
                 <div style={{ margin: '10px 0 3px' }}>In progress <span style={hint}>(the receiver; with no lines the quest shows but can't be chosen)</span></div>
                 <LineList lines={quest.lines?.active} onChange={(v) => setLines('active', v)} placeholder="아직 부족하구먼." />
                 <div style={{ margin: '10px 0 3px' }}>Hand in <span style={hint}>(the receiver, before Hand over)</span></div>
@@ -324,6 +326,10 @@ export default function QuestTab({ quests, setQuests, folders, setFolders, npcs,
                 <div style={{ ...hint, marginBottom: 10 }}>
                   In a need, only the listed parts must match. Delete damage=… to accept any wear.
                 </div>
+                <div style={{ marginBottom: 3 }}>
+                  Given on accepting <span style={hint}>(once, when the quest starts, also when a graph reveals it; not taken back)</span>
+                </div>
+                <StackList wide fetchHeld={fetchHeld} stacks={quest.supplies || []} onChange={(v) => setQuestField('supplies', v)} />
                 <div style={{ marginBottom: 3 }}>
                   Needs <span style={hint}>(all of them, in this order; kill, harvest and breed count only after accepting)</span>
                 </div>

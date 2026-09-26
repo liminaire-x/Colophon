@@ -34,12 +34,14 @@ import java.util.regex.Pattern;
  *   "quests": [ {
  *   "id": "quest_k3f9x2ma", "title": "밀 배달", "icon": "minecraft:wheat", "text": "...", "folder": "folder_9fm3a0pe",
  *   "giver": "npc_7ha2m0qe", "receiver": "npc_7ha2m0qe", "requires": [ "quest_p0a8s1dd" ],
- *   "lines": { "offer": [ "밀 10개만 구해다 주겠나?" ], "active": [ "아직 부족하구먼." ], "complete": [ "고맙네!" ] },
+ *   "lines": { "offer": [ "밀 10개만 구해다 주겠나?" ], "accepted": [ "부탁하네." ], "active": [ "아직 부족하구먼." ],
+ *              "complete": [ "고맙네!" ] },
+ *   "supplies": [ { "item": "minecraft:wheat_seeds", "count": 5 } ],
  *   "goals":   [ { "item": "minecraft:wheat",   "count": 10 }, { "kill": "minecraft:wolf", "count": 3 },
  *                { "harvest": "minecraft:potatoes", "count": 5 }, { "breed": "minecraft:cow", "count": 2 } ],
  *   "rewards": [ { "item": "minecraft:emerald", "count": 5 } ] } ] }</pre>
  * {@code folders}, a folder's {@code parent}, and a quest's {@code icon}, {@code text}, {@code folder},
- * {@code giver}, {@code receiver}, {@code requires} and {@code lines} are optional (no parent or
+ * {@code giver}, {@code receiver}, {@code requires}, {@code lines} and {@code supplies} are optional (no parent or
  * folder = the top; see docs/decisions/0009-quest-workbench.md for the rest). Required quests must
  * exist and never lead back to the quest. Beyond that this checks only the shape; whether the items,
  * entities, crops and NPCs exist is checked on publish, where the game's lists are available.
@@ -120,9 +122,11 @@ public final class QuestFormat {
             String folder = Folders.placement(o, folders, where, errors);
             List<QuestDoc.Goal> goals = goals(o, where, errors);
             List<QuestDoc.Stack> rewards = stacks(o, "rewards", ITEM_WITH_COMPONENTS, where, errors);
+            List<QuestDoc.Stack> supplies = o.has("supplies")
+                    ? stacks(o, "supplies", ITEM_WITH_COMPONENTS, where, errors) : List.of();
             QuestDoc.Flow flow = flow(o, where, errors);
             if (errors.size() == before) {
-                quests.add(new QuestDoc.Quest(id, title.trim(), icon, text == null ? "" : text, goals, rewards, folder, flow));
+                quests.add(new QuestDoc.Quest(id, title.trim(), icon, text == null ? "" : text, goals, rewards, supplies, folder, flow));
             }
         }
         checkRequires(quests, ids, errors);
@@ -164,7 +168,7 @@ public final class QuestFormat {
     }
 
     /** The keys of {@code lines}. Never rename: they are saved. */
-    private static final List<String> LINE_KEYS = List.of("offer", "active", "complete");
+    private static final List<String> LINE_KEYS = List.of("offer", "accepted", "active", "complete");
 
     private static QuestDoc.Lines lines(JsonElement e, String where, List<String> errors) {
         if (e == null) {
@@ -177,11 +181,12 @@ public final class QuestFormat {
         JsonObject o = e.getAsJsonObject();
         for (String key : o.keySet()) {
             if (!LINE_KEYS.contains(key)) {
-                errors.add(where + ": unknown lines '" + key + "' (use offer, active, complete)");
+                errors.add(where + ": unknown lines '" + key + "' (use " + String.join(", ", LINE_KEYS) + ")");
             }
         }
         return new QuestDoc.Lines(
                 DialogueLines.read(o.get("offer"), where + " offer", errors),
+                DialogueLines.read(o.get("accepted"), where + " accepted", errors),
                 DialogueLines.read(o.get("active"), where + " active", errors),
                 DialogueLines.read(o.get("complete"), where + " complete", errors));
     }
@@ -335,6 +340,9 @@ public final class QuestFormat {
             }
             Folders.writePlacement(o, q.folder());
             writeFlow(o, q.flow());
+            if (!q.supplies().isEmpty()) {
+                o.add("supplies", writeStacks(q.supplies()));
+            }
             JsonArray goals = new JsonArray();
             for (QuestDoc.Goal g : q.goals()) {
                 JsonObject go = new JsonObject();
@@ -368,7 +376,7 @@ public final class QuestFormat {
         }
         JsonObject lines = new JsonObject();
         QuestDoc.Lines l = flow.lines();
-        List<List<DialogueLines.Line>> all = List.of(l.offer(), l.active(), l.complete());
+        List<List<DialogueLines.Line>> all = List.of(l.offer(), l.accepted(), l.active(), l.complete());
         for (int i = 0; i < LINE_KEYS.size(); i++) {
             if (!all.get(i).isEmpty()) {
                 lines.add(LINE_KEYS.get(i), DialogueLines.write(all.get(i)));

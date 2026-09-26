@@ -30,11 +30,13 @@ public record QuestDoc(List<Folder> folders, List<Quest> quests) {
      * @param text    the quest's story text, may be ""
      * @param goals   all must be met, shown in this order
      * @param rewards items given on completion
+     * @param supplies items given once, the moment the quest becomes active (seeds to plant,
+     *                 a letter to deliver); see docs/decisions/0010-farming-goals.md
      * @param folder  the folder id it sits in, or "" for the top
      * @param flow    who offers and receives it, what comes first, and what the NPCs say
      */
     public record Quest(String id, String title, String icon, String text, List<Goal> goals, List<Stack> rewards,
-                        String folder, Flow flow) {}
+                        List<Stack> supplies, String folder, Flow flow) {}
 
     /**
      * How a quest runs through NPC dialogue. See docs/decisions/0009-quest-workbench.md.
@@ -59,12 +61,13 @@ public record QuestDoc(List<Folder> folders, List<Quest> quests) {
      * ({@link kr.guinnessgroup.lorebench.DialogueLines}).
      *
      * @param offer    when the giver offers it
+     * @param accepted right after the player accepts it (0010)
      * @param active   when the player talks to the receiver while it is in progress
      * @param complete when the player hands it in
      */
-    public record Lines(List<Line> offer, List<Line> active, List<Line> complete) {
+    public record Lines(List<Line> offer, List<Line> accepted, List<Line> active, List<Line> complete) {
 
-        public static final Lines NONE = new Lines(List.of(), List.of(), List.of());
+        public static final Lines NONE = new Lines(List.of(), List.of(), List.of(), List.of());
     }
 
     /**

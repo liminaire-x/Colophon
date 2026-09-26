@@ -36,7 +36,7 @@ public record QuestSyncPayload(List<Entry> quests) implements CustomPacketPayloa
 
     public static void register(RegisterPayloadHandlersEvent event) {
         // Handled on the client's main thread (the registrar's default).
-        event.registrar("2").playToClient(TYPE, CODEC, (payload, context) -> ClientQuests.accept(payload));
+        event.registrar("3").playToClient(TYPE, CODEC, (payload, context) -> ClientQuests.accept(payload));
     }
 
     @Override
@@ -65,7 +65,7 @@ public record QuestSyncPayload(List<Entry> quests) implements CustomPacketPayloa
     }
 
     /**
-     * What a player's screen shows of a quest: id, title, icon, story, goals and rewards.
+     * What a player's screen shows of a quest: id, title, icon, story, goals, rewards and supplies.
      * Folders are for the editor only and givers and lines stay on the server (dialogue
      * sends the lines it needs), so they aren't sent. Shared with {@link DialoguePayload}.
      */
@@ -81,11 +81,12 @@ public record QuestSyncPayload(List<Entry> quests) implements CustomPacketPayloa
             buf.writeVarInt(g.count());
         }
         writeStacks(buf, q.rewards());
+        writeStacks(buf, q.supplies());
     }
 
     static QuestDoc.Quest readQuest(FriendlyByteBuf buf) {
         return new QuestDoc.Quest(buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
-                readGoals(buf), readStacks(buf), "", QuestDoc.Flow.NONE);
+                readGoals(buf), readStacks(buf), readStacks(buf), "", QuestDoc.Flow.NONE);
     }
 
     static void writeProgress(FriendlyByteBuf buf, Map<String, Integer> progress) {

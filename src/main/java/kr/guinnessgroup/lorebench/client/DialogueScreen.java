@@ -63,7 +63,7 @@ final class DialogueScreen extends Screen {
         talk = fresh;
         waiting = false;
         if (fresh.resume()) {
-            showList();
+            say(fresh.said(), this::showList); // e.g. what the NPC says right after an accept
         } else {
             begin();
         }
@@ -177,7 +177,8 @@ final class DialogueScreen extends Screen {
         QuestDoc.Quest q = shown.quest();
         int text = q.text().isEmpty() || shown.kind() != Dialogue.Kind.OFFER ? 0
                 : 4 + font.split(Component.literal(q.text()), cardW() - PAD * 2).size() * font.lineHeight;
-        return Math.min(height - 20, PAD * 2 + font.lineHeight + text + card.height(font, q) + 10 + BUTTON_H);
+        return Math.min(height - 20, PAD * 2 + font.lineHeight + text
+                + card.height(font, q, shown.kind() == Dialogue.Kind.OFFER) + 10 + BUTTON_H);
     }
 
     private void rebuild() {
@@ -316,8 +317,10 @@ final class DialogueScreen extends Screen {
                 ty += font.lineHeight;
             }
         }
-        // An offer shows what it will take ("× 10"); a quest in progress shows how far along it is.
-        ItemStack hovered = card.needsAndRewards(g, font, q, shown.progress(), shown.kind() != Dialogue.Kind.OFFER,
+        // An offer shows what accepting gives and what it will take ("× 10"); a quest in
+        // progress shows how far along it is.
+        boolean offer = shown.kind() == Dialogue.Kind.OFFER;
+        ItemStack hovered = card.needsAndRewards(g, font, q, shown.progress(), !offer, offer,
                 x + PAD, ty, mouseX, mouseY);
         g.disableScissor();
         return hovered;

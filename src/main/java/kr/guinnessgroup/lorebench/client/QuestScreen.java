@@ -153,7 +153,7 @@ public final class QuestScreen extends Screen {
             }
         }
         ItemStack hovered = card.needsAndRewards(g, font, q, selected.progress(), !selected.done() && player != null,
-                dx, y, mouseX, mouseY);
+                false, dx, y, mouseX, mouseY);
         g.disableScissor();
         if (!hovered.isEmpty()) {
             g.renderTooltip(font, hovered, mouseX, mouseY);

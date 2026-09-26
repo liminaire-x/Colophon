@@ -35,7 +35,7 @@ class QuestFormatTest {
         QuestDoc.Quest q = doc.find("quest_k3f9x2ma");
         assertEquals(new QuestDoc.Quest("quest_k3f9x2ma", "밀 배달", "minecraft:wheat", "촌장에게 밀 10개를 가져다주자.\n빨리!",
                 List.of(QuestDoc.Goal.item("minecraft:wheat", 10)),
-                List.of(new QuestDoc.Stack("minecraft:emerald", 5)), "", QuestDoc.Flow.NONE), q);
+                List.of(new QuestDoc.Stack("minecraft:emerald", 5)), List.of(), "", QuestDoc.Flow.NONE), q);
         assertNull(doc.find("quest_other"));
         assertEquals(List.of(), doc.folders());
         String written = QuestFormat.write(doc);
@@ -74,7 +74,7 @@ class QuestFormatTest {
         QuestDoc.Flow wolf = doc.find("quest_wolf").flow();
         assertEquals(new QuestDoc.Flow("npc_guard", "npc_smith", List.of("quest_sword"),
                 new QuestDoc.Lines(DialogueLines.text("늑대 3마리만 잡아주게.", "요즘 가축이 자꾸 사라지거든."), List.of(),
-                        DialogueLines.text("대단하군!"))),
+                        List.of(), DialogueLines.text("대단하군!"))),
                 wolf);
         assertEquals("npc_smith", wolf.handInTo());
         assertEquals("npc_smith", doc.find("quest_sword").flow().handInTo());
@@ -84,9 +84,28 @@ class QuestFormatTest {
         // A quest without them is written as before.
         assertEquals(QuestDoc.Flow.NONE, QuestFormat.read(WHEAT).find("quest_k3f9x2ma").flow());
         String plain = QuestFormat.write(QuestFormat.read(WHEAT));
-        for (String key : new String[] {"giver", "receiver", "requires", "lines"}) {
+        for (String key : new String[] {"giver", "receiver", "requires", "lines", "supplies"}) {
             assertTrue(!plain.contains("\"" + key + "\""), plain);
         }
+    }
+
+    @Test
+    void suppliesAndLinesForRightAfterAcceptingRoundTrip() {
+        QuestDoc doc = QuestFormat.read("""
+                { "format": 1, "quests": [ { "id": "quest_farm", "title": "밭일 배우기", "giver": "npc_farmer",
+                  "lines": { "offer": [ "밭일을 배워 보겠나?" ],
+                             "accepted": [ { "text": "자, 이 씨앗으로 시작하게.", "animation": "animation.chief.wave" } ] },
+                  "supplies": [ { "item": "minecraft:wheat_seeds", "count": 5 } ],
+                  "goals": [ { "harvest": "minecraft:wheat", "count": 10 } ], "rewards": [] } ] }
+                """);
+        QuestDoc.Quest q = doc.find("quest_farm");
+        assertEquals(List.of(new QuestDoc.Stack("minecraft:wheat_seeds", 5)), q.supplies());
+        assertEquals(List.of(new DialogueLines.Line("자, 이 씨앗으로 시작하게.", "animation.chief.wave")),
+                q.flow().lines().accepted());
+        assertEquals(doc, QuestFormat.read(QuestFormat.write(doc)));
+        assertThrows(DocumentException.class, () -> QuestFormat.read(
+                "{\"format\":1,\"quests\":[{\"id\":\"quest_a\",\"title\":\"A\",\"goals\":[],\"rewards\":[],"
+                        + "\"supplies\":[{\"item\":\"seeds\",\"count\":1}]}]}"));
     }
 
     @Test

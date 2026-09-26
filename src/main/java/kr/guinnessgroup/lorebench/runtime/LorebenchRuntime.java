@@ -175,6 +175,9 @@ public final class LorebenchRuntime {
             for (QuestDoc.Stack s : q.rewards()) {
                 check(errors, where + "reward '" + s.item() + "': ", checks.item(s.item()));
             }
+            for (QuestDoc.Stack s : q.supplies()) {
+                check(errors, where + "supply '" + s.item() + "': ", checks.item(s.item()));
+            }
         }
         if (!errors.isEmpty()) {
             throw new DocumentException(errors);
