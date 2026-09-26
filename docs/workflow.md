@@ -1,6 +1,6 @@
 # 워크플로우
 
-조각 1~3을 진행하며 실제로 굳어진 작업 방식. 상태는 [roadmap.md](roadmap.md), 개념은 [map.md](map.md).
+조각을 진행하며 실제로 굳어진 작업 방식. 상태는 [roadmap.md](roadmap.md), 개념은 [map.md](map.md), 이야기는 [stories.md](stories.md).
 
 ## 조각 하나의 흐름
 
@@ -10,10 +10,13 @@
 3. **결정**: 선택지 + 추천 + **고치는 비용**을 쉬운 말로 보여주고, 결정은 사용자가 한다. 사용자의 다른 아이디어가 더 나은 경우가 많으니 열어둔다.
    (예: 에디터에서 NPC 먼저 등록, 메이플식 여러 배치, NPC 문서 분리)
 4. **구현**: 코드 + 에디터. **테스트는 비싼 것(저장 형식·id)에만** 붙인다.
-5. **기록**: 비싼 결정은 `decisions/`, 개념은 `map.md`, 상태는 `roadmap.md`, 코드 구조는 `CLAUDE.md`.
-6. **로컬 검증**: 에디터는 `npm run build`로 확인한다. Java는 에이전트 환경에서 컴파일하지 않는다.
+5. **기록**: 비싼 결정은 `decisions/`, 개념은 `map.md`, 이야기는 `stories.md`, 상태는 `roadmap.md`, 코드 구조는 `CLAUDE.md`.
+6. **로컬 검증**: 에디터는 `npm run build` 뒤 **가짜 API 서버**로 눌러 본다: `.venv/Scripts/python.exe tools/mock_server.py`
+   → `http://127.0.0.1:5174`(게임 없이 `editor/dist/index.html`과 고정 응답, publish 본문은 `build/mock/`에 저장).
+   Java는 에이전트 환경에서 컴파일하지 않는다.
 7. **커밋**: 코드와 문서를 나눠 커밋. conventional commits(영어) + 공동 작성자 Claude 줄.
-8. **CI**: push 후 `gh run view <id> --json conclusion`으로 성공을 확인하고, 테스트 리포트 아티팩트에서 **실행된 테스트 개수**도 확인한다.
+8. **CI**: push 후 `gh run view <id> --json conclusion`으로 성공을 확인하고, **실행된 테스트 개수**도 확인한다:
+   `gh run download <id> -n test-reports -D <폴더>` 뒤 `<폴더>/test/index.html`의 `id="tests"`·`id="failures"` 숫자.
 9. **게임 확인**: 아래 체크리스트 형식으로 절차를 드리고 사용자가 실행한다.
 10. **완료 기록**: 로드맵에 완료와 확인 내역을 적는다.
 
@@ -30,6 +33,9 @@
 - 모두 `run/` 아래(git 밖): 서버 = `run/`(Lorebench 데이터 `run/config/lorebench/`), 클라이언트 = `run/client1/`, `run/client2/`.
 - 리소스팩은 `run/resourcepacks/` 하나를 두 클라이언트가 함께 쓴다(`--resourcePackDir`).
 - **처음부터 다시 시험하기**: 서버를 끄고 Gradle `lorebench > reset`. Lorebench 콘텐츠(그래프·NPC·퀘스트)와 기록(표식·NPC 배치·퀘스트 상태·진행)을 `run/config/lorebench/backups/<시각>/`으로 옮긴다. 월드와 인벤토리는 그대로.
+  - 기록만 바뀌었을 때(키 규칙 등) 콘텐츠를 살리려면 reset 뒤 백업의 `npcs.json`·`quests.json`(·`graphs.json`)을 제자리로 복사한다. NPC 배치는 기록이라 다시 소환한다.
+  - **한 사람의 한 퀘스트만** 다시 하려면 reset 대신 에디터 퀘스트 화면의 **Players → [Reset]**(받기 전으로, 서버를 끄지 않아도 됨).
+- **에디터 입력을 Claude에게 맡기기**: 사용자가 맡기면 사용자 서버의 에디터(`http://localhost:8080`)를 브라우저 패널로 조작해 NPC·퀘스트를 입력하고 publish한다. 끝나면 `/api/npcs`·`/api/quests`로 다시 읽어 확인한다. 사용자 브라우저에 에디터가 열려 있었다면 새로고침해야 한다(옛 화면에서 publish하면 덮어씀). 게임 쪽(소환·플레이)은 사용자 몫.
 
 ## 게임 확인 체크리스트 형식
 
@@ -46,6 +52,9 @@
 
 - **파괴적인 동작은 이름부터 다르게.** 인자 하나 차이로 "하나 삭제"와 "전부 삭제"가 갈리면, 자동완성으로 실수가 난다.
 - 사용자 편의를 위해 계약을 몰래 어기지 않는다(v2 교훈: "주체 명시" 계약인데 코드는 암묵 대상으로 동작했다).
+- **메시지 버전**: 클라이언트와 서버가 주고받는 메시지(퀘스트 목록 `QuestSyncPayload`, 대화 `DialoguePayload` 등)에 칸을
+  더하거나 순서를 바꾸면 등록부의 숫자(`registrar("3")`)를 올린다. 숫자가 다르면 접속할 때 NeoForge가 "버전이 다르다"며
+  막아 준다(`NetworkComponentNegotiator`). 올리지 않으면 옛 모드를 쓰는 사람이 들어와서 메시지를 잘못 읽고 튕긴다.
 
 ## 에셋 작업 (Blockbench MCP → GeckoLib)
 

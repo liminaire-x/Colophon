@@ -4,8 +4,8 @@
 만들고 **publish → 서버 반영**. 클라이언트+서버 모드(GeckoLib 애니메이션, 자체 퀘스트 화면).
 방향: 취미로 지속 개발, 점차 규모 있는 프로젝트로 성장. 채택을 성공의 전제로 삼지 않음.
 
-이 파일은 매 세션 로드되는 **짧은 가이드**다. 개념은 [docs/map.md](docs/map.md), 진행 상태는
-[docs/roadmap.md](docs/roadmap.md)에만 있다.
+이 파일은 매 세션 로드되는 **짧은 가이드**다. 개념은 [docs/map.md](docs/map.md), 이야기는
+[docs/stories.md](docs/stories.md), 진행 상태는 [docs/roadmap.md](docs/roadmap.md)에만 있다.
 
 ## 지금 방향이 나온 이유
 - **이야기 중심**: v2 설계가 AI 주도로 사용자가 소화하는 속도보다 빨리 두꺼워져, 사용자가 도메인 감을
@@ -24,9 +24,9 @@
 - `runtime/` — 노드 종류(`NodeType`·`Field`·`NodeRegistry`), 문서 → 실행 그래프(`GraphBuilder`), 실행(`Runner`, 즉시·동기), 발행·트리거(`LorebenchRuntime`).
 - `record/` — 기록(`Owner`·`RecordStore` 캐시·`H2RecordBackend`, schema 1).
 - `npc/` — NPC 정의 문서(`NpcFormat`, format 1)·배치(`Placement`, 서버 기록)·엔티티(`NpcEntity`)·명령어·`Npcs`(게임 쪽 창구).
-- `quest/` — 퀘스트 문서(`QuestFormat`, format 1)·상태(`QuestState`, 플레이어 기록)·`Quests`(게임 쪽 창구)·`QuestSyncPayload`(공개된 퀘스트만 그 플레이어에게).
+- `quest/` — 퀘스트 문서(`QuestDoc`·`QuestFormat`, format 1)·상태(`QuestState`)·진행 기록(`QuestProgress`, `<종류>:<대상>`)·`Quests`(게임 쪽 창구: 세기·공개·완료·되돌리기)·`Crops`·`Breeding`(수확·번식 목표가 받는 것)·`QuestSyncPayload`(공개된 퀘스트만 그 플레이어에게). 대화: `Dialogue`(순수 로직: 할 이야기 계산)·`Dialogues`(서버 쪽 대화, 선택 재확인)·`DialoguePayload`/`DialogueChoicePayload`.
 - `nodes/` — 빌트인 노드. 노드당 파일 하나, `BuiltinNodes.registerAll`.
-- `client/` — 클라이언트 전용(`NpcRenderer`: GeckoLib 모델 있으면 그것, 없으면 스티브 / `NpcGeoModel`: 리소스 경로 규칙 / `QuestScreen`: `J` 퀘스트 화면 / `ClientQuests`: 받은 퀘스트). `FMLEnvironment.dist == CLIENT`일 때만 로드.
+- `client/` — 클라이언트 전용(`NpcRenderer`: GeckoLib 모델 있으면 그것, 없으면 스티브 / `NpcGeoModel`: 리소스 경로 규칙 / `QuestScreen`: `J` 퀘스트 화면 / `DialogueScreen`: 대화창 / `QuestCard`: 필요한 것·보상 그리기(둘이 공유) / `ClientQuests`·`ClientDialogue`: 받은 것 보관). `FMLEnvironment.dist == CLIENT`일 때만 로드.
 - `web/` — 에디터 서버. `Lorebench.java` — 부트스트랩·게임 이벤트 연결. `LorebenchConfig` — `serverName`. `Folders` — 세 문서가 함께 쓰는 에디터 폴더(읽기·쓰기·검사). `DialogueLines` — 대사(한 줄 = 한 페이지) 읽기·쓰기.
 - 결정 기록: [0001 저장 형식](docs/decisions/0001-storage-format.md), [0002 NPC](docs/decisions/0002-npc.md), [0003 NPC 외형](docs/decisions/0003-npc-looks.md), [0004 id·기록 키](docs/decisions/0004-ids-and-record-keys.md), [0005 퀘스트](docs/decisions/0005-quests.md), [0006 아이템 표기](docs/decisions/0006-item-syntax.md), [0007 이름](docs/decisions/0007-rename-lorebench.md), [0008 폴더](docs/decisions/0008-quest-folders.md), [0009 퀘스트 작업대](docs/decisions/0009-quest-workbench.md), [0010 수확·번식 목표·지급품](docs/decisions/0010-farming-goals.md).
 
@@ -73,7 +73,7 @@
 - **Python**: 저장소 최상위 `.venv/Scripts/python.exe`(3.14, git 밖, graphify·openai 포함). Bash의 `python`은 PATH에 없고, pip은 `-m pip`로.
 - **graphify**:
   - 문서 추출은 **서브에이전트를 쓰지 않고 외부 AI(Gemini)**로: `graphify.llm.extract_corpus_parallel(files, backend="gemini")`. 키는 사용자 환경변수 `GEMINI_API_KEY`(값은 어디에도 적지 않음).
-  - Gemini 무료 등급은 한도가 작다(분당 요청 5회 등, 503 과부하도 잦음). `token_budget=20000`, `max_concurrency=1`로 작게·차례로. 그래도 실패하면 **코드(AST)만 빌드**하고 나중에 `--update`(실패한 문서는 다음에 다시 추출 대상).
+  - Gemini 무료 등급은 한도가 작다(분당 요청 5회 등, 503 과부하도 잦음). **`token_budget=5000`, `deep_mode=True`, `max_concurrency=1`**(20000으로 크게 묶으면 문서마다 제목 노드 하나뿐이었다). 그래도 실패하면 **코드(AST)만 빌드**하고 나중에 `--update`(실패한 문서는 다음에 다시 추출 대상). `.claude/skills/`의 Blockbench 문서는 프로젝트 문서가 아니라 추출에서 뺀다(그래서 늘 "미추출 10개"로 남는다).
   - 중간 단계 파이썬은 스크래치패드에 `.py`로 써서 실행하고 `if __name__ == '__main__':`를 둔다. 인라인 heredoc + `Remove-Item`을 한 PowerShell 호출에 이으면 조용히 실패한다.
-  - `graphify-out/`은 git 밖. 마지막 빌드: 2026-09-26, 코드 + 문서 16개(Gemini, `token_budget=5000`·`deep_mode`; 20000으로 묶으면 문서마다 제목 노드 하나뿐이었다) 1040 노드·2700 연결·56 묶음, 중심 = `NpcEntity`·`LorebenchRuntime`·`Quests`·`DialogueScreen`. 문서 추출은 여전히 얕다(개념 일부만). `.claude/skills/`의 Blockbench 문서는 프로젝트 문서가 아니라 추출에서 뺐다.
-- **셸 함정**: `sed` 치환에 `#` 구분자를 쓰면 `#minecraft:logs`, `## 제목`과 충돌한다. 파일 수정은 Edit 도구를 먼저, 셸 치환이 꼭 필요하면 `|` 구분자. JSX가 든 긴 파이썬 수정 스크립트는 Bash heredoc이 따옴표를 잘못 읽어 실패할 수 있다 → 스크래치패드에 `.py`로 써서 실행.
+  - `graphify-out/`은 git 밖. 마지막 빌드: 2026-09-26 밤(농부 이야기 뒤), 1141 노드·2889 연결·75 묶음, 중심 = `Quests`·`LorebenchRuntime`·`NpcEntity`·`DialogueScreen`. 문서 추출은 여전히 얕다(개념 일부만).
+- **셸 함정**: `sed` 치환에 `#` 구분자를 쓰면 `#minecraft:logs`, `## 제목`과 충돌한다. 파일 수정은 Edit 도구를 먼저, 셸 치환이 꼭 필요하면 `|` 구분자. 긴 파이썬 스크립트(특히 JSX·자바 코드가 든 수정 스크립트)는 **Bash heredoc으로 파일을 쓰는 것 자체**가 따옴표를 잘못 읽어 실패한다 → **Write 도구로** 스크래치패드에 `.py`를 쓰고 Bash로 실행(토큰은 거의 같고, 실패해 다시 쓰는 비용이 훨씬 큼). 수정은 `rep(old, new)` + `assert count == 1`로.
