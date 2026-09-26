@@ -4,6 +4,9 @@
 
 > 이름 변경(2026-09-24, [0007](0007-rename-lorebench.md)): 이 기록의 Colophon·`colophon`은 지금 Lorebench·`lorebench`다(노드 id `lorebench:…`, 명령어 `/lorebench`, 폴더 `config/lorebench` 등).
 
+> 처치 수 기록 키(2026-09-26, [0010](0010-farming-goals.md)): 아래 `{"minecraft:wolf": 2}`는 `{"kill:minecraft:wolf": 2}`로
+> 바뀐다(수확·번식과 섞이지 않게 종류 표시).
+
 ## 퀘스트 정의 (`config/colophon/quests.json`, format 1)
 
 ```json
