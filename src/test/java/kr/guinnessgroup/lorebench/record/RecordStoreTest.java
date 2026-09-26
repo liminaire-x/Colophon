@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,6 +32,13 @@ class RecordStoreTest {
         public Map<String, String> load(Owner owner) {
             loads++;
             return new HashMap<>(data.getOrDefault(owner, Map.of()));
+        }
+
+        @Override
+        public List<String> ownersWith(Owner.Kind kind, String key) {
+            return data.entrySet().stream()
+                    .filter(e -> e.getKey().kind() == kind && e.getValue().containsKey(key))
+                    .map(e -> e.getKey().id()).toList();
         }
 
         @Override
@@ -116,6 +124,30 @@ class RecordStoreTest {
         store.release(SERVER);
         store.flush();
         assertEquals("v", store.get(SERVER, "k"));
+    }
+
+    @Test
+    void findsOwnersWithAKeySavedOrNot() {
+        Owner sam = Owner.player(UUID.fromString("00000000-0000-0000-0000-000000000002"));
+        Owner kim = Owner.player(UUID.fromString("00000000-0000-0000-0000-000000000003"));
+        backend.data.put(alex, new HashMap<>(Map.of("quest_a", "done")));
+        backend.data.put(kim, new HashMap<>(Map.of("quest_a", "active")));
+        store.load(sam);
+        store.set(sam, "quest_a", "active"); // not saved yet
+        store.load(kim);
+        store.set(kim, "quest_a", null);     // deleted, not saved yet
+        assertEquals(Set.of(alex, sam), Set.copyOf(store.ownersWith(Owner.Kind.PLAYER, "quest_a")));
+        assertEquals(List.of(), store.ownersWith(Owner.Kind.SERVER, "quest_a"));
+    }
+
+    @Test
+    void anyOwnerCanBeReadAndChangedEvenWhenAway() {
+        backend.data.put(alex, new HashMap<>(Map.of("quest_a", "done", "flag_greeted", "true")));
+        assertEquals("done", store.peek(alex, "quest_a"));
+        store.setAny(alex, "quest_a", null);
+        store.flush();
+        assertEquals(Map.of("flag_greeted", "true"), backend.data.get(alex)); // only that key changed
+        assertNull(store.get(alex, "flag_greeted"));                        // and they are not kept loaded
     }
 
     @Test

@@ -17,6 +17,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -111,6 +112,24 @@ public final class H2RecordBackend implements RecordBackend {
             }
         } catch (SQLException e) {
             LOGGER.error("[Lorebench] Loading records of {} failed", owner, e);
+        }
+        return out;
+    }
+
+    @Override
+    public synchronized List<String> ownersWith(Owner.Kind kind, String key) {
+        List<String> out = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT owner_id FROM records WHERE owner_kind = ? AND k = ?")) {
+            ps.setString(1, kind.key);
+            ps.setString(2, key);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    out.add(rs.getString(1));
+                }
+            }
+        } catch (SQLException e) {
+            LOGGER.error("[Lorebench] Finding owners of '{}' failed", key, e);
         }
         return out;
     }

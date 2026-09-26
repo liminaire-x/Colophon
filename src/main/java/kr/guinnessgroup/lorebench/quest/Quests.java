@@ -5,6 +5,7 @@
  */
 package kr.guinnessgroup.lorebench.quest;
 
+import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
@@ -23,6 +24,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.GameProfileCache;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -42,9 +44,11 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -259,6 +263,57 @@ public final class Quests {
             int n = Math.min(left, max);
             ItemHandlerHelper.giveItemToPlayer(player, item.copyWithCount(n));
             left -= n;
+        }
+    }
+
+    /**
+     * A player's standing on a quest, for the editor.
+     *
+     * @param state    active, ready (online players only; it depends on their inventory) or done
+     * @param progress their counted progress ({@link QuestDoc.Goal#progressKey()})
+     */
+    public record Standing(UUID player, String name, boolean online, QuestState state, Map<String, Integer> progress) {}
+
+    /** Everyone who is on this quest or has done it, online or not, by name. Server thread. */
+    public List<Standing> standings(MinecraftServer server, String questId) {
+        List<Standing> out = new ArrayList<>();
+        for (Owner owner : records.ownersWith(Owner.Kind.PLAYER, questId)) {
+            UUID uuid;
+            try {
+                uuid = UUID.fromString(owner.id());
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+            ServerPlayer online = server.getPlayerList().getPlayer(uuid);
+            QuestState state = online != null ? state(online, questId) : QuestState.fromRecord(records.peek(owner, questId));
+            Map<String, Integer> progress = QuestProgress.read(records.peek(owner, QuestProgress.key(questId)));
+            out.add(new Standing(uuid, name(server, uuid, online), online != null, state, progress));
+        }
+        out.sort(Comparator.comparing(Standing::name, String.CASE_INSENSITIVE_ORDER));
+        return out;
+    }
+
+    /** A player's name: as they are online, else from the server's memory of who joined, else their UUID. */
+    private static String name(MinecraftServer server, UUID uuid, ServerPlayer online) {
+        if (online != null) {
+            return online.getGameProfile().getName();
+        }
+        GameProfileCache cache = server.getProfileCache();
+        return cache == null ? uuid.toString() : cache.get(uuid).map(GameProfile::getName).orElse(uuid.toString());
+    }
+
+    /**
+     * Take a player back to before a quest, online or not: no state and no progress, so
+     * it is offered again and its supplies are given again on accepting. What they were
+     * already given (supplies, rewards) stays theirs. Other quests are left alone.
+     */
+    public void forget(MinecraftServer server, UUID uuid, String questId) {
+        Owner owner = Owner.player(uuid);
+        records.setAny(owner, questId, null);
+        records.setAny(owner, QuestProgress.key(questId), null);
+        ServerPlayer online = server.getPlayerList().getPlayer(uuid);
+        if (online != null) {
+            sync(online);
         }
     }
 

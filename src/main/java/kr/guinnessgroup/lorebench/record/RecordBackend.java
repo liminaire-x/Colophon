@@ -14,6 +14,9 @@ public interface RecordBackend {
     /** Every record of one owner. Empty if none. */
     Map<String, String> load(Owner owner);
 
+    /** The ids of every owner of this kind with a record under {@code key}. */
+    List<String> ownersWith(Owner.Kind kind, String key);
+
     /** Apply a batch of writes together, all or nothing. */
     void write(List<Write> writes);
 

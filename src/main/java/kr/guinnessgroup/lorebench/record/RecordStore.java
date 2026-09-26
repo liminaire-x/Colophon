@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -99,6 +100,54 @@ public final class RecordStore {
             e.values.put(key, value);
         }
         e.dirty.add(key);
+    }
+
+    /** Every owner of this kind with a record under {@code key}, saved or not yet saved. */
+    public synchronized List<Owner> ownersWith(Owner.Kind kind, String key) {
+        if (backend == null) {
+            return List.of();
+        }
+        Set<Owner> out = new LinkedHashSet<>();
+        for (String id : backend.ownersWith(kind, key)) {
+            out.add(new Owner(kind, id));
+        }
+        for (Map.Entry<Owner, Entry> me : cache.entrySet()) {
+            if (me.getKey().kind() != kind) {
+                continue;
+            }
+            Entry e = me.getValue();
+            if (e.values.containsKey(key)) {
+                out.add(me.getKey());
+            } else if (e.dirty.contains(key)) {
+                out.remove(me.getKey()); // deleted, not saved yet
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    /** The value of any owner: from memory if loaded, else read from the backend without keeping it. */
+    public synchronized String peek(Owner owner, String key) {
+        Entry e = cache.get(owner);
+        if (e != null) {
+            return e.values.get(key);
+        }
+        return backend == null ? null : backend.load(owner).get(key);
+    }
+
+    /**
+     * Set a value of any owner, online or not (e.g. an editor resetting someone's quest).
+     * One who is not loaded is loaded for it and dropped after the next flush, unless
+     * they join first.
+     */
+    public synchronized void setAny(Owner owner, String key, String value) {
+        if (backend == null) {
+            return;
+        }
+        if (!cache.containsKey(owner)) {
+            load(owner);
+            cache.get(owner).online = false;
+        }
+        set(owner, key, value);
     }
 
     /** Save every change, then drop owners who have left. */

@@ -7,6 +7,7 @@ package kr.guinnessgroup.lorebench.web;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.logging.LogUtils;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -32,6 +33,7 @@ import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -52,6 +54,8 @@ import java.util.function.Function;
  *   <li>{@code GET /api/held-item?player=Name} — what they hold, as {@code /give} writes it</li>
  *   <li>{@code GET /api/crops} — the crops a harvest goal may name</li>
  *   <li>{@code GET /api/animals} — the animals a breed goal may name</li>
+ *   <li>{@code GET /api/quest-players?quest=<id>} — who is on that quest or has done it</li>
+ *   <li>{@code POST /api/quest-reset} — take one player back to before a quest: {@code {"quest": ..., "player": <uuid>}}</li>
  * </ul>
  */
 public final class LorebenchWebServer {
@@ -95,6 +99,11 @@ public final class LorebenchWebServer {
             server.createContext("/api/players", ex -> fromGame(ex, LorebenchWebServer::players));
             server.createContext("/api/crops", ex -> fromGame(ex, LorebenchWebServer::crops));
             server.createContext("/api/animals", ex -> fromGame(ex, LorebenchWebServer::animals));
+            server.createContext("/api/quest-players", ex -> {
+                String quest = query(ex, "quest");
+                fromGame(ex, mc -> questPlayers(mc, quest));
+            });
+            server.createContext("/api/quest-reset", this::handleQuestReset);
             server.createContext("/api/held-item", ex -> {
                 String player = query(ex, "player");
                 fromGame(ex, mc -> heldItem(mc, player));
@@ -170,6 +179,65 @@ public final class LorebenchWebServer {
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             LOGGER.warn("[Lorebench] Reading from the game failed", e);
             send(ex, 500, JSON, error("reading from the game failed"));
+        }
+    }
+
+    /**
+     * {@code {"players": [{"uuid", "name", "online", "state": "active|ready|done", "progress": {...}}]}}:
+     * everyone on the quest or done with it, online or not.
+     */
+    private static String questPlayers(MinecraftServer mc, String questId) {
+        Quests quests = Quests.current();
+        if (quests == null || questId == null) {
+            return error("no quest given, or the server is not running");
+        }
+        JsonArray list = new JsonArray();
+        for (Quests.Standing s : quests.standings(mc, questId)) {
+            JsonObject p = new JsonObject();
+            p.addProperty("uuid", s.player().toString());
+            p.addProperty("name", s.name());
+            p.addProperty("online", s.online());
+            p.addProperty("state", s.state().out);
+            JsonObject progress = new JsonObject();
+            s.progress().forEach(progress::addProperty);
+            p.add("progress", progress);
+            list.add(p);
+        }
+        JsonObject o = new JsonObject();
+        o.add("players", list);
+        return o.toString();
+    }
+
+    /** {@code {"quest": "quest_…", "player": "<uuid>"}} → that player is back to before the quest. */
+    private void handleQuestReset(HttpExchange ex) throws IOException {
+        if (!"POST".equals(ex.getRequestMethod())) {
+            send(ex, 405, "text/plain; charset=utf-8", "Method Not Allowed");
+            return;
+        }
+        String questId;
+        UUID player;
+        try {
+            JsonObject body = JsonParser.parseString(new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8))
+                    .getAsJsonObject();
+            questId = body.get("quest").getAsString();
+            player = UUID.fromString(body.get("player").getAsString());
+        } catch (RuntimeException e) {
+            send(ex, 400, JSON, error("needs {\"quest\": <quest id>, \"player\": <uuid>}"));
+            return;
+        }
+        MinecraftServer mc = ServerLifecycleHooks.getCurrentServer();
+        Quests quests = Quests.current();
+        if (mc == null || quests == null) {
+            send(ex, 503, JSON, error("the server is not running"));
+            return;
+        }
+        try {
+            mc.submit(() -> quests.forget(mc, player, questId)).get(5, TimeUnit.SECONDS);
+            LOGGER.info("[Lorebench] Editor reset quest {} for player {}", questId, player);
+            send(ex, 200, JSON, "{\"ok\":true}");
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            LOGGER.warn("[Lorebench] Resetting a quest failed", e);
+            send(ex, 500, JSON, error("resetting the quest failed"));
         }
     }
 

@@ -61,6 +61,16 @@ class H2RecordBackendTest {
     }
 
     @Test
+    void findsOwnersOfAKindWithAKey(@TempDir Path dir) {
+        H2RecordBackend db = new H2RecordBackend(dir.resolve("records"));
+        db.write(List.of(new RecordBackend.Write(alex, "quest_a", "done"), new RecordBackend.Write(sam, "quest_b", "active"),
+                new RecordBackend.Write(SERVER, "quest_a", "x")));
+        assertEquals(List.of(alex.id()), db.ownersWith(Owner.Kind.PLAYER, "quest_a"));
+        assertEquals(List.of(), db.ownersWith(Owner.Kind.PLAYER, "quest_c"));
+        db.close();
+    }
+
+    @Test
     void overwriteAndDelete(@TempDir Path dir) {
         H2RecordBackend db = new H2RecordBackend(dir.resolve("records"));
         db.write(List.of(new RecordBackend.Write(alex, "a", "1"), new RecordBackend.Write(alex, "b", "1")));

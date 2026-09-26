@@ -104,6 +104,59 @@ function StackList({ stacks, onChange, fetchHeld, lists = {}, wide = false, goal
   )
 }
 
+const STATE_LABEL = { active: 'in progress', ready: 'ready to hand in', done: 'done' }
+
+// Who is on this (published) quest or has done it, online or not, and a way to take
+// one of them back to before it: offered again, supplies given again, progress from 0.
+function QuestPlayers({ quest, setMessage }) {
+  const [rows, setRows] = useState(null) // null = not read yet
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch('/api/quest-players?quest=' + encodeURIComponent(quest.id)).then((res) => res.json())
+      if (r.error) { setMessage({ ok: false, text: r.error }); setRows([]); return }
+      setRows(r.players || [])
+    } catch (e) { setRows([]) }
+  }, [quest.id, setMessage])
+  useEffect(() => { setRows(null); load() }, [load])
+
+  // "2/3" for each counted goal (kill, harvest, breed), in the quest's order.
+  const counts = (progress) => (quest.goals || []).flatMap((g) => {
+    const k = ['kill', 'harvest', 'breed'].find((key) => g[key] !== undefined)
+    return k ? [`${Math.min(progress[`${k}:${g[k]}`] || 0, g.count)}/${g.count}`] : []
+  }).join(' · ')
+
+  const reset = async (p) => {
+    if (!window.confirm(`Take ${p.name} back to before "${quest.title}"?\n\nIt will be offered again, supplies are given again on accepting, and progress starts from 0. What they already got stays theirs.`)) return
+    try {
+      const r = await fetch('/api/quest-reset', { method: 'POST', body: JSON.stringify({ quest: quest.id, player: p.uuid }) }).then((res) => res.json())
+      setMessage(r.ok ? { ok: true, text: `${p.name} is back to before "${quest.title}".` } : { ok: false, text: r.error || 'Reset failed.' })
+    } catch (e) {
+      setMessage({ ok: false, text: 'Reset failed: ' + e })
+    }
+    load()
+  }
+
+  return (
+    <Section title="Players">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+        <span style={hint}>Who is on this quest or has done it (as last published).</span>
+        <button onClick={load} title="Refresh" style={{ cursor: 'pointer', marginLeft: 'auto' }}>↻</button>
+      </div>
+      {rows === null ? <div style={hint}>Reading…</div>
+        : rows.length === 0 ? <div style={hint}>Nobody yet.</div>
+        : rows.map((p) => (
+          <div key={p.uuid} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+            <span style={{ flex: 1 }}>
+              {p.name}{!p.online && <span style={hint}> (offline)</span>}
+              <span style={{ ...hint, marginLeft: 6 }}>{STATE_LABEL[p.state] || p.state}{p.state !== 'done' && counts(p.progress) ? ' · ' + counts(p.progress) : ''}</span>
+            </span>
+            <button onClick={() => reset(p)} style={{ cursor: 'pointer', color: '#c0392b' }}>Reset</button>
+          </div>
+        ))}
+    </Section>
+  )
+}
+
 // The quest tab: a folder tree on the left, the chosen quest or folder on the right.
 export default function QuestTab({ quests, setQuests, folders, setFolders, npcs, status, setMessage, hidden }) {
   const [selected, setSelected] = useState(null) // { kind: 'item' | 'folder', id }
@@ -337,6 +390,8 @@ export default function QuestTab({ quests, setQuests, folders, setFolders, npcs,
                 <div style={{ marginBottom: 3 }}>Rewards <span style={hint}>(item as /give writes it; [components] allowed)</span></div>
                 <StackList wide fetchHeld={fetchHeld} stacks={quest.rewards} onChange={(v) => setQuestField('rewards', v)} />
               </Section>
+
+              <QuestPlayers quest={quest} setMessage={setMessage} />
 
               <button onClick={deleteQuest} style={{ padding: '5px 10px', cursor: 'pointer', color: '#c0392b' }}>Delete quest</button>
             </>
