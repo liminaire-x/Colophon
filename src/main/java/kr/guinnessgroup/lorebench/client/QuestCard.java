@@ -5,17 +5,20 @@
  */
 package kr.guinnessgroup.lorebench.client;
 
+import kr.guinnessgroup.lorebench.quest.Crops;
 import kr.guinnessgroup.lorebench.quest.QuestDoc;
 import kr.guinnessgroup.lorebench.quest.Quests;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.SpawnEggItem;
+import net.minecraft.world.level.block.Block;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -24,7 +27,7 @@ import java.util.function.Predicate;
 /**
  * A quest's needs and rewards as the quest screen and the dialogue show them, with
  * the items read once per screen. Progress comes from this player's inventory and
- * the kill counts the server sent.
+ * the counts (kills, harvests) the server sent.
  */
 final class QuestCard {
 
@@ -53,10 +56,11 @@ final class QuestCard {
     /**
      * Needs and rewards from {@code y} down.
      *
-     * @param progress show "3/10" from this player's inventory and kills; off shows "× 10"
+     * @param progress     this player's counted progress, by {@link QuestDoc.Goal#progressKey()}
+     * @param showProgress show "3/10" from this player's inventory and progress; off shows "× 10"
      * @return the item under the mouse, for a tooltip, or empty
      */
-    ItemStack needsAndRewards(GuiGraphics g, Font font, QuestDoc.Quest q, Map<String, Integer> kills, boolean progress,
+    ItemStack needsAndRewards(GuiGraphics g, Font font, QuestDoc.Quest q, Map<String, Integer> progress, boolean showProgress,
                               int x, int y, int mouseX, int mouseY) {
         ItemStack hovered = ItemStack.EMPTY;
         LocalPlayer player = minecraft.player;
@@ -65,25 +69,28 @@ final class QuestCard {
             g.drawString(font, Component.translatable("lorebench.quests.needs"), x, y, GRAY);
             y += font.lineHeight + 2;
             for (QuestDoc.Goal goal : q.goals()) {
-                boolean kill = goal.kind() == QuestDoc.Goal.Kind.KILL;
                 ItemStack icon = goalIcon(goal);
-                Component name = kill ? entityName(goal.target())
-                        : goal.target().startsWith("#") ? Component.literal(goal.target()) // a tag: any item in it
-                        : icon.getHoverName();
+                Component name = switch (goal.kind()) {
+                    case KILL -> entityName(goal.target());
+                    case HARVEST -> cropName(goal.target());
+                    case ITEM -> goal.target().startsWith("#") ? Component.literal(goal.target()) // a tag: any item in it
+                            : icon.getHoverName();
+                };
                 String amount;
                 int color;
-                if (!progress || player == null) {
+                if (!showProgress || player == null) {
                     amount = " × " + goal.count();
                     color = WHITE;
                 } else {
-                    int have = kill
-                            ? kills.getOrDefault(goal.target(), 0)
+                    int have = goal.kind().counted()
+                            ? progress.getOrDefault(goal.progressKey(), 0)
                             : Quests.count(player.getInventory(), condition(goal.target()));
                     amount = " " + Math.min(have, goal.count()) + "/" + goal.count();
                     color = have >= goal.count() ? GREEN : WHITE;
                 }
-                // A kill goal's icon is a spawn egg: its tooltip would say "Spawn Egg", so none.
-                hovered = row(g, font, icon, name, amount, color, !kill, x, y, mouseX, mouseY, hovered);
+                // A counted goal's icon only stands for it (a spawn egg, a crop's seed):
+                // its tooltip would name that item, so none.
+                hovered = row(g, font, icon, name, amount, color, !goal.kind().counted(), x, y, mouseX, mouseY, hovered);
                 y += ROW_H;
             }
         }
@@ -114,16 +121,24 @@ final class QuestCard {
 
     /**
      * An item goal shows the item its condition names (with a name or enchantments if
-     * it lists them); a kill goal shows the mob's spawn egg, if it has one.
+     * it lists them); a kill goal shows the mob's spawn egg, if it has one; a harvest
+     * goal shows what picking the crop gives (wheat seeds, a potato, cocoa beans ...).
      */
     private ItemStack goalIcon(QuestDoc.Goal goal) {
-        if (goal.kind() == QuestDoc.Goal.Kind.ITEM) {
-            return displays.computeIfAbsent(goal.target(), s -> minecraft.player == null
+        return switch (goal.kind()) {
+            case ITEM -> displays.computeIfAbsent(goal.target(), s -> minecraft.player == null
                     ? ItemStack.EMPTY
                     : Quests.display(s, minecraft.player.registryAccess()));
-        }
-        SpawnEggItem egg = SpawnEggItem.byId(Quests.entityType(goal.target()));
-        return egg == null ? ItemStack.EMPTY : new ItemStack(egg);
+            case KILL -> {
+                SpawnEggItem egg = SpawnEggItem.byId(Quests.entityType(goal.target()));
+                yield egg == null ? ItemStack.EMPTY : new ItemStack(egg);
+            }
+            case HARVEST -> {
+                Block crop = Crops.block(goal.target());
+                yield (crop == null || minecraft.level == null) ? ItemStack.EMPTY
+                        : crop.getCloneItemStack(minecraft.level, BlockPos.ZERO, crop.defaultBlockState());
+            }
+        };
     }
 
     /** A hand-in goal's condition, read once per screen. */
@@ -136,6 +151,11 @@ final class QuestCard {
     private static Component entityName(String id) {
         EntityType<?> type = Quests.entityType(id);
         return type == null ? Component.literal(id) : type.getDescription();
+    }
+
+    private static Component cropName(String id) {
+        Block crop = Crops.block(id);
+        return crop == null ? Component.literal(id) : crop.getName();
     }
 
     /** A reward with its components (name, enchantments, ...), read once per screen. */

@@ -13,10 +13,12 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * A player's kill counts for one quest, saved as their record
- * {@code progress_<quest id>} = {@code {"minecraft:wolf": 2}}. Counted by entity id,
- * not goal position, so reordering a quest's goals keeps everyone's progress.
+ * What a player has done toward one quest's counted goals, saved as their record
+ * {@code progress_<quest id>} = {@code {"kill:minecraft:wolf": 2, "harvest:minecraft:wheat": 3}},
+ * keyed {@code <kind>:<target>} ({@link QuestDoc.Goal#progressKey()}). Counted by kind and
+ * target, not goal position, so reordering a quest's goals keeps everyone's progress.
  * Removed when the quest is completed (the state record says "done").
+ * See docs/decisions/0010-farming-goals.md.
  */
 public final class QuestProgress {
 
@@ -46,9 +48,9 @@ public final class QuestProgress {
         return out;
     }
 
-    public static String write(Map<String, Integer> kills) {
+    public static String write(Map<String, Integer> progress) {
         JsonObject o = new JsonObject();
-        new TreeMap<>(kills).forEach(o::addProperty);
+        new TreeMap<>(progress).forEach(o::addProperty);
         return o.toString();
     }
 }

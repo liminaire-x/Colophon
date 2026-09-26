@@ -116,7 +116,7 @@ public final class Dialogues {
     private void send(ServerPlayer player, NpcDoc.NpcDef def, NpcEntity npc, List<Dialogue.Entry> plan, boolean resume) {
         List<DialoguePayload.Entry> entries = new ArrayList<>();
         for (Dialogue.Entry e : plan) {
-            entries.add(new DialoguePayload.Entry(e.kind(), e.quest(), Dialogue.lines(e), quests.kills(player, e.quest().id())));
+            entries.add(new DialoguePayload.Entry(e.kind(), e.quest(), Dialogue.lines(e), quests.progress(player, e.quest().id())));
         }
         PacketDistributor.sendToPlayer(player,
                 new DialoguePayload(def.name(), npc.getId(), def.greeting(), List.copyOf(entries), resume));

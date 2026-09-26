@@ -34,6 +34,8 @@ import net.minecraft.world.flag.FeatureFlagSet;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.items.ItemHandlerHelper;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
@@ -90,18 +92,18 @@ public final class Quests {
         QuestState stored = QuestState.fromRecord(records.get(owner, questId));
         QuestDoc.Quest quest = runtime.quest(questId);
         if (stored == QuestState.ACTIVE && quest != null
-                && goalsMet(player.getInventory(), kills(owner, questId), quest, s -> condition(player, s))) {
+                && goalsMet(player.getInventory(), progress(owner, questId), quest, s -> condition(player, s))) {
             return QuestState.READY;
         }
         return stored;
     }
 
-    /** The player's kill counts for a quest so far, by entity id. */
-    public Map<String, Integer> kills(ServerPlayer player, String questId) {
-        return kills(Owner.player(player.getUUID()), questId);
+    /** What the player has done toward a quest's counted goals so far, by {@link QuestDoc.Goal#progressKey()}. */
+    public Map<String, Integer> progress(ServerPlayer player, String questId) {
+        return progress(Owner.player(player.getUUID()), questId);
     }
 
-    private Map<String, Integer> kills(Owner owner, String questId) {
+    private Map<String, Integer> progress(Owner owner, String questId) {
         return QuestProgress.read(records.get(owner, QuestProgress.key(questId)));
     }
 
@@ -110,31 +112,48 @@ public final class Quests {
     }
 
     /**
-     * A player killed something: count it toward every active quest of theirs with a
-     * kill goal for that entity, up to the goal's count. Tamed animals (someone's pet
-     * wolf, cat, parrot, horse ...) never count.
+     * A player killed something: count it toward their active kill goals for that
+     * entity. Tamed animals (someone's pet wolf, cat, parrot, horse ...) never count.
      */
     public void onKill(ServerPlayer player, LivingEntity victim) {
         if ((victim instanceof TamableAnimal pet && pet.isTame())
                 || (victim instanceof AbstractHorse horse && horse.isTamed())) {
             return;
         }
-        String entity = BuiltInRegistries.ENTITY_TYPE.getKey(victim.getType()).toString();
+        tally(player, QuestDoc.Goal.Kind.KILL, BuiltInRegistries.ENTITY_TYPE.getKey(victim.getType()).toString());
+    }
+
+    /**
+     * A player broke a block: if it is a fully grown crop, count one plant toward their
+     * active harvest goals for it. It counts at the moment of breaking, whoever planted it.
+     */
+    public void onHarvest(ServerPlayer player, BlockState state) {
+        if (Crops.ripe(state)) {
+            tally(player, QuestDoc.Goal.Kind.HARVEST, Crops.id(state.getBlock()));
+        }
+    }
+
+    /**
+     * Count one toward every active quest of the player's with a {@code kind} goal for
+     * {@code target}, up to the goal's count.
+     */
+    private void tally(ServerPlayer player, QuestDoc.Goal.Kind kind, String target) {
         Owner owner = Owner.player(player.getUUID());
+        String key = QuestDoc.Goal.progressKey(kind, target);
         boolean changed = false;
         for (QuestDoc.Quest q : runtime.quests()) {
             if (QuestState.fromRecord(records.get(owner, q.id())) != QuestState.ACTIVE) {
                 continue;
             }
             for (QuestDoc.Goal goal : q.goals()) {
-                if (goal.kind() != QuestDoc.Goal.Kind.KILL || !goal.target().equals(entity)) {
+                if (goal.kind() != kind || !goal.target().equals(target)) {
                     continue;
                 }
-                Map<String, Integer> kills = kills(owner, q.id());
-                int have = kills.getOrDefault(entity, 0);
+                Map<String, Integer> progress = progress(owner, q.id());
+                int have = progress.getOrDefault(key, 0);
                 if (have < goal.count()) {
-                    kills.put(entity, have + 1);
-                    records.set(owner, QuestProgress.key(q.id()), QuestProgress.write(kills));
+                    progress.put(key, have + 1);
+                    records.set(owner, QuestProgress.key(q.id()), QuestProgress.write(progress));
                     changed = true;
                 }
             }
@@ -156,7 +175,7 @@ public final class Quests {
 
     /**
      * Hand in a ready quest: take the goal items, give the rewards, and record it
-     * done (dropping its kill progress), all at once on the server thread. Rewards
+     * done (dropping its progress), all at once on the server thread. Rewards
      * that do not fit drop at the player's feet (like {@code /give}).
      *
      * @return false (and nothing changes) if the quest is not ready for this player
@@ -228,7 +247,7 @@ public final class Quests {
         for (QuestDoc.Quest q : runtime.quests()) {
             QuestState s = QuestState.fromRecord(records.get(owner, q.id()));
             if (s != QuestState.HIDDEN) {
-                revealed.add(new QuestSyncPayload.Entry(q, s == QuestState.DONE, kills(owner, q.id())));
+                revealed.add(new QuestSyncPayload.Entry(q, s == QuestState.DONE, progress(owner, q.id())));
             }
         }
         PacketDistributor.sendToPlayer(player, new QuestSyncPayload(List.copyOf(revealed)));
@@ -242,17 +261,17 @@ public final class Quests {
     }
 
     /**
-     * Whether every goal is met: items in the inventory, kills in {@code kills}.
+     * Whether every goal is met: items in the inventory, counted goals in {@code progress}.
      * Both sides use this, so the screen agrees with the server.
      *
      * @param condition a hand-in goal's item condition, from its text
      */
-    public static boolean goalsMet(Inventory inventory, Map<String, Integer> kills, QuestDoc.Quest quest,
+    public static boolean goalsMet(Inventory inventory, Map<String, Integer> progress, QuestDoc.Quest quest,
                                    Function<String, Predicate<ItemStack>> condition) {
         for (QuestDoc.Goal goal : quest.goals()) {
-            int have = (goal.kind() == QuestDoc.Goal.Kind.ITEM)
-                    ? count(inventory, condition.apply(goal.target()))
-                    : kills.getOrDefault(goal.target(), 0);
+            int have = goal.kind().counted()
+                    ? progress.getOrDefault(goal.progressKey(), 0)
+                    : count(inventory, condition.apply(goal.target()));
             if (have < goal.count()) {
                 return false;
             }
@@ -377,6 +396,17 @@ public final class Quests {
         @Override
         public String entity(String id) {
             return entityType(id) == null ? "no entity '" + id + "' in this game" : null;
+        }
+
+        @Override
+        public String crop(String id) {
+            Block block = Crops.block(id);
+            if (block == null) {
+                return "no block '" + id + "' in this game";
+            }
+            return Crops.harvestable(block) ? null
+                    : "not a crop whose full growth the game shows (wheat, carrots, potatoes, beetroots, nether wart, "
+                    + "cocoa ...); pumpkins, melons, sugar cane, cactus, bamboo and berries are not supported yet";
         }
     };
 

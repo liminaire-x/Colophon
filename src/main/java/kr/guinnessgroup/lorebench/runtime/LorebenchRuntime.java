@@ -151,8 +151,8 @@ public final class LorebenchRuntime {
     }
 
     /**
-     * Quest items and kill targets must exist in this game (a typo, a missing mod or
-     * bad components is rejected).
+     * Quest items, kill targets and crops must exist in this game (a typo, a missing mod
+     * or bad components is rejected), and crops must be ones whose full growth shows.
      */
     private void checkItems(QuestDoc questDoc) {
         List<String> errors = new ArrayList<>();
@@ -162,11 +162,13 @@ public final class LorebenchRuntime {
                 check(errors, where + "icon '" + q.icon() + "': ", checks.item(q.icon()));
             }
             for (QuestDoc.Goal g : q.goals()) {
-                if (g.kind() == QuestDoc.Goal.Kind.ITEM) {
-                    check(errors, where + "goal '" + g.target() + "': ", checks.itemCondition(g.target()));
-                } else {
-                    check(errors, where + "kill '" + g.target() + "': ", checks.entity(g.target()));
-                }
+                String problem = switch (g.kind()) {
+                    case ITEM -> checks.itemCondition(g.target());
+                    case KILL -> checks.entity(g.target());
+                    case HARVEST -> checks.crop(g.target());
+                };
+                String what = g.kind() == QuestDoc.Goal.Kind.ITEM ? "goal" : g.kind().key;
+                check(errors, where + what + " '" + g.target() + "': ", problem);
             }
             for (QuestDoc.Stack s : q.rewards()) {
                 check(errors, where + "reward '" + s.item() + "': ", checks.item(s.item()));

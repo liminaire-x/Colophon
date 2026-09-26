@@ -12,7 +12,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** The kill progress record. Changing it loses everyone's kill counts. */
+/** The progress record (kills, harvests). Changing it loses everyone's counts. */
 class QuestProgressTest {
 
     @Test
@@ -21,16 +21,23 @@ class QuestProgressTest {
     }
 
     @Test
-    void countsByEntityIdRoundTrip() {
-        String value = QuestProgress.write(Map.of("minecraft:wolf", 2, "minecraft:zombie", 1));
-        assertEquals("{\"minecraft:wolf\":2,\"minecraft:zombie\":1}", value);
-        assertEquals(Map.of("minecraft:wolf", 2, "minecraft:zombie", 1), QuestProgress.read(value));
+    void eachCountedGoalIsKeyedByKindAndTarget() {
+        assertEquals("kill:minecraft:wolf", QuestDoc.Goal.kill("minecraft:wolf", 3).progressKey());
+        assertEquals("harvest:minecraft:wheat", QuestDoc.Goal.harvest("minecraft:wheat", 10).progressKey());
     }
 
     @Test
-    void missingOrBrokenMeansNoKillsYet() {
+    void countsByKindAndTargetRoundTrip() {
+        Map<String, Integer> counts = Map.of("kill:minecraft:wolf", 2, "kill:minecraft:zombie", 1, "harvest:minecraft:wheat", 3);
+        String value = QuestProgress.write(counts);
+        assertEquals("{\"harvest:minecraft:wheat\":3,\"kill:minecraft:wolf\":2,\"kill:minecraft:zombie\":1}", value);
+        assertEquals(counts, QuestProgress.read(value));
+    }
+
+    @Test
+    void missingOrBrokenMeansNothingDoneYet() {
         assertTrue(QuestProgress.read(null).isEmpty());
         assertTrue(QuestProgress.read("not json").isEmpty());
-        assertTrue(QuestProgress.read("{\"minecraft:wolf\":\"many\"}").isEmpty());
+        assertTrue(QuestProgress.read("{\"kill:minecraft:wolf\":\"many\"}").isEmpty());
     }
 }

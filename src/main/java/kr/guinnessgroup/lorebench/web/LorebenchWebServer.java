@@ -12,11 +12,13 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import kr.guinnessgroup.lorebench.DocumentException;
 import kr.guinnessgroup.lorebench.npc.Npcs;
+import kr.guinnessgroup.lorebench.quest.Crops;
 import kr.guinnessgroup.lorebench.quest.Quests;
 import kr.guinnessgroup.lorebench.runtime.LorebenchRuntime;
 import kr.guinnessgroup.lorebench.runtime.NodeRegistry;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.slf4j.Logger;
 
@@ -45,6 +47,7 @@ import java.util.function.Function;
  *   <li>{@code POST /api/publish} — replace all documents: {@code {"graphs": ..., "npcs": ..., "quests": ...}}</li>
  *   <li>{@code GET /api/players} — who is online</li>
  *   <li>{@code GET /api/held-item?player=Name} — what they hold, as {@code /give} writes it</li>
+ *   <li>{@code GET /api/crops} — the crops a harvest goal may name</li>
  * </ul>
  */
 public final class LorebenchWebServer {
@@ -86,6 +89,7 @@ public final class LorebenchWebServer {
             server.createContext("/api/quests", ex -> getOnly(ex, runtime.questsJson()));
             server.createContext("/api/publish", this::handlePublish);
             server.createContext("/api/players", ex -> fromGame(ex, LorebenchWebServer::players));
+            server.createContext("/api/crops", ex -> fromGame(ex, LorebenchWebServer::crops));
             server.createContext("/api/held-item", ex -> {
                 String player = query(ex, "player");
                 fromGame(ex, mc -> heldItem(mc, player));
@@ -170,6 +174,23 @@ public final class LorebenchWebServer {
         mc.getPlayerList().getPlayers().forEach(p -> names.add(p.getGameProfile().getName()));
         JsonObject o = new JsonObject();
         o.add("players", names);
+        return o.toString();
+    }
+
+    /**
+     * {@code {"crops": [{"id": "minecraft:wheat", "name": "Wheat Crops"}]}}: every crop in this
+     * game a harvest goal may name ({@link Crops}), including other mods' crops built the same way.
+     */
+    private static String crops(MinecraftServer mc) {
+        JsonArray list = new JsonArray();
+        for (Block block : Crops.all()) {
+            JsonObject c = new JsonObject();
+            c.addProperty("id", Crops.id(block));
+            c.addProperty("name", block.getName().getString());
+            list.add(c);
+        }
+        JsonObject o = new JsonObject();
+        o.add("crops", list);
         return o.toString();
     }
 

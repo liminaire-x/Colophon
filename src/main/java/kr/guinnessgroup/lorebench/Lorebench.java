@@ -36,6 +36,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
@@ -131,6 +132,18 @@ public final class Lorebench {
     public void onDeath(LivingDeathEvent event) {
         if (event.getSource().getEntity() instanceof ServerPlayer player) {
             quests.onKill(player, event.getEntity());
+        }
+    }
+
+    /**
+     * Last in line, and only if no other mod (or the game, e.g. adventure mode) stopped
+     * the break, so only real harvests count. Only players' breaks arrive here; water,
+     * pistons and explosions don't. Creative-mode breaks count too.
+     */
+    @SubscribeEvent(priority = EventPriority.LOWEST)
+    public void onBlockBreak(BlockEvent.BreakEvent event) {
+        if (event.getPlayer() instanceof ServerPlayer player) {
+            quests.onHarvest(player, event.getState());
         }
     }
 

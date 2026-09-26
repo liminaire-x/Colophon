@@ -317,7 +317,7 @@ final class DialogueScreen extends Screen {
             }
         }
         // An offer shows what it will take ("× 10"); a quest in progress shows how far along it is.
-        ItemStack hovered = card.needsAndRewards(g, font, q, shown.kills(), shown.kind() != Dialogue.Kind.OFFER,
+        ItemStack hovered = card.needsAndRewards(g, font, q, shown.progress(), shown.kind() != Dialogue.Kind.OFFER,
                 x + PAD, ty, mouseX, mouseY);
         g.disableScissor();
         return hovered;

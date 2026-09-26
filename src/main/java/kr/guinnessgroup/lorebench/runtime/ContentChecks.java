@@ -19,4 +19,7 @@ public interface ContentChecks {
 
     /** An entity type id (kill goals). */
     String entity(String id);
+
+    /** A crop block id whose full growth the game shows (harvest goals). */
+    String crop(String id);
 }

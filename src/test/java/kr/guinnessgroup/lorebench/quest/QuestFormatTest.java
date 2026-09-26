@@ -205,12 +205,32 @@ class QuestFormatTest {
     }
 
     @Test
-    void aGoalNamesExactlyOneKnownKindAndEachMobOnce() {
+    void harvestGoalsNameACropBlockAndMayShareATargetWithOtherKinds() {
+        QuestDoc doc = QuestFormat.read("""
+                { "format": 1, "quests": [ { "id": "quest_a", "title": "A",
+                  "goals": [ { "harvest": "minecraft:potatoes", "count": 10 }, { "item": "minecraft:potato", "count": 20 },
+                             { "harvest": "minecraft:wheat", "count": 5 }, { "kill": "minecraft:cow", "count": 1 } ],
+                  "rewards": [] } ] }
+                """);
+        assertEquals(List.of(QuestDoc.Goal.harvest("minecraft:potatoes", 10), QuestDoc.Goal.item("minecraft:potato", 20),
+                        QuestDoc.Goal.harvest("minecraft:wheat", 5), QuestDoc.Goal.kill("minecraft:cow", 1)),
+                doc.find("quest_a").goals());
+        String written = QuestFormat.write(doc);
+        assertTrue(written.contains("\"harvest\": \"minecraft:potatoes\""), written);
+        assertEquals(doc, QuestFormat.read(written));
+    }
+
+    @Test
+    void aGoalNamesExactlyOneKnownKindAndEachTargetOncePerKind() {
         for (String goals : new String[] {
                 "{ \"count\": 1 }",                                                             // neither
                 "{ \"item\": \"minecraft:wheat\", \"kill\": \"minecraft:wolf\", \"count\": 1 }", // both
+                "{ \"harvest\": \"minecraft:wheat\", \"kill\": \"minecraft:wolf\", \"count\": 1 }",
                 "{ \"kill\": \"Wolf\", \"count\": 1 }",                                          // not an id
-                "{ \"kill\": \"minecraft:wolf\", \"count\": 1 }, { \"kill\": \"minecraft:wolf\", \"count\": 2 }"}) {
+                "{ \"harvest\": \"wheat crops\", \"count\": 1 }",
+                "{ \"harvest\": \"minecraft:wheat\", \"count\": 0 }",
+                "{ \"kill\": \"minecraft:wolf\", \"count\": 1 }, { \"kill\": \"minecraft:wolf\", \"count\": 2 }",
+                "{ \"harvest\": \"minecraft:wheat\", \"count\": 1 }, { \"harvest\": \"minecraft:wheat\", \"count\": 2 }"}) {
             assertThrows(DocumentException.class, () -> QuestFormat.read(
                     "{\"format\":1,\"quests\":[{\"id\":\"quest_a\",\"title\":\"A\",\"goals\":[" + goals + "],\"rewards\":[]}]}"),
                     goals);

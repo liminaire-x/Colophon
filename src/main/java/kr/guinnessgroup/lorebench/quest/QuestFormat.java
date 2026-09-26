@@ -35,13 +35,14 @@ import java.util.regex.Pattern;
  *   "id": "quest_k3f9x2ma", "title": "밀 배달", "icon": "minecraft:wheat", "text": "...", "folder": "folder_9fm3a0pe",
  *   "giver": "npc_7ha2m0qe", "receiver": "npc_7ha2m0qe", "requires": [ "quest_p0a8s1dd" ],
  *   "lines": { "offer": [ "밀 10개만 구해다 주겠나?" ], "active": [ "아직 부족하구먼." ], "complete": [ "고맙네!" ] },
- *   "goals":   [ { "item": "minecraft:wheat",   "count": 10 }, { "kill": "minecraft:wolf", "count": 3 } ],
+ *   "goals":   [ { "item": "minecraft:wheat",   "count": 10 }, { "kill": "minecraft:wolf", "count": 3 },
+ *                { "harvest": "minecraft:potatoes", "count": 5 } ],
  *   "rewards": [ { "item": "minecraft:emerald", "count": 5 } ] } ] }</pre>
  * {@code folders}, a folder's {@code parent}, and a quest's {@code icon}, {@code text}, {@code folder},
  * {@code giver}, {@code receiver}, {@code requires} and {@code lines} are optional (no parent or
  * folder = the top; see docs/decisions/0009-quest-workbench.md for the rest). Required quests must
  * exist and never lead back to the quest. Beyond that this checks only the shape; whether the items,
- * entities and NPCs exist is checked on publish, where the game's lists are available.
+ * entities, crops and NPCs exist is checked on publish, where the game's lists are available.
  */
 public final class QuestFormat {
 
@@ -223,10 +224,16 @@ public final class QuestFormat {
         return false;
     }
 
+    /** What a counted goal's target looks like, for messages. */
+    private static final Map<QuestDoc.Goal.Kind, String> TARGET_EXAMPLE = Map.of(
+            QuestDoc.Goal.Kind.KILL, "an entity id like minecraft:wolf",
+            QuestDoc.Goal.Kind.HARVEST, "a crop block id like minecraft:wheat");
+
     /**
-     * Goals: each names exactly one of {@code item} (hand in; an item condition as
-     * {@code /clear} reads it) or {@code kill} (an entity type id). Kill goals must name
-     * different entities, because progress is saved per entity.
+     * Goals: each names exactly one kind: {@code item} (hand in; an item condition as
+     * {@code /clear} reads it), {@code kill} (an entity type id) or {@code harvest} (a
+     * crop block id). Counted goals of one kind must name different targets, because
+     * progress is saved per kind and target.
      */
     private static List<QuestDoc.Goal> goals(JsonObject o, String where, List<String> errors) {
         JsonElement e = o.get("goals");
@@ -235,25 +242,31 @@ public final class QuestFormat {
             return List.of();
         }
         List<QuestDoc.Goal> out = new ArrayList<>();
-        Set<String> killed = new HashSet<>();
+        Set<String> counted = new HashSet<>();
         for (JsonElement g : e.getAsJsonArray()) {
             if (!g.isJsonObject()) {
                 errors.add(where + ": a goal is not an object");
                 continue;
             }
             JsonObject go = g.getAsJsonObject();
-            String item = optional(go, QuestDoc.Goal.Kind.ITEM.key);
-            String kill = optional(go, QuestDoc.Goal.Kind.KILL.key);
-            if (item.isEmpty() == kill.isEmpty()) {
-                errors.add(where + ": a goal needs exactly one of 'item' or 'kill'");
+            QuestDoc.Goal.Kind kind = null;
+            int kinds = 0;
+            for (QuestDoc.Goal.Kind k : QuestDoc.Goal.Kind.values()) {
+                if (!optional(go, k.key).isEmpty()) {
+                    kind = k;
+                    kinds++;
+                }
+            }
+            if (kinds != 1) {
+                errors.add(where + ": a goal needs exactly one of 'item', 'kill' or 'harvest'");
                 continue;
             }
-            String target = item.isEmpty() ? kill : item;
+            String target = optional(go, kind.key);
             // An item goal is a condition as /clear reads it (minecraft:wheat,
             // minecraft:iron_sword[custom_data={...}], #minecraft:logs ...); the
             // game's parser checks it on publish.
-            if (!kill.isEmpty() && !ITEM.matcher(kill).matches()) {
-                errors.add(where + ": goal kill '" + kill + "' is not an entity id like minecraft:wolf");
+            if (kind.counted() && !ITEM.matcher(target).matches()) {
+                errors.add(where + ": goal " + kind.key + " '" + target + "' is not " + TARGET_EXAMPLE.get(kind));
                 continue;
             }
             int count = count(go.get("count"));
@@ -261,11 +274,11 @@ public final class QuestFormat {
                 errors.add(where + ": goal count of '" + target + "' must be a whole number from 1 to " + MAX_COUNT);
                 continue;
             }
-            if (!kill.isEmpty() && !killed.add(kill)) {
-                errors.add(where + ": two kill goals for '" + kill + "'; use one with the total count");
+            if (kind.counted() && !counted.add(QuestDoc.Goal.progressKey(kind, target))) {
+                errors.add(where + ": two " + kind.key + " goals for '" + target + "'; use one with the total count");
                 continue;
             }
-            out.add(item.isEmpty() ? QuestDoc.Goal.kill(kill, count) : QuestDoc.Goal.item(item, count));
+            out.add(new QuestDoc.Goal(kind, target, count));
         }
         return List.copyOf(out);
     }

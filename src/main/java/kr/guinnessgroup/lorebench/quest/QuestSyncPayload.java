@@ -25,8 +25,8 @@ import java.util.Map;
  */
 public record QuestSyncPayload(List<Entry> quests) implements CustomPacketPayload {
 
-    /** A revealed quest, whether the player has completed it, and their kill counts so far. */
-    public record Entry(QuestDoc.Quest quest, boolean done, Map<String, Integer> kills) {}
+    /** A revealed quest, whether the player has completed it, and their counted progress so far. */
+    public record Entry(QuestDoc.Quest quest, boolean done, Map<String, Integer> progress) {}
 
     public static final Type<QuestSyncPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(Lorebench.MODID, "quests"));
@@ -36,7 +36,7 @@ public record QuestSyncPayload(List<Entry> quests) implements CustomPacketPayloa
 
     public static void register(RegisterPayloadHandlersEvent event) {
         // Handled on the client's main thread (the registrar's default).
-        event.registrar("1").playToClient(TYPE, CODEC, (payload, context) -> ClientQuests.accept(payload));
+        event.registrar("2").playToClient(TYPE, CODEC, (payload, context) -> ClientQuests.accept(payload));
     }
 
     @Override
@@ -49,7 +49,7 @@ public record QuestSyncPayload(List<Entry> quests) implements CustomPacketPayloa
         for (Entry e : quests) {
             writeQuest(buf, e.quest());
             buf.writeBoolean(e.done());
-            writeKills(buf, e.kills());
+            writeProgress(buf, e.progress());
         }
     }
 
@@ -59,7 +59,7 @@ public record QuestSyncPayload(List<Entry> quests) implements CustomPacketPayloa
         for (int i = 0; i < n; i++) {
             QuestDoc.Quest q = readQuest(buf);
             boolean done = buf.readBoolean();
-            quests.add(new Entry(q, done, readKills(buf)));
+            quests.add(new Entry(q, done, readProgress(buf)));
         }
         return new QuestSyncPayload(List.copyOf(quests));
     }
@@ -88,21 +88,21 @@ public record QuestSyncPayload(List<Entry> quests) implements CustomPacketPayloa
                 readGoals(buf), readStacks(buf), "", QuestDoc.Flow.NONE);
     }
 
-    static void writeKills(FriendlyByteBuf buf, Map<String, Integer> kills) {
-        buf.writeVarInt(kills.size());
-        kills.forEach((entity, n) -> {
-            buf.writeUtf(entity);
+    static void writeProgress(FriendlyByteBuf buf, Map<String, Integer> progress) {
+        buf.writeVarInt(progress.size());
+        progress.forEach((key, n) -> {
+            buf.writeUtf(key);
             buf.writeVarInt(n);
         });
     }
 
-    static Map<String, Integer> readKills(FriendlyByteBuf buf) {
+    static Map<String, Integer> readProgress(FriendlyByteBuf buf) {
         int k = buf.readVarInt();
-        Map<String, Integer> kills = new HashMap<>();
+        Map<String, Integer> progress = new HashMap<>();
         for (int j = 0; j < k; j++) {
-            kills.put(buf.readUtf(), buf.readVarInt());
+            progress.put(buf.readUtf(), buf.readVarInt());
         }
-        return Map.copyOf(kills);
+        return Map.copyOf(progress);
     }
 
     private static List<QuestDoc.Goal> readGoals(FriendlyByteBuf buf) {

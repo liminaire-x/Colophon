@@ -35,9 +35,9 @@ public record DialoguePayload(String npcName, int npcEntity, List<DialogueLines.
 
     /**
      * @param lines what the NPC says about it (offer, in progress or hand-in lines)
-     * @param kills the player's kill counts, for progress
+     * @param progress the player's counted progress ({@link QuestDoc.Goal#progressKey()})
      */
-    public record Entry(Dialogue.Kind kind, QuestDoc.Quest quest, List<DialogueLines.Line> lines, Map<String, Integer> kills) {}
+    public record Entry(Dialogue.Kind kind, QuestDoc.Quest quest, List<DialogueLines.Line> lines, Map<String, Integer> progress) {}
 
     public static final Type<DialoguePayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(Lorebench.MODID, "dialogue"));
@@ -47,7 +47,7 @@ public record DialoguePayload(String npcName, int npcEntity, List<DialogueLines.
 
     /** Registers both dialogue messages. Handled on the main thread (the registrar's default). */
     public static void register(RegisterPayloadHandlersEvent event) {
-        event.registrar("1")
+        event.registrar("2")
                 .playToClient(TYPE, CODEC, (payload, context) -> ClientDialogue.accept(payload))
                 .playToServer(DialogueChoicePayload.TYPE, DialogueChoicePayload.CODEC, (choice, context) -> {
                     Dialogues dialogues = Dialogues.current();
@@ -71,7 +71,7 @@ public record DialoguePayload(String npcName, int npcEntity, List<DialogueLines.
             buf.writeEnum(e.kind());
             QuestSyncPayload.writeQuest(buf, e.quest());
             writeLines(buf, e.lines());
-            QuestSyncPayload.writeKills(buf, e.kills());
+            QuestSyncPayload.writeProgress(buf, e.progress());
         }
         buf.writeBoolean(resume);
     }
@@ -86,7 +86,7 @@ public record DialoguePayload(String npcName, int npcEntity, List<DialogueLines.
             Dialogue.Kind kind = buf.readEnum(Dialogue.Kind.class);
             QuestDoc.Quest quest = QuestSyncPayload.readQuest(buf);
             List<DialogueLines.Line> lines = readLines(buf);
-            entries.add(new Entry(kind, quest, lines, QuestSyncPayload.readKills(buf)));
+            entries.add(new Entry(kind, quest, lines, QuestSyncPayload.readProgress(buf)));
         }
         return new DialoguePayload(npcName, npcEntity, greeting, List.copyOf(entries), buf.readBoolean());
     }

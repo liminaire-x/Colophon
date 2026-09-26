@@ -133,7 +133,7 @@ public final class QuestScreen extends Screen {
         int dw = left + panelW - PAD - dx;
         int bottom = top + panelH - PAD;
         boolean ready = !selected.done() && player != null
-                && Quests.goalsMet(player.getInventory(), selected.kills(), q, card::condition);
+                && Quests.goalsMet(player.getInventory(), selected.progress(), q, card::condition);
         y = listTop();
         g.enableScissor(dx, y, dx + dw, bottom);
         g.drawString(font, q.title(), dx, y, GOLD);
@@ -152,7 +152,7 @@ public final class QuestScreen extends Screen {
                 y += font.lineHeight;
             }
         }
-        ItemStack hovered = card.needsAndRewards(g, font, q, selected.kills(), !selected.done() && player != null,
+        ItemStack hovered = card.needsAndRewards(g, font, q, selected.progress(), !selected.done() && player != null,
                 dx, y, mouseX, mouseY);
         g.disableScissor();
         if (!hovered.isEmpty()) {
