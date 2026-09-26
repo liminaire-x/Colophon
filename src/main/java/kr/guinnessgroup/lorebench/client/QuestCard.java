@@ -76,6 +76,10 @@ final class QuestCard {
                     case ITEM -> goal.target().startsWith("#") ? Component.literal(goal.target()) // a tag: any item in it
                             : icon.getHoverName();
                 };
+                if (goal.kind().counted()) {
+                    // "Kill Cow" and "Breed Cow" can sit in one quest; say which.
+                    name = Component.translatable("lorebench.quests.goal." + goal.kind().key, name);
+                }
                 String amount;
                 int color;
                 if (!showProgress || player == null) {
