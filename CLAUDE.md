@@ -75,5 +75,5 @@
   - 문서 추출은 **서브에이전트를 쓰지 않고 외부 AI(Gemini)**로: `graphify.llm.extract_corpus_parallel(files, backend="gemini")`. 키는 사용자 환경변수 `GEMINI_API_KEY`(값은 어디에도 적지 않음).
   - Gemini 무료 등급은 한도가 작다(분당 요청 5회 등, 503 과부하도 잦음). `token_budget=20000`, `max_concurrency=1`로 작게·차례로. 그래도 실패하면 **코드(AST)만 빌드**하고 나중에 `--update`(실패한 문서는 다음에 다시 추출 대상).
   - 중간 단계 파이썬은 스크래치패드에 `.py`로 써서 실행하고 `if __name__ == '__main__':`를 둔다. 인라인 heredoc + `Remove-Item`을 한 PowerShell 호출에 이으면 조용히 실패한다.
-  - `graphify-out/`은 git 밖. 마지막 빌드: 2026-09-24, **코드만**(문서 25개는 Gemini 한도로 대기) 759 노드·2007 연결·32 묶음, 중심 = `LorebenchRuntime`·`NpcEntity`·`Quests`.
+  - `graphify-out/`은 git 밖. 마지막 빌드: 2026-09-26, 코드 + 문서 16개(Gemini, `token_budget=5000`·`deep_mode`; 20000으로 묶으면 문서마다 제목 노드 하나뿐이었다) 1040 노드·2700 연결·56 묶음, 중심 = `NpcEntity`·`LorebenchRuntime`·`Quests`·`DialogueScreen`. 문서 추출은 여전히 얕다(개념 일부만). `.claude/skills/`의 Blockbench 문서는 프로젝트 문서가 아니라 추출에서 뺐다.
 - **셸 함정**: `sed` 치환에 `#` 구분자를 쓰면 `#minecraft:logs`, `## 제목`과 충돌한다. 파일 수정은 Edit 도구를 먼저, 셸 치환이 꼭 필요하면 `|` 구분자. JSX가 든 긴 파이썬 수정 스크립트는 Bash heredoc이 따옴표를 잘못 읽어 실패할 수 있다 → 스크래치패드에 `.py`로 써서 실행.
