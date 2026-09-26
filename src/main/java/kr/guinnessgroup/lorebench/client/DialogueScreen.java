@@ -60,6 +60,11 @@ final class DialogueScreen extends Screen {
 
     /** The server's answer to a choice, or a fresh talk. */
     void update(DialoguePayload fresh) {
+        if (fresh.npcEntity() != talk.npcEntity()) {
+            setTalking(false);
+            talk = fresh;
+            setTalking(true);
+        }
         talk = fresh;
         waiting = false;
         if (fresh.resume()) {
@@ -73,6 +78,7 @@ final class DialogueScreen extends Screen {
     protected void init() {
         // Also called when the window resizes: keep the talk where it is.
         if (mode == null) {
+            setTalking(true);
             begin();
         } else {
             rebuild();
@@ -118,10 +124,30 @@ final class DialogueScreen extends Screen {
     /** The shown line's animation, played by the NPC being talked to, on this screen only. */
     private void animate() {
         String animation = pages.get(page).animation();
-        if (!animation.isEmpty() && minecraft != null && minecraft.level != null
-                && minecraft.level.getEntity(talk.npcEntity()) instanceof NpcEntity npc) {
+        NpcEntity npc = npc();
+        if (!animation.isEmpty() && npc != null) {
             npc.playLocally(animation);
         }
+    }
+
+    /** The NPC's talk set plays on this screen while the screen is open (0011). */
+    private void setTalking(boolean talking) {
+        NpcEntity npc = npc();
+        if (npc != null) {
+            npc.setTalking(talking);
+        }
+    }
+
+    @Override
+    public void removed() {
+        // Closed, or replaced by another screen.
+        setTalking(false);
+        super.removed();
+    }
+
+    private NpcEntity npc() {
+        return minecraft != null && minecraft.level != null
+                && minecraft.level.getEntity(talk.npcEntity()) instanceof NpcEntity npc ? npc : null;
     }
 
     private void showCard(DialoguePayload.Entry entry) {

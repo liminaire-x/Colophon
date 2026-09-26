@@ -42,6 +42,17 @@ export default function NpcTab({ npcs, setNpcs, folders, setFolders, placements,
     }))
   }
 
+  // Edit one animation of the talk set; an emptied one is dropped, and so is an empty set.
+  const setTalk = (key, value) => {
+    setNpcs((ns) => ns.map((n) => {
+      if (n.id !== npc.id) return n
+      const { talk, ...rest } = n
+      const next = { ...talk, [key]: value }
+      if (value.trim() === '') delete next[key]
+      return Object.keys(next).length ? { ...rest, talk: next } : rest
+    }))
+  }
+
   const setGreeting = (lines) => {
     setNpcs((ns) => ns.map((n) => {
       if (n.id !== npc.id) return n
@@ -97,10 +108,23 @@ export default function NpcTab({ npcs, setNpcs, folders, setFolders, placements,
                   <div style={{ marginBottom: 3 }}>Model <span style={hint}>(empty = default look)</span></div>
                   <input value={npc.model ?? ''} placeholder="e.g. chief" onChange={(e) => setField('model', e.target.value)} style={input} />
                 </label>
-                <label style={{ ...label, marginBottom: 0 }}>
+                <label style={label}>
                   <div style={{ marginBottom: 3 }}>Idle animation <span style={hint}>(loops)</span></div>
                   <input value={npc.idle ?? ''} placeholder="e.g. animation.chief.wave" onChange={(e) => setField('idle', e.target.value)} style={input} />
                 </label>
+                <div style={{ marginBottom: 3 }}>
+                  While talking <span style={hint}>(only the talking player sees it; empty = keeps its idle)</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[['start', 'Start', 'once', 'animation.chief.talk_start'],
+                    ['loop', 'Loop', 'repeats', 'animation.chief.talk'],
+                    ['end', 'End', 'once, on closing', 'animation.chief.talk_end']].map(([key, name, when, example]) => (
+                    <label key={key} style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ marginBottom: 3 }}>{name} <span style={hint}>({when})</span></div>
+                      <input value={npc.talk?.[key] ?? ''} placeholder={example} onChange={(e) => setTalk(key, e.target.value)} style={input} />
+                    </label>
+                  ))}
+                </div>
               </Section>
 
               <Section title="Dialogue">

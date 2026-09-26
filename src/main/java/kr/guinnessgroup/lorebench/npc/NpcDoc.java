@@ -29,15 +29,30 @@ public record NpcDoc(List<Folder> folders, List<NpcDef> npcs) {
      * @param folder the editor folder id it sits in, or "" for the top ({@link kr.guinnessgroup.lorebench.Folders})
      * @param greeting what it says when the player has nothing to do with it, one page per line
      *                 ({@link kr.guinnessgroup.lorebench.DialogueLines}, docs/decisions/0009-quest-workbench.md)
+     * @param talk  how it moves while someone talks to it ({@link Talk#NONE}: keeps its idle)
      */
-    public record NpcDef(String id, String name, String model, String idle, String folder, List<Line> greeting) {
+    public record NpcDef(String id, String name, String model, String idle, String folder, List<Line> greeting,
+                         Talk talk) {
 
         public NpcDef(String id, String name) {
-            this(id, name, "", "", "", List.of());
+            this(id, name, "", "", "", List.of(), Talk.NONE);
         }
 
         public NpcDef(String id, String name, String model, String idle) {
-            this(id, name, model, idle, "", List.of());
+            this(id, name, model, idle, "", List.of(), Talk.NONE);
+        }
+    }
+
+    /**
+     * The talk set (docs/decisions/0011-talk-gestures.md): played once when a talk opens,
+     * looped while it lasts, played once when it closes. Each is an animation name or "".
+     */
+    public record Talk(String start, String loop, String end) {
+
+        public static final Talk NONE = new Talk("", "", "");
+
+        public boolean isEmpty() {
+            return start.isEmpty() && loop.isEmpty() && end.isEmpty();
         }
     }
 

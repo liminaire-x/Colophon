@@ -36,8 +36,8 @@ import software.bernie.geckolib.util.GeckoLibUtil;
  * exist, and disappears if not. That one rule covers remove commands, deleting a
  * definition in the editor, and entities in chunks that were unloaded meanwhile.
  * <p>
- * Looks: the server syncs the model name, the idle animation, and "play this
- * once" requests to clients; the client animates with GeckoLib.
+ * Looks: the server syncs the model name, the idle animation, the talk set, and
+ * "play this once" requests to clients; the client animates with GeckoLib.
  */
 public class NpcEntity extends PathfinderMob implements GeoEntity {
 
@@ -52,16 +52,30 @@ public class NpcEntity extends PathfinderMob implements GeoEntity {
     /** Bumped on every play request, so the same animation can be played again. */
     private static final EntityDataAccessor<Integer> ACTION_SEQ =
             SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<String> TALK_START =
+            SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<String> TALK_LOOP =
+            SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.STRING);
+    private static final EntityDataAccessor<String> TALK_END =
+            SynchedEntityData.defineId(NpcEntity.class, EntityDataSerializers.STRING);
 
     private final AnimatableInstanceCache animationCache = GeckoLibUtil.createInstanceCache(this);
 
     private String npcId = "";
 
+    /** Client: where this NPC is in a talk with this player (docs/decisions/0011-talk-gestures.md). */
+    private enum TalkPhase { NONE, START, LOOP, END }
+
     // Client-side animation state.
     private int seenActionSeq = -1;
     private String playingAction = "";
+    private TalkPhase talkPhase = TalkPhase.NONE;
+    /** Client: a line's animation that waits for the talk's start to finish. */
+    private String waitingLine;
     /** Client: an animation to start on this screen only, see {@link #playLocally}. */
     private volatile String localRequest;
+    /** Client: whether this player's dialogue screen is open on this NPC, see {@link #setTalking}. */
+    private volatile boolean talkWanted;
 
     public NpcEntity(EntityType<? extends NpcEntity> type, Level level) {
         super(type, level);
@@ -78,6 +92,9 @@ public class NpcEntity extends PathfinderMob implements GeoEntity {
         builder.define(IDLE, "");
         builder.define(ACTION, "");
         builder.define(ACTION_SEQ, 0);
+        builder.define(TALK_START, "");
+        builder.define(TALK_LOOP, "");
+        builder.define(TALK_END, "");
     }
 
     public String npcId() {
@@ -93,7 +110,7 @@ public class NpcEntity extends PathfinderMob implements GeoEntity {
         return entityData.get(MODEL);
     }
 
-    /** Server: play an animation once for everyone who sees this NPC, then return to idle. */
+    /** Server: play an animation once for everyone who sees this NPC, then go back to what it was doing. */
     public void playAnimation(String animation) {
         entityData.set(ACTION, animation);
         entityData.set(ACTION_SEQ, entityData.get(ACTION_SEQ) + 1);
@@ -101,10 +118,19 @@ public class NpcEntity extends PathfinderMob implements GeoEntity {
 
     /**
      * Client: play an animation once on this player's screen only (a dialogue line's
-     * animation: only the player talking sees it), then return to idle.
+     * animation: only the player talking sees it), then go back to the talk loop.
      */
     public void playLocally(String animation) {
         localRequest = animation;
+    }
+
+    /**
+     * Client: this player's dialogue screen opened ({@code true}) or closed on this NPC.
+     * The NPC plays its talk set on this screen only. Opening and closing before the next
+     * frame cancel out.
+     */
+    public void setTalking(boolean talking) {
+        talkWanted = talking;
     }
 
     @Override
@@ -137,6 +163,16 @@ public class NpcEntity extends PathfinderMob implements GeoEntity {
         if (!def.idle().equals(entityData.get(IDLE))) {
             entityData.set(IDLE, def.idle());
         }
+        NpcDoc.Talk talk = def.talk();
+        if (!talk.start().equals(entityData.get(TALK_START))) {
+            entityData.set(TALK_START, talk.start());
+        }
+        if (!talk.loop().equals(entityData.get(TALK_LOOP))) {
+            entityData.set(TALK_LOOP, talk.loop());
+        }
+        if (!talk.end().equals(entityData.get(TALK_END))) {
+            entityData.set(TALK_END, talk.end());
+        }
     }
 
     // --- GeckoLib (animations run on the client) ---
@@ -146,26 +182,49 @@ public class NpcEntity extends PathfinderMob implements GeoEntity {
         controllers.add(new AnimationController<>(this, "main", 5, this::animate));
     }
 
+    /**
+     * One NPC on one screen. Underneath: the idle loop, or while this player talks to it,
+     * the talk set (start once, loop, end once when the talk closes). On top: animations
+     * played once (a graph node for everyone, a dialogue line on this screen), after which
+     * it goes back underneath. A line shown while the talk's start plays waits for it.
+     */
     private PlayState animate(AnimationState<NpcEntity> state) {
         AnimationController<NpcEntity> controller = state.getController();
+
+        // This player's dialogue screen opened or closed on this NPC.
+        boolean talking = talkPhase == TalkPhase.START || talkPhase == TalkPhase.LOOP;
+        if (talkWanted != talking) {
+            String set = entityData.get(talkWanted ? TALK_START : TALK_END);
+            talkPhase = set.isEmpty() ? (talkWanted ? TalkPhase.LOOP : TalkPhase.NONE)
+                    : (talkWanted ? TalkPhase.START : TalkPhase.END);
+            playingAction = "";
+            waitingLine = null;
+            controller.forceAnimationReset();
+            if (!set.isEmpty()) {
+                return state.setAndContinue(RawAnimation.begin().thenPlay(set));
+            }
+        }
+
+        // Animations played once.
         int seq = entityData.get(ACTION_SEQ);
-        String start = null;
+        String action = null;
         if (seenActionSeq == -1) {
             seenActionSeq = seq; // just appeared: do not replay an old request
         } else if (seq != seenActionSeq) {
             seenActionSeq = seq;
-            start = entityData.get(ACTION);
+            action = entityData.get(ACTION);
         }
-        if (start == null && localRequest != null) {
-            start = localRequest;
-        }
+        String line = localRequest;
         localRequest = null;
-        if (start != null) {
-            playingAction = start;
-            controller.forceAnimationReset();
-            if (!playingAction.isEmpty()) {
-                return state.setAndContinue(RawAnimation.begin().thenPlay(playingAction));
+        if (line != null) {
+            if (talkPhase == TalkPhase.START) {
+                waitingLine = line;
+            } else if (action == null) {
+                action = line;
             }
+        }
+        if (action != null && !action.isEmpty()) {
+            return playOnce(state, action);
         }
         if (!playingAction.isEmpty()) {
             if (!controller.hasAnimationFinished()) {
@@ -174,8 +233,40 @@ public class NpcEntity extends PathfinderMob implements GeoEntity {
             playingAction = "";
             controller.forceAnimationReset();
         }
-        String idle = entityData.get(IDLE);
-        return idle.isEmpty() ? PlayState.STOP : state.setAndContinue(RawAnimation.begin().thenLoop(idle));
+
+        // The talk's start and end play once, then move on.
+        if (talkPhase == TalkPhase.START || talkPhase == TalkPhase.END) {
+            // Not hasAnimationFinished(): a misspelled name stops at once, and if nothing played
+            // before, that would never count as finished.
+            if (controller.getAnimationState() != AnimationController.State.STOPPED) {
+                return PlayState.CONTINUE;
+            }
+            talkPhase = (talkPhase == TalkPhase.START) ? TalkPhase.LOOP : TalkPhase.NONE;
+            controller.forceAnimationReset();
+        }
+        if (waitingLine != null) {
+            String waited = waitingLine;
+            waitingLine = null;
+            return playOnce(state, waited);
+        }
+
+        String loop = entityData.get(talkPhase == TalkPhase.LOOP ? TALK_LOOP : IDLE);
+        if (loop.isEmpty() && talkPhase == TalkPhase.LOOP) {
+            loop = entityData.get(IDLE);
+        }
+        return loop.isEmpty() ? PlayState.STOP : state.setAndContinue(RawAnimation.begin().thenLoop(loop));
+    }
+
+    /** Plays an animation once over whatever plays underneath; it cuts a talk's start or end short. */
+    private PlayState playOnce(AnimationState<NpcEntity> state, String animation) {
+        if (talkPhase == TalkPhase.START) {
+            talkPhase = TalkPhase.LOOP;
+        } else if (talkPhase == TalkPhase.END) {
+            talkPhase = TalkPhase.NONE;
+        }
+        playingAction = animation;
+        state.getController().forceAnimationReset();
+        return state.setAndContinue(RawAnimation.begin().thenPlay(animation));
     }
 
     @Override

@@ -67,6 +67,28 @@ class NpcFormatTest {
     }
 
     @Test
+    void talkSetIsOptionalAndEachNameToo() {
+        NpcDoc doc = NpcFormat.read("""
+                { "format": 1, "npcs": [
+                  { "id": "npc_smith", "name": "대장장이", "talk": { "start": "animation.smith.put_down",
+                    "loop": "animation.smith.nod", "end": "animation.smith.pick_up" } },
+                  { "id": "npc_guard", "name": "경비대장", "talk": { "loop": "animation.guard.nod" } } ] }
+                """);
+        assertEquals(new NpcDoc.Talk("animation.smith.put_down", "animation.smith.nod", "animation.smith.pick_up"),
+                doc.find("npc_smith").talk());
+        assertEquals(new NpcDoc.Talk("", "animation.guard.nod", ""), doc.find("npc_guard").talk());
+        String written = NpcFormat.write(doc);
+        assertEquals(doc, NpcFormat.read(written));
+        assertEquals(1, written.split("\"start\"", -1).length - 1);
+        assertEquals(NpcDoc.Talk.NONE, NpcFormat.read(CHIEF).find("npc_chief").talk());
+        assertTrue(!NpcFormat.write(NpcFormat.read(CHIEF)).contains("talk"));
+        for (String talk : new String[] {"\"animation.a.nod\"", "{ \"begin\": \"a\" }", "{ \"loop\": 1 }", "[ ]"}) {
+            assertThrows(DocumentException.class, () -> NpcFormat.read(
+                    "{\"format\":1,\"npcs\":[{\"id\":\"npc_a\",\"name\":\"A\",\"talk\":" + talk + "}]}"), talk);
+        }
+    }
+
+    @Test
     void npcsSitInFolders() {
         NpcDoc doc = NpcFormat.read("""
                 { "format": 1, "folders": [ { "id": "folder_town", "name": "마을" } ],

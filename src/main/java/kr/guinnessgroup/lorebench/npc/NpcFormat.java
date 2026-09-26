@@ -26,10 +26,12 @@ import java.util.regex.Pattern;
  * Reads and writes the NPC document (format 1):
  * <pre>{ "format": 1, "folders": [ ... ],
  *   "npcs": [ { "id": "npc_7ha2m0qe", "name": "촌장", "model": "chief", "idle": "wave", "folder": "folder_2kq8d1xz",
- *               "greeting": [ "오, 자네 왔군.", "무슨 일인가?" ] } ] }</pre>
+ *               "greeting": [ "오, 자네 왔군.", "무슨 일인가?" ],
+ *               "talk": { "start": "animation.chief.talk_start", "loop": "animation.chief.talk", "end": "animation.chief.talk_end" } } ] }</pre>
  * {@code model} and {@code idle} are optional (a plain NPC has neither). {@code folders} and
  * {@code folder} group NPCs in the editor ({@link Folders}). {@code greeting} is optional
- * ({@link DialogueLines}).
+ * ({@link DialogueLines}). {@code talk} is optional, and so is each of its names
+ * (docs/decisions/0011-talk-gestures.md).
  * This file has its own format number so NPCs can grow (looks, animations,
  * cinematics) without touching the graph document.
  */
@@ -39,6 +41,9 @@ public final class NpcFormat {
 
     /** Model names are resource pack file names: lowercase letters, digits, underscore. */
     private static final Pattern MODEL = Pattern.compile("[a-z0-9_]+");
+
+    /** The keys of the talk set. Never rename: they are saved. */
+    private static final Set<String> TALK_KEYS = Set.of("start", "loop", "end");
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
@@ -100,7 +105,8 @@ public final class NpcFormat {
             }
             String folder = Folders.placement(o, folders, "NPC '" + id + "'", errors);
             List<DialogueLines.Line> greeting = DialogueLines.read(o.get("greeting"), "NPC '" + id + "' greeting", errors);
-            npcs.add(new NpcDoc.NpcDef(id, name, model, idle, folder, greeting));
+            NpcDoc.Talk talk = readTalk(o.get("talk"), "NPC '" + id + "'", errors);
+            npcs.add(new NpcDoc.NpcDef(id, name, model, idle, folder, greeting, talk));
         }
         if (!errors.isEmpty()) {
             throw new DocumentException(errors);
@@ -124,6 +130,9 @@ public final class NpcFormat {
             if (!n.greeting().isEmpty()) {
                 o.add("greeting", DialogueLines.write(n.greeting()));
             }
+            if (!n.talk().isEmpty()) {
+                o.add("talk", writeTalk(n.talk()));
+            }
             arr.add(o);
         }
         JsonObject root = new JsonObject();
@@ -131,6 +140,44 @@ public final class NpcFormat {
         Folders.write(root, doc.folders());
         root.add("npcs", arr);
         return GSON.toJson(root);
+    }
+
+    /** The optional talk set: an object of animation names, any of them may be left out. */
+    private static NpcDoc.Talk readTalk(JsonElement e, String where, List<String> errors) {
+        if (e == null) {
+            return NpcDoc.Talk.NONE;
+        }
+        if (!e.isJsonObject()) {
+            errors.add(where + ": talk must be an object like { \"start\": …, \"loop\": …, \"end\": … }");
+            return NpcDoc.Talk.NONE;
+        }
+        JsonObject o = e.getAsJsonObject();
+        for (String key : o.keySet()) {
+            if (!TALK_KEYS.contains(key)) {
+                errors.add(where + ": unknown talk '" + key + "' (use start, loop, end)");
+                return NpcDoc.Talk.NONE;
+            }
+            JsonElement v = o.get(key);
+            if (!v.isJsonPrimitive() || !v.getAsJsonPrimitive().isString()) {
+                errors.add(where + ": talk " + key + " must be an animation name");
+                return NpcDoc.Talk.NONE;
+            }
+        }
+        return new NpcDoc.Talk(optional(o, "start"), optional(o, "loop"), optional(o, "end"));
+    }
+
+    private static JsonObject writeTalk(NpcDoc.Talk talk) {
+        JsonObject o = new JsonObject();
+        if (!talk.start().isEmpty()) {
+            o.addProperty("start", talk.start());
+        }
+        if (!talk.loop().isEmpty()) {
+            o.addProperty("loop", talk.loop());
+        }
+        if (!talk.end().isEmpty()) {
+            o.addProperty("end", talk.end());
+        }
+        return o;
     }
 
     /** An optional text field: trimmed, "" when absent. */
